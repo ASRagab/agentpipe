@@ -430,3 +430,114 @@ func TestWriterExistingFileOnDisk(t *testing.T) {
 		t.Errorf("Original file should be unchanged")
 	}
 }
+
+func TestIsValidArtifactPath(t *testing.T) {
+	tests := []struct {
+		filename string
+		valid    bool
+	}{
+		// Valid paths
+		{"main.go", true},
+		{"src/utils/helper.py", true},
+		{"architecture-design.md", true},
+		{"config.json", true},
+		{"README.md", true},
+
+		// Invalid placeholder paths
+		{"path/to/file.ext", false},
+		{"path/to/main.go", false},
+		{"your/filename.go", false},
+		{"example/to/file.py", false},
+		{"sample/to/test.js", false},
+		{"my-to/file.go", false},
+
+		// Invalid template examples
+		{"<filename>.go", false},
+		{"src/<your-file>.py", false},
+
+		// Invalid placeholder filenames
+		{"example-file.go", false},
+		{"sample-config.yaml", false},
+		{"your-module.py", false},
+		{"my-script.sh", false},
+		{"placeholder.txt", false},
+
+		// Edge cases
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		got := isValidArtifactPath(tt.filename)
+		if got != tt.valid {
+			t.Errorf("isValidArtifactPath(%q) = %v, want %v", tt.filename, got, tt.valid)
+		}
+	}
+}
+
+func TestParsePlaceholderPathsSkipped(t *testing.T) {
+	// Content with a placeholder path should be skipped
+	content := "Here's an example:\n\n```go:path/to/file.go\npackage main\n```\n\nAnd a real one:\n\n```go:main.go\npackage main\n```"
+
+	result := Parse(content, "agent-1", "Claude")
+
+	// Should only have 1 artifact (the real one), not the placeholder
+	if len(result.Artifacts) != 1 {
+		t.Fatalf("Expected 1 artifact (placeholder should be skipped), got %d", len(result.Artifacts))
+	}
+
+	if result.Artifacts[0].Filename != "main.go" {
+		t.Errorf("Expected filename 'main.go', got '%s'", result.Artifacts[0].Filename)
+	}
+}
+
+func TestGenerateInstructions(t *testing.T) {
+	instructions := GenerateInstructions("./artifacts")
+
+	// Should contain key instruction elements
+	if !strings.Contains(instructions, "Artifact Creation") {
+		t.Error("Instructions should contain 'Artifact Creation' header")
+	}
+	if !strings.Contains(instructions, "./artifacts") {
+		t.Error("Instructions should contain the output directory")
+	}
+	if !strings.Contains(instructions, "Cross-References") {
+		t.Error("Instructions should contain cross-reference guidance")
+	}
+	if !strings.Contains(instructions, "Iteration Quality") {
+		t.Error("Instructions should contain iteration quality guidance")
+	}
+	if !strings.Contains(instructions, "REAL filenames") {
+		t.Error("Instructions should warn against placeholder paths")
+	}
+}
+
+func TestGenerateContextHeader(t *testing.T) {
+	// Test empty artifacts
+	header := GenerateContextHeader([]Artifact{})
+	if header != "" {
+		t.Error("Empty artifacts should produce empty header")
+	}
+
+	// Test with artifacts
+	artifacts := []Artifact{
+		{AgentName: "Architect", Filename: "design.md", Version: 1},
+		{AgentName: "Coder", Filename: "main.go", Version: 1},
+		{AgentName: "Coder", Filename: "main.go", Version: 2},
+		{AgentName: "Reviewer", Filename: "review.md", Version: 1},
+	}
+
+	header = GenerateContextHeader(artifacts)
+
+	if !strings.Contains(header, "Existing Artifacts") {
+		t.Error("Header should contain 'Existing Artifacts' title")
+	}
+	if !strings.Contains(header, "design.md") {
+		t.Error("Header should contain design.md")
+	}
+	if !strings.Contains(header, "main.go") {
+		t.Error("Header should contain main.go")
+	}
+	if !strings.Contains(header, "(v2)") {
+		t.Error("Header should show version for v2 artifact")
+	}
+}

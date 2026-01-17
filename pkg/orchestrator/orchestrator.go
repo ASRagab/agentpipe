@@ -15,6 +15,7 @@ import (
 
 	"github.com/kevinelliott/agentpipe/internal/bridge"
 	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/kevinelliott/agentpipe/pkg/artifact"
 	"github.com/kevinelliott/agentpipe/pkg/config"
 	"github.com/kevinelliott/agentpipe/pkg/log"
 	"github.com/kevinelliott/agentpipe/pkg/logger"
@@ -35,6 +36,27 @@ const (
 	// ModeFreeForm allows all agents to respond if they want to participate
 	ModeFreeForm ConversationMode = "free-form"
 )
+
+// ArtifactEvent represents a notification when an artifact is saved.
+// This is used to notify the TUI or other consumers about extracted artifacts.
+type ArtifactEvent struct {
+	// Artifact is the extracted artifact metadata
+	Artifact artifact.Artifact
+	// SavedPath is the filesystem path where the artifact was saved
+	SavedPath string
+	// AgentID is the unique identifier of the agent that created the artifact
+	AgentID string
+	// AgentName is the display name of the agent that created the artifact
+	AgentName string
+	// TurnNumber is the conversation turn when this artifact was extracted
+	TurnNumber int
+	// Error is set if the artifact could not be saved
+	Error error
+}
+
+// ArtifactCallback is a function called when an artifact is saved.
+// This allows the TUI or other consumers to be notified about artifacts.
+type ArtifactCallback func(event ArtifactEvent)
 
 // OrchestratorConfig contains configuration for an Orchestrator instance.
 type OrchestratorConfig struct {
@@ -78,6 +100,10 @@ type Orchestrator struct {
 	conversationStart time.Time               // conversation start time for duration tracking
 	commandInfo       *bridge.CommandInfo     // information about the command that started this conversation
 	summary           *bridge.SummaryMetadata // conversation summary (populated after completion if enabled)
+	artifactWriter    *artifact.Writer        // optional artifact writer for saving extracted artifacts
+	artifactConfig    artifact.Config         // artifact extraction configuration
+	artifactCallback  ArtifactCallback        // optional callback for artifact save notifications
+	collectedArtifacts []artifact.Artifact    // tracks all artifacts created during conversation for context injection
 }
 
 // NewOrchestrator creates a new Orchestrator with the given configuration.
@@ -116,13 +142,14 @@ func NewOrchestrator(config OrchestratorConfig, writer io.Writer) *Orchestrator 
 	}
 
 	return &Orchestrator{
-		config:            config,
-		agents:            make([]agent.Agent, 0),
-		messages:          make([]agent.Message, 0),
-		rateLimiters:      make(map[string]*ratelimit.Limiter),
-		middlewareChain:   middleware.NewChain(),
-		writer:            writer,
-		currentTurnNumber: 0,
+		config:             config,
+		agents:             make([]agent.Agent, 0),
+		messages:           make([]agent.Message, 0),
+		rateLimiters:       make(map[string]*ratelimit.Limiter),
+		middlewareChain:    middleware.NewChain(),
+		writer:             writer,
+		currentTurnNumber:  0,
+		collectedArtifacts: make([]artifact.Artifact, 0),
 	}
 }
 
@@ -166,6 +193,45 @@ func (o *Orchestrator) SetCommandInfo(info *bridge.CommandInfo) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.commandInfo = info
+}
+
+// SetArtifactConfig configures artifact extraction for this conversation.
+// If enabled, artifacts will be extracted from agent responses and saved to disk.
+// This method is thread-safe.
+func (o *Orchestrator) SetArtifactConfig(cfg artifact.Config) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	o.artifactConfig = cfg
+
+	if cfg.Enabled {
+		o.artifactWriter = artifact.NewWriter(cfg.OutputDir)
+
+		log.WithFields(map[string]interface{}{
+			"output_dir":       cfg.OutputDir,
+			"instruct_agents":  cfg.InstructAgents,
+		}).Info("artifact extraction enabled")
+	} else {
+		o.artifactWriter = nil
+		log.Debug("artifact extraction disabled")
+	}
+}
+
+// SetArtifactCallback sets a callback function that will be called when artifacts are saved.
+// This allows the TUI or other consumers to be notified about extracted artifacts.
+// This method is thread-safe.
+func (o *Orchestrator) SetArtifactCallback(callback ArtifactCallback) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.artifactCallback = callback
+}
+
+// GetArtifactConfig returns the current artifact configuration.
+// This method is thread-safe.
+func (o *Orchestrator) GetArtifactConfig() artifact.Config {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return o.artifactConfig
 }
 
 // emitConversationCompleted emits the conversation.completed event if bridge is enabled.
@@ -743,6 +809,97 @@ func (o *Orchestrator) runFreeForm(ctx context.Context) error {
 	return nil
 }
 
+// processArtifacts extracts and saves artifacts from an agent's response.
+// It parses the response for artifact blocks, saves them to disk, and notifies via callback.
+// Errors are logged but do not interrupt the conversation flow.
+func (o *Orchestrator) processArtifacts(content string, agentID, agentName string, turnNumber int) {
+	o.mu.RLock()
+	writer := o.artifactWriter
+	cfg := o.artifactConfig
+	callback := o.artifactCallback
+	o.mu.RUnlock()
+
+	// Skip if artifact extraction is not enabled
+	if writer == nil || !cfg.Enabled {
+		return
+	}
+
+	// Parse the response for artifacts
+	result := artifact.Parse(content, agentID, agentName)
+
+	if len(result.Artifacts) == 0 {
+		return
+	}
+
+	log.WithFields(map[string]interface{}{
+		"agent_name":     agentName,
+		"agent_id":       agentID,
+		"artifact_count": len(result.Artifacts),
+		"turn":           turnNumber,
+	}).Debug("extracted artifacts from agent response")
+
+	// Process each artifact
+	for _, art := range result.Artifacts {
+		// Write the artifact
+		savedPath, err := writer.Write(art)
+		if err != nil {
+			log.WithFields(map[string]interface{}{
+				"filename":   art.Filename,
+				"language":   art.Language,
+				"agent_name": agentName,
+			}).WithError(err).Warn("failed to write artifact")
+
+			// Notify callback about the error
+			if callback != nil {
+				callback(ArtifactEvent{
+					Artifact:   art,
+					AgentID:    art.AgentID,
+					AgentName:  art.AgentName,
+					TurnNumber: turnNumber,
+					Error:      err,
+				})
+			}
+			continue
+		}
+
+		// Update saved path and track the artifact for context injection
+		art.SavedPath = savedPath
+		o.mu.Lock()
+		o.collectedArtifacts = append(o.collectedArtifacts, art)
+		o.mu.Unlock()
+
+		log.WithFields(map[string]interface{}{
+			"filename":   art.Filename,
+			"language":   art.Language,
+			"path":       savedPath,
+			"agent_name": agentName,
+			"size":       len(art.Content),
+		}).Info("artifact saved")
+
+		// Record metric if available
+		if o.metrics != nil {
+			// Use agent name as label for tracking artifact saves
+			o.metrics.RecordAgentRequest(agentName, "artifact", "saved")
+		}
+
+		// Notify callback about successful save
+		if callback != nil {
+			callback(ArtifactEvent{
+				Artifact:   art,
+				SavedPath:  savedPath,
+				AgentID:    art.AgentID,
+				AgentName:  art.AgentName,
+				TurnNumber: turnNumber,
+			})
+		}
+
+		// Write to console if writer is available
+		if o.writer != nil {
+			fmt.Fprintf(o.writer, "[Artifact] Saved %s (%s) to %s\n", art.Filename, art.Language, savedPath)
+		}
+	}
+}
+
 func (o *Orchestrator) getAgentResponse(ctx context.Context, a agent.Agent) error {
 	// Apply rate limiting before attempting to get response
 	o.mu.RLock()
@@ -765,6 +922,29 @@ func (o *Orchestrator) getAgentResponse(ctx context.Context, a agent.Agent) erro
 	}
 
 	messages := o.getMessages()
+
+	// Inject artifact context if artifact instructions are enabled
+	o.mu.RLock()
+	artifactCfg := o.artifactConfig
+	collectedArtifacts := make([]artifact.Artifact, len(o.collectedArtifacts))
+	copy(collectedArtifacts, o.collectedArtifacts)
+	o.mu.RUnlock()
+
+	if artifactCfg.Enabled && artifactCfg.InstructAgents && len(collectedArtifacts) > 0 {
+		// Generate context header showing existing artifacts
+		contextHeader := artifact.GenerateContextHeader(collectedArtifacts)
+		if contextHeader != "" {
+			// Prepend as a system message so agent knows what artifacts exist
+			contextMsg := agent.Message{
+				AgentID:   "system",
+				AgentName: "SYSTEM",
+				Content:   contextHeader,
+				Timestamp: time.Now().Unix(),
+				Role:      "system",
+			}
+			messages = append([]agent.Message{contextMsg}, messages...)
+		}
+	}
 
 	// Calculate input tokens from conversation history (once, outside retry loop)
 	var inputBuilder strings.Builder
@@ -976,6 +1156,10 @@ func (o *Orchestrator) getAgentResponse(ctx context.Context, a agent.Agent) erro
 			duration,
 		)
 	}
+
+	// Extract and save artifacts from the response
+	// This is non-blocking and errors are logged but don't fail the conversation
+	o.processArtifacts(response, a.GetID(), a.GetName(), currentTurn)
 
 	// Display the response
 	if o.logger != nil {

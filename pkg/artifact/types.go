@@ -4,6 +4,8 @@
 package artifact
 
 import (
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -62,4 +64,64 @@ func DefaultConfig() Config {
 		OutputDir:      "./artifacts",
 		InstructAgents: false,
 	}
+}
+
+// GenerateInstructions creates the artifact instruction text to inject into agent prompts.
+// This tells agents how to create artifacts and what format to use.
+func GenerateInstructions(outputDir string) string {
+	return `## Artifact Creation
+
+You can create file artifacts using fenced code blocks with this syntax:
+` + "```" + `language:filename.ext
+<your code here>
+` + "```" + `
+
+**Rules:**
+1. Use REAL filenames (not placeholders like "path/to/file.ext")
+2. One artifact per code block
+3. Files are saved to: ` + outputDir + `/[YourName]/
+
+**Cross-References:**
+When referencing another agent's artifact, use this format:
+- [Ref: filename.ext] for general reference
+- [Ref: filename.ext:L10-20] for specific lines
+
+**Iteration Quality:**
+When updating an artifact you previously created:
+- Build on previous version's strengths
+- Do NOT remove sections unless explicitly asked
+- Add improvements, don't replace wholesale
+- Note what changed from the previous version`
+}
+
+// GenerateContextHeader creates a header showing existing artifacts for agent awareness.
+// This helps agents know what artifacts exist so they can reference them correctly.
+func GenerateContextHeader(artifacts []Artifact) string {
+	if len(artifacts) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\n## Existing Artifacts\n\n")
+	sb.WriteString("The following artifacts have been created in this conversation:\n\n")
+
+	// Group by agent
+	byAgent := make(map[string][]Artifact)
+	for _, a := range artifacts {
+		byAgent[a.AgentName] = append(byAgent[a.AgentName], a)
+	}
+
+	for agentName, agentArtifacts := range byAgent {
+		sb.WriteString("**" + agentName + ":**\n")
+		for _, a := range agentArtifacts {
+			versionInfo := ""
+			if a.Version > 1 {
+				versionInfo = fmt.Sprintf(" (v%d)", a.Version)
+			}
+			sb.WriteString(fmt.Sprintf("- `%s`%s\n", a.Filename, versionInfo))
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
 }

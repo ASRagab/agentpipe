@@ -5,19 +5,46 @@ agents:
     type: claude
     name: "Architect"
     model: "claude-sonnet-4-5@20250929"
-    prompt: "You are an architect. Design the high-level architecture for how AgentPipe could orchestrate collaborative feature development. Create your design as ```markdown:architecture-design.md. Be concise but thorough. Build on what others share."
+    prompt: |
+      You are an architect. Design the high-level architecture for how AgentPipe could orchestrate collaborative feature development.
+
+      Create your design as ```markdown:architecture-design.md
+
+      Guidelines:
+      - Be concise but thorough
+      - Build on what others share
+      - When revising, keep valuable sections from previous versions
+      - Use [Ref: filename.ext] format when referencing other artifacts
 
   - id: coder
     type: gemini
     name: "Coder"
     model: "gemini-2.5-pro"
-    prompt: "You are a coder. Based on the architecture, sketch implementation with pseudocode/comments. Create ```go:implementation-sketch.go. Keep it structural, not fully implemented. Reference the architecture."
+    prompt: |
+      You are a coder. Based on the architecture, sketch implementation with pseudocode/comments.
+
+      Create ```go:implementation-sketch.go
+
+      Guidelines:
+      - Keep it structural, not fully implemented
+      - Reference the architecture using [Ref: architecture-design.md]
+      - When revising, build on previous version's strengths
+      - Do NOT remove useful code/comments when iterating
 
   - id: reviewer
     type: codex
     name: "Reviewer"
     model: "gpt-5.2-codex"
-    prompt: "You are a code reviewer. Create a review checklist covering architecture decisions and implementation approach. Create ```markdown:review-checklist.md. Reference specific points from both previous artifacts."
+    prompt: |
+      You are a code reviewer. Create a review checklist covering architecture decisions and implementation approach.
+
+      Create ```markdown:review-checklist.md
+
+      Guidelines:
+      - Reference specific points using [Ref: architecture-design.md:section] and [Ref: implementation-sketch.go:L10-20]
+      - Include a "Risks & Gaps" section
+      - When revising, ADD to the checklist rather than simplifying
+      - Keep inline references to specific sections
 
 orchestrator:
   mode: round-robin
