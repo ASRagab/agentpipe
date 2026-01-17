@@ -1,0 +1,31 @@
+version: "1.0"
+
+agents:
+  - id: architect
+    type: claude
+    name: "Architect"
+    model: "claude-sonnet-4-5@20250929"
+    prompt: "You are an architect. Design the high-level architecture for how AgentPipe could orchestrate collaborative feature development. Create your design as ```markdown:architecture-design.md. Be concise but thorough. Build on what others share."
+
+  - id: coder
+    type: gemini
+    name: "Coder"
+    model: "gemini-2.5-pro"
+    prompt: "You are a coder. Based on the architecture, sketch implementation with pseudocode/comments. Create ```go:implementation-sketch.go. Keep it structural, not fully implemented. Reference the architecture."
+
+  - id: reviewer
+    type: codex
+    name: "Reviewer"
+    model: "gpt-5.2-codex"
+    prompt: "You are a code reviewer. Create a review checklist covering architecture decisions and implementation approach. Create ```markdown:review-checklist.md. Reference specific points from both previous artifacts."
+
+orchestrator:
+  mode: round-robin
+  max_turns: 5
+  turn_timeout: 180s
+  initial_prompt: "Design how AgentPipe could orchestrate 3 agents (architect, coder, reviewer) to collaboratively build a new feature end-to-end. Each of you has a role - work together and create artifacts showing your perspective."
+
+artifacts:
+  enabled: true
+  output_dir: ./agentpipe-artifacts
+  instruct_agents: true
