@@ -52,6 +52,9 @@ type Model struct {
 	// Help overlay
 	showHelp bool
 
+	// Error details modal
+	showErrorDetails bool
+
 	// Event handling
 	eventMu      sync.Mutex
 	eventQueue   []core.Event
@@ -197,9 +200,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Handle error details modal
+		if m.showErrorDetails {
+			switch msg.String() {
+			case "esc", "q":
+				m.showErrorDetails = false
+				return m, nil
+			case "r":
+				// Retry the failed agent
+				cmds = append(cmds, m.handleRetrySelectedAgent())
+				m.showErrorDetails = false
+				return m, tea.Batch(cmds...)
+			}
+			return m, nil
+		}
+
 		// Delegate to focused component
 		switch m.focusedPanel {
 		case FocusAgentList:
+			// Handle special agent list keys
+			switch msg.String() {
+			case "enter":
+				// Show error details for selected agent if it has an error
+				if m.agentList.HasSelectedAgentError() {
+					m.showErrorDetails = true
+					return m, nil
+				}
+			case "r":
+				// Retry the selected agent if it has a recoverable error
+				cmds = append(cmds, m.handleRetrySelectedAgent())
+			}
 			var cmd tea.Cmd
 			m.agentList, cmd = m.agentList.Update(msg)
 			cmds = append(cmds, cmd)
@@ -296,6 +326,44 @@ func (m *Model) handleInputSubmit(content string) tea.Cmd {
 	}
 }
 
+// handleRetrySelectedAgent triggers a retry for the currently selected agent if it has a recoverable error.
+func (m *Model) handleRetrySelectedAgent() tea.Cmd {
+	agent := m.agentList.GetSelectedAgent()
+	if agent == nil {
+		return nil
+	}
+
+	errInfo, ok := m.agentList.GetError(agent.ID)
+	if !ok {
+		return nil
+	}
+
+	if !errInfo.Recoverable {
+		m.lastError = "Error is not recoverable"
+		return nil
+	}
+
+	// Check if we're still in countdown
+	if m.agentList.GetRetryCountdown(agent.ID) > 0 {
+		m.lastError = "Please wait for retry countdown to complete"
+		return nil
+	}
+
+	// Clear the error and reset status
+	m.agentList.ClearError(agent.ID)
+	m.agentList.UpdateStatus(agent.ID, components.AgentStatusReady)
+
+	// Reset status bar if it was showing error
+	if m.statusBar.GetStatus() == core.ConversationStatusError {
+		m.statusBar.SetStatus(core.ConversationStatusActive)
+	}
+
+	// Clear last error display
+	m.lastError = ""
+
+	return nil
+}
+
 // processEventQueue processes pending events.
 func (m *Model) processEventQueue() tea.Cmd {
 	m.eventMu.Lock()
@@ -355,7 +423,41 @@ func (m *Model) handleEvent(event core.Event) {
 		if data, ok := event.Data.(core.AgentErrorData); ok {
 			// Update agent list status
 			m.agentList.UpdateStatus(data.AgentID, components.AgentStatusError)
-			m.agentList.UpdateError(data.AgentID, data.Error)
+
+			// Build detailed error info
+			errInfo := components.AgentErrorInfo{
+				Error:       data.Error,
+				Timestamp:   event.Timestamp,
+				ErrorType:   data.ErrorType,
+				Recoverable: data.Recoverable,
+				RetryAfter:  data.RetryAfter,
+				RetryHint:   data.RetryHint,
+			}
+
+			// If error type is empty, try to classify from error message
+			if errInfo.ErrorType == "" {
+				errType := core.ClassifyError(data.Error)
+				errInfo.ErrorType = string(errType)
+				// Set recoverability based on error type
+				switch errType {
+				case core.ErrorTypeTimeout, core.ErrorTypeRateLimit, core.ErrorTypeNetwork:
+					errInfo.Recoverable = true
+				}
+			}
+
+			// Set retry hint if not provided
+			if errInfo.RetryHint == "" && errInfo.Recoverable {
+				switch core.ErrorType(errInfo.ErrorType) {
+				case core.ErrorTypeTimeout:
+					errInfo.RetryHint = "Press 'r' to retry or wait for automatic retry"
+				case core.ErrorTypeRateLimit:
+					errInfo.RetryHint = "Rate limit exceeded. Wait a moment and try again"
+				case core.ErrorTypeNetwork:
+					errInfo.RetryHint = "Check your connection and press 'r' to retry"
+				}
+			}
+
+			m.agentList.UpdateErrorWithDetails(data.AgentID, errInfo)
 
 			// Add error message to conversation for inline display
 			m.conversation.AddAgentError(data.AgentID, data.AgentName, data.Error)
@@ -416,6 +518,11 @@ func (m Model) View() string {
 		return m.renderHelpOverlay()
 	}
 
+	// Show error details modal if active
+	if m.showErrorDetails {
+		return m.renderErrorDetailsOverlay()
+	}
+
 	var b strings.Builder
 
 	// Status bar at top (using the new component)
@@ -446,6 +553,19 @@ func (m Model) View() string {
 	return b.String()
 }
 
+// renderErrorDetailsOverlay renders the error details modal.
+func (m Model) renderErrorDetailsOverlay() string {
+	modalWidth := m.width * 2 / 3
+	if modalWidth < 40 {
+		modalWidth = 40
+	}
+	if modalWidth > 80 {
+		modalWidth = 80
+	}
+
+	return m.agentList.RenderErrorDetailsModal(modalWidth)
+}
+
 // renderHelpOverlay renders the help overlay.
 func (m Model) renderHelpOverlay() string {
 	var b strings.Builder
@@ -470,6 +590,8 @@ func (m Model) renderHelpOverlay() string {
 		{"Agent List (when focused):", ""},
 		{"↑/↓, k/j", "Navigate agent list"},
 		{"Home/End", "Go to first/last agent"},
+		{"Enter", "Show error details (if agent has error)"},
+		{"r", "Retry failed agent"},
 		{"", ""},
 		{"Conversation (when focused):", ""},
 		{"↑/↓, k/j", "Scroll up/down"},

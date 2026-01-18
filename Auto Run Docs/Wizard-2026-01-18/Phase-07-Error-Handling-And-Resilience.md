@@ -370,13 +370,50 @@ This phase implements comprehensive error handling, retry logic, and resilience 
     - Confirms EventAgentCancelled event emitted
   - All 8 integration tests pass (100%) with race detection enabled
 
-- [ ] Update TUI for error display:
+- [x] Update TUI for error display:
   - Show error icon in agent list for failed agents
   - Show error details on agent select
   - Display inline error message in conversation
   - Show retry countdown for rate-limited agents
   - "Retrying in X seconds..." indicator
   - Option to manually retry failed agent
+
+  **Completed**: Implemented comprehensive TUI error display features:
+  - Enhanced `AgentErrorInfo` struct with ErrorType, Recoverable, RetryAfter, RetryHint fields
+  - Updated `AgentListModel` with new methods:
+    - `UpdateErrorWithDetails()` for setting full error information
+    - `GetRetryCountdown()` returns remaining retry countdown for rate-limited agents
+    - `HasActiveRetryCountdown()` checks if any agent has active countdown
+    - `GetAgentsWithErrors()` returns list of agent IDs with errors
+    - `GetRecoverableAgents()` returns agents with retryable errors
+    - `ClearError()` removes error for specific agent
+    - `HasSelectedAgentError()` checks if selected agent has error
+    - `RenderErrorDetailsModal()` renders detailed error popup
+  - Added `renderRetryCountdown()` method with animated countdown display (⏳ Retrying in Xs...)
+  - Agent list View now shows:
+    - Error message with ⚠ icon
+    - Retry countdown when rate-limited
+    - Retry hint for recoverable errors
+  - Added new styles in `pkg/v2/tui/styles/styles.go`:
+    - `RetryCountdownStyle()` - Bright yellow/gold for countdown visibility
+    - `RetryHintStyle()` - Subtle gray for actionable hints
+  - Enhanced `AgentErrorData` in core/events.go with ErrorType, Recoverable, RetryAfter, RetryHint
+  - Updated main TUI (`pkg/v2/tui/tui.go`):
+    - Added `showErrorDetails` flag for modal display
+    - Enter key shows error details when agent list focused and agent has error
+    - 'r' key triggers manual retry for recoverable errors (clears error, resets status)
+    - Error details modal with full error info, type badge, countdown, retry hint
+    - Updated help overlay with new key bindings
+    - `handleRetrySelectedAgent()` validates recoverability and countdown
+  - Event handler now:
+    - Uses `UpdateErrorWithDetails()` for full error info
+    - Auto-classifies errors if ErrorType not provided
+    - Sets default retry hints based on error type
+  - 12 new comprehensive tests covering all functionality:
+    - TestUpdateErrorWithDetails, TestRetryCountdown, TestGetAgentsWithErrors
+    - TestGetRecoverableAgents, TestClearError, TestHasSelectedAgentError
+    - TestRenderRetryCountdown, TestRenderErrorDetailsModal, TestRenderViewWithRetryCountdown
+  - All tests pass (100%) with race detection enabled
 
 - [ ] Add health monitoring:
   - Periodic health checks on idle agents (every 60s)

@@ -350,3 +350,284 @@ func TestStatusTransitions(t *testing.T) {
 		t.Error("expected error to be cleared on ready")
 	}
 }
+
+func TestUpdateErrorWithDetails(t *testing.T) {
+	agents := []core.Agent{
+		{ID: "agent1", Name: "Claude", Model: "claude-3-sonnet"},
+	}
+
+	model := NewAgentListModel(agents)
+
+	// Set detailed error info
+	errInfo := AgentErrorInfo{
+		Error:       "Rate limit exceeded",
+		ErrorType:   "rate_limit",
+		Recoverable: true,
+		RetryAfter:  30 * time.Second,
+		RetryHint:   "Wait and try again",
+	}
+	model.UpdateErrorWithDetails("agent1", errInfo)
+
+	gotInfo, ok := model.GetError("agent1")
+	if !ok {
+		t.Error("expected error info to be present")
+	}
+	if gotInfo.Error != "Rate limit exceeded" {
+		t.Errorf("expected error 'Rate limit exceeded', got '%s'", gotInfo.Error)
+	}
+	if gotInfo.ErrorType != "rate_limit" {
+		t.Errorf("expected error type 'rate_limit', got '%s'", gotInfo.ErrorType)
+	}
+	if !gotInfo.Recoverable {
+		t.Error("expected error to be recoverable")
+	}
+	if gotInfo.RetryAfter != 30*time.Second {
+		t.Errorf("expected RetryAfter 30s, got %v", gotInfo.RetryAfter)
+	}
+	if gotInfo.RetryHint != "Wait and try again" {
+		t.Errorf("expected RetryHint 'Wait and try again', got '%s'", gotInfo.RetryHint)
+	}
+	if gotInfo.Timestamp.IsZero() {
+		t.Error("expected timestamp to be auto-populated")
+	}
+}
+
+func TestRetryCountdown(t *testing.T) {
+	agents := []core.Agent{
+		{ID: "agent1", Name: "Claude", Model: "claude-3-sonnet"},
+	}
+
+	model := NewAgentListModel(agents)
+
+	// Set error with retry-after
+	errInfo := AgentErrorInfo{
+		Error:       "Rate limit",
+		ErrorType:   "rate_limit",
+		Recoverable: true,
+		RetryAfter:  100 * time.Millisecond,
+		Timestamp:   time.Now(),
+	}
+	model.UpdateErrorWithDetails("agent1", errInfo)
+
+	// Should have active countdown initially
+	countdown := model.GetRetryCountdown("agent1")
+	if countdown <= 0 {
+		t.Error("expected positive countdown initially")
+	}
+	if countdown > 100*time.Millisecond {
+		t.Errorf("expected countdown <= 100ms, got %v", countdown)
+	}
+
+	// HasActiveRetryCountdown should return true
+	if !model.HasActiveRetryCountdown() {
+		t.Error("expected HasActiveRetryCountdown to return true")
+	}
+
+	// Wait for countdown to expire
+	time.Sleep(120 * time.Millisecond)
+
+	// Should have no countdown
+	countdown = model.GetRetryCountdown("agent1")
+	if countdown != 0 {
+		t.Errorf("expected countdown to be 0 after expiry, got %v", countdown)
+	}
+
+	// HasActiveRetryCountdown should return false
+	if model.HasActiveRetryCountdown() {
+		t.Error("expected HasActiveRetryCountdown to return false after expiry")
+	}
+}
+
+func TestGetAgentsWithErrors(t *testing.T) {
+	agents := []core.Agent{
+		{ID: "agent1", Name: "Claude", Model: "claude-3-sonnet"},
+		{ID: "agent2", Name: "Gemini", Model: "gemini-pro"},
+	}
+
+	model := NewAgentListModel(agents)
+
+	// Initially no errors
+	errAgents := model.GetAgentsWithErrors()
+	if len(errAgents) != 0 {
+		t.Errorf("expected no error agents, got %d", len(errAgents))
+	}
+
+	// Add errors to both agents
+	model.UpdateError("agent1", "Error 1")
+	model.UpdateError("agent2", "Error 2")
+
+	errAgents = model.GetAgentsWithErrors()
+	if len(errAgents) != 2 {
+		t.Errorf("expected 2 error agents, got %d", len(errAgents))
+	}
+}
+
+func TestGetRecoverableAgents(t *testing.T) {
+	agents := []core.Agent{
+		{ID: "agent1", Name: "Claude", Model: "claude-3-sonnet"},
+		{ID: "agent2", Name: "Gemini", Model: "gemini-pro"},
+	}
+
+	model := NewAgentListModel(agents)
+
+	// Add recoverable error to agent1
+	model.UpdateErrorWithDetails("agent1", AgentErrorInfo{
+		Error:       "Network error",
+		ErrorType:   "network",
+		Recoverable: true,
+	})
+
+	// Add non-recoverable error to agent2
+	model.UpdateErrorWithDetails("agent2", AgentErrorInfo{
+		Error:       "Auth error",
+		ErrorType:   "auth",
+		Recoverable: false,
+	})
+
+	recoverable := model.GetRecoverableAgents()
+	if len(recoverable) != 1 {
+		t.Errorf("expected 1 recoverable agent, got %d", len(recoverable))
+	}
+	if recoverable[0] != "agent1" {
+		t.Errorf("expected agent1 to be recoverable, got %s", recoverable[0])
+	}
+}
+
+func TestClearError(t *testing.T) {
+	agents := []core.Agent{
+		{ID: "agent1", Name: "Claude", Model: "claude-3-sonnet"},
+	}
+
+	model := NewAgentListModel(agents)
+
+	model.UpdateError("agent1", "Test error")
+	_, ok := model.GetError("agent1")
+	if !ok {
+		t.Error("expected error to be present")
+	}
+
+	model.ClearError("agent1")
+	_, ok = model.GetError("agent1")
+	if ok {
+		t.Error("expected error to be cleared")
+	}
+}
+
+func TestHasSelectedAgentError(t *testing.T) {
+	agents := []core.Agent{
+		{ID: "agent1", Name: "Claude", Model: "claude-3-sonnet"},
+		{ID: "agent2", Name: "Gemini", Model: "gemini-pro"},
+	}
+
+	model := NewAgentListModel(agents)
+	model.SetSize(40, 20)
+
+	// Initially selected agent has no error
+	if model.HasSelectedAgentError() {
+		t.Error("expected no error for selected agent initially")
+	}
+
+	// Add error to selected agent
+	model.UpdateError("agent1", "Test error")
+	if !model.HasSelectedAgentError() {
+		t.Error("expected error for selected agent after setting")
+	}
+
+	// Select agent2 (no error)
+	model.selectedIndex = 1
+	if model.HasSelectedAgentError() {
+		t.Error("expected no error for agent2")
+	}
+}
+
+func TestRenderRetryCountdown(t *testing.T) {
+	agents := []core.Agent{
+		{ID: "agent1", Name: "Claude", Model: "claude-3-sonnet"},
+	}
+
+	model := NewAgentListModel(agents)
+
+	// Test different countdown durations
+	tests := []struct {
+		countdown time.Duration
+		contains  string
+	}{
+		{30 * time.Second, "30s"},
+		{90 * time.Second, "1m"},
+		{500 * time.Millisecond, "< 1s"},
+	}
+
+	for _, tc := range tests {
+		result := model.renderRetryCountdown(tc.countdown)
+		if result == "" {
+			t.Errorf("expected non-empty result for countdown %v", tc.countdown)
+		}
+		// Check that the result contains "Retrying in"
+		if len(result) == 0 {
+			t.Error("expected result to contain countdown indicator")
+		}
+	}
+}
+
+func TestRenderErrorDetailsModal(t *testing.T) {
+	agents := []core.Agent{
+		{ID: "agent1", Name: "Claude", Model: "claude-3-sonnet"},
+	}
+
+	model := NewAgentListModel(agents)
+	model.SetSize(40, 20)
+
+	// No modal when no error
+	modal := model.RenderErrorDetailsModal(60)
+	if modal != "" {
+		t.Error("expected empty modal when no error")
+	}
+
+	// Add detailed error
+	model.UpdateErrorWithDetails("agent1", AgentErrorInfo{
+		Error:       "Rate limit exceeded",
+		ErrorType:   "rate_limit",
+		Recoverable: true,
+		RetryAfter:  30 * time.Second,
+		RetryHint:   "Wait and try again",
+		Timestamp:   time.Now(),
+	})
+
+	modal = model.RenderErrorDetailsModal(60)
+	if modal == "" {
+		t.Error("expected non-empty modal with error")
+	}
+	// Modal should contain the agent name
+	if len(modal) < 10 {
+		t.Error("expected modal to have substantial content")
+	}
+}
+
+func TestRenderViewWithRetryCountdown(t *testing.T) {
+	agents := []core.Agent{
+		{ID: "agent1", Name: "Claude", Model: "claude-3-sonnet"},
+	}
+
+	model := NewAgentListModel(agents)
+	model.SetSize(50, 30)
+
+	// Set error with active retry countdown
+	model.UpdateStatus("agent1", AgentStatusError)
+	model.UpdateErrorWithDetails("agent1", AgentErrorInfo{
+		Error:       "Rate limit",
+		ErrorType:   "rate_limit",
+		Recoverable: true,
+		RetryAfter:  60 * time.Second,
+		RetryHint:   "Wait and try again",
+		Timestamp:   time.Now(),
+	})
+
+	view := model.View()
+	if view == "" {
+		t.Error("expected non-empty view")
+	}
+	// View should contain error indicator (red dot)
+	if len(view) == 0 {
+		t.Error("expected view to have content")
+	}
+}

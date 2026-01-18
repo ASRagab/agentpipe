@@ -31,8 +31,12 @@ type AgentMetrics struct {
 
 // AgentErrorInfo contains error information for display.
 type AgentErrorInfo struct {
-	Error     string
-	Timestamp time.Time
+	Error       string
+	Timestamp   time.Time
+	ErrorType   string        // Error category (timeout, rate_limit, network, auth, etc.)
+	Recoverable bool          // Whether the error can be retried
+	RetryAfter  time.Duration // Suggested wait time before retrying (for rate limits)
+	RetryHint   string        // Actionable hint for the user
 }
 
 // AgentListModel manages the agent list panel.
@@ -161,10 +165,23 @@ func (m AgentListModel) View() string {
 		} else if status == AgentStatusError {
 			// Show error info if available
 			if errInfo, ok := m.errorMap[agent.ID]; ok {
+				// Show error message
 				errorStyle := styles.ErrorStyle()
 				errorLine := fmt.Sprintf("  ⚠ %s", truncateString(errInfo.Error, m.width-8))
 				b.WriteString(errorStyle.Render(errorLine))
 				b.WriteString("\n")
+
+				// Show retry countdown if rate limited
+				if countdown := m.GetRetryCountdown(agent.ID); countdown > 0 {
+					retryLine := m.renderRetryCountdown(countdown)
+					b.WriteString(retryLine)
+					b.WriteString("\n")
+				} else if errInfo.Recoverable && errInfo.RetryHint != "" {
+					// Show retry hint for recoverable errors
+					hintLine := fmt.Sprintf("  → %s", truncateString(errInfo.RetryHint, m.width-10))
+					b.WriteString(styles.RetryHintStyle().Render(hintLine))
+					b.WriteString("\n")
+				}
 			}
 		} else if metrics, ok := m.metricsMap[agent.ID]; ok {
 			// Show metrics if available (only when not typing/error)
@@ -277,6 +294,183 @@ func (m *AgentListModel) UpdateError(agentID string, errorMsg string) {
 	}
 }
 
+// UpdateErrorWithDetails updates the error info with full details for a specific agent.
+func (m *AgentListModel) UpdateErrorWithDetails(agentID string, info AgentErrorInfo) {
+	if info.Timestamp.IsZero() {
+		info.Timestamp = time.Now()
+	}
+	m.errorMap[agentID] = info
+}
+
+// GetRetryCountdown returns the remaining retry countdown for a rate-limited agent.
+// Returns 0 if there's no active countdown.
+func (m *AgentListModel) GetRetryCountdown(agentID string) time.Duration {
+	errInfo, ok := m.errorMap[agentID]
+	if !ok || errInfo.RetryAfter == 0 {
+		return 0
+	}
+
+	// Calculate remaining time
+	elapsed := time.Since(errInfo.Timestamp)
+	remaining := errInfo.RetryAfter - elapsed
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
+
+// HasActiveRetryCountdown returns true if any agent has an active retry countdown.
+func (m *AgentListModel) HasActiveRetryCountdown() bool {
+	for agentID := range m.errorMap {
+		if m.GetRetryCountdown(agentID) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// GetAgentsWithErrors returns a list of agent IDs that currently have errors.
+func (m *AgentListModel) GetAgentsWithErrors() []string {
+	result := make([]string, 0, len(m.errorMap))
+	for agentID := range m.errorMap {
+		result = append(result, agentID)
+	}
+	return result
+}
+
+// GetRecoverableAgents returns agent IDs with recoverable (retryable) errors.
+func (m *AgentListModel) GetRecoverableAgents() []string {
+	result := make([]string, 0)
+	for agentID, info := range m.errorMap {
+		if info.Recoverable {
+			result = append(result, agentID)
+		}
+	}
+	return result
+}
+
+// ClearError clears the error for a specific agent.
+func (m *AgentListModel) ClearError(agentID string) {
+	delete(m.errorMap, agentID)
+}
+
+// RenderErrorDetailsModal renders a detailed error information modal for the selected agent.
+// Returns empty string if no error or no agent selected.
+func (m *AgentListModel) RenderErrorDetailsModal(width int) string {
+	agent := m.GetSelectedAgent()
+	if agent == nil {
+		return ""
+	}
+
+	errInfo, ok := m.errorMap[agent.ID]
+	if !ok {
+		return ""
+	}
+
+	var b strings.Builder
+
+	// Modal header
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("196"))
+	b.WriteString(headerStyle.Render(fmt.Sprintf("⚠ Error Details: %s", agent.Name)))
+	b.WriteString("\n")
+	b.WriteString(strings.Repeat("─", width-4))
+	b.WriteString("\n\n")
+
+	// Error type badge
+	if errInfo.ErrorType != "" {
+		badgeStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("15")).
+			Background(lipgloss.Color("196")).
+			Bold(true).
+			Padding(0, 1)
+		b.WriteString("Type: ")
+		b.WriteString(badgeStyle.Render(strings.ToUpper(errInfo.ErrorType)))
+		b.WriteString("\n\n")
+	}
+
+	// Error message
+	messageStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+	b.WriteString("Message:\n")
+	b.WriteString(messageStyle.Render("  " + errInfo.Error))
+	b.WriteString("\n\n")
+
+	// Timestamp
+	timestampStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245")).
+		Italic(true)
+	b.WriteString("Time: ")
+	b.WriteString(timestampStyle.Render(errInfo.Timestamp.Format("15:04:05")))
+	b.WriteString("\n\n")
+
+	// Retry information
+	if errInfo.Recoverable {
+		recoverableStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("34")). // Green
+			Bold(true)
+		b.WriteString("Status: ")
+		b.WriteString(recoverableStyle.Render("Recoverable"))
+		b.WriteString("\n")
+
+		// Show countdown or retry hint
+		if countdown := m.GetRetryCountdown(agent.ID); countdown > 0 {
+			countdownStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("220")). // Yellow
+				Italic(true)
+			b.WriteString("Retry in: ")
+			b.WriteString(countdownStyle.Render(fmt.Sprintf("%.0f seconds", countdown.Seconds())))
+			b.WriteString("\n")
+		}
+
+		if errInfo.RetryHint != "" {
+			hintStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("245")).
+				Italic(true)
+			b.WriteString("\n")
+			b.WriteString(hintStyle.Render("→ " + errInfo.RetryHint))
+			b.WriteString("\n")
+		}
+	} else {
+		nonRecoverableStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")). // Red
+			Bold(true)
+		b.WriteString("Status: ")
+		b.WriteString(nonRecoverableStyle.Render("Non-recoverable"))
+		b.WriteString("\n")
+	}
+
+	// Help footer
+	b.WriteString("\n")
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241"))
+	if errInfo.Recoverable {
+		b.WriteString(helpStyle.Render("Press 'r' to retry | 'esc' to close"))
+	} else {
+		b.WriteString(helpStyle.Render("Press 'esc' to close"))
+	}
+
+	// Apply modal border style
+	modalStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("196")).
+		Padding(1, 2).
+		Width(width - 4)
+
+	return modalStyle.Render(b.String())
+}
+
+// HasSelectedAgentError returns true if the currently selected agent has an error.
+func (m *AgentListModel) HasSelectedAgentError() bool {
+	agent := m.GetSelectedAgent()
+	if agent == nil {
+		return false
+	}
+	_, ok := m.errorMap[agent.ID]
+	return ok
+}
+
 // GetError returns the error info for a specific agent.
 func (m *AgentListModel) GetError(agentID string) (AgentErrorInfo, bool) {
 	info, ok := m.errorMap[agentID]
@@ -310,6 +504,21 @@ func (m *AgentListModel) GetTypingElapsed(agentID string) time.Duration {
 		return time.Since(startTime)
 	}
 	return 0
+}
+
+// renderRetryCountdown renders the retry countdown indicator.
+func (m AgentListModel) renderRetryCountdown(countdown time.Duration) string {
+	var countdownStr string
+	if countdown >= time.Minute {
+		countdownStr = fmt.Sprintf("%.0fm%.0fs", countdown.Minutes(), countdown.Seconds()-countdown.Truncate(time.Minute).Seconds())
+	} else if countdown >= time.Second {
+		countdownStr = fmt.Sprintf("%.0fs", countdown.Seconds())
+	} else {
+		countdownStr = "< 1s"
+	}
+
+	retryLine := fmt.Sprintf("  ⏳ Retrying in %s...", countdownStr)
+	return styles.RetryCountdownStyle().Render(retryLine)
 }
 
 // renderTypingIndicator renders the animated typing indicator with elapsed time.

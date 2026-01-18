@@ -96,6 +96,14 @@ type AgentErrorData struct {
 	AgentName string `json:"agent_name"`
 	// Error is the error message.
 	Error string `json:"error"`
+	// ErrorType categorizes the error (timeout, rate_limit, network, auth, etc.).
+	ErrorType string `json:"error_type,omitempty"`
+	// Recoverable indicates if the error can be retried.
+	Recoverable bool `json:"recoverable,omitempty"`
+	// RetryAfter is the suggested wait time before retrying (for rate limits).
+	RetryAfter time.Duration `json:"retry_after,omitempty"`
+	// RetryHint provides actionable guidance for the user.
+	RetryHint string `json:"retry_hint,omitempty"`
 }
 
 // AgentCancelledData contains information about an agent cancellation.

@@ -388,6 +388,24 @@ func ErrorAgentStyle() lipgloss.Style {
 		Bold(true)
 }
 
+// RetryCountdownStyle returns the style for retry countdown indicators.
+// Uses an animated-looking yellow/amber color to draw attention.
+func RetryCountdownStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("220")). // Bright yellow/gold
+		Italic(true).
+		PaddingLeft(1)
+}
+
+// RetryHintStyle returns the style for retry hint text.
+// Provides actionable guidance for recoverable errors.
+func RetryHintStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245")). // Subtle gray
+		Italic(true).
+		PaddingLeft(1)
+}
+
 // ===============================
 // Token/Cost Estimation Styles
 // ===============================
