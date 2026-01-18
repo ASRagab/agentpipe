@@ -19,6 +19,7 @@ import (
 	"github.com/kevinelliott/agentpipe/internal/version"
 	_ "github.com/kevinelliott/agentpipe/pkg/adapters"
 	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/kevinelliott/agentpipe/pkg/artifact"
 	"github.com/kevinelliott/agentpipe/pkg/config"
 	"github.com/kevinelliott/agentpipe/pkg/conversation"
 	"github.com/kevinelliott/agentpipe/pkg/log"
@@ -48,6 +49,9 @@ var (
 	noSummary          bool
 	summaryAgent       string
 	jsonOutput         bool
+	outputDir          string
+	noArtifacts        bool
+	noInstructAgents   bool
 )
 
 var runCmd = &cobra.Command{
@@ -82,6 +86,9 @@ func init() {
 	runCmd.Flags().BoolVar(&noSummary, "no-summary", false, "Disable conversation summary generation (overrides config)")
 	runCmd.Flags().StringVar(&summaryAgent, "summary-agent", "", "Agent to use for summary generation (default: gemini, overrides config)")
 	runCmd.Flags().BoolVar(&jsonOutput, "json", false, "Output events in JSON format (JSONL)")
+	runCmd.Flags().StringVar(&outputDir, "output-dir", "./agentpipe-artifacts", "Directory for saving artifacts created by agents")
+	runCmd.Flags().BoolVar(&noArtifacts, "no-artifacts", false, "Disable artifact collection from agent responses")
+	runCmd.Flags().BoolVar(&noInstructAgents, "no-instruct-agents", false, "Disable artifact creation instructions in agent prompts")
 }
 
 func runConversation(cobraCmd *cobra.Command, args []string) {
@@ -159,6 +166,17 @@ func runConversation(cobraCmd *cobra.Command, args []string) {
 	}
 	if summaryAgent != "" {
 		cfg.Orchestrator.Summary.Agent = summaryAgent
+	}
+
+	// Apply CLI overrides for artifacts
+	if noArtifacts {
+		cfg.Artifacts.Enabled = false
+	}
+	if outputDir != "" {
+		cfg.Artifacts.OutputDir = outputDir
+	}
+	if noInstructAgents {
+		cfg.Artifacts.InstructAgents = false
 	}
 
 	if err := startConversation(cobraCmd, cfg, stdoutEmitter); err != nil {
@@ -374,6 +392,13 @@ func startConversation(cmd *cobra.Command, cfg *config.Config, stdoutEmitter *br
 	// Capture command information for event tracking
 	commandInfo := buildCommandInfo(cmd, cfg)
 	orch.SetCommandInfo(commandInfo)
+
+	// Configure artifact collection
+	orch.SetArtifactConfig(artifact.Config{
+		Enabled:        cfg.Artifacts.Enabled,
+		OutputDir:      cfg.Artifacts.OutputDir,
+		InstructAgents: cfg.Artifacts.InstructAgents,
+	})
 
 	// Set up JSON stdout emitter if --json flag is set
 	if jsonOutput {
