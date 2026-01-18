@@ -786,6 +786,22 @@ func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.agentList.SetItems(items)
 
+		// Set up agent order for multi-window navigation
+		m.agentOrder = make([]string, len(m.agents))
+		for i, a := range m.agents {
+			m.agentOrder[i] = a.GetName()
+		}
+
+		// Initialize per-agent message buffers
+		if m.agentMessages == nil {
+			m.agentMessages = make(map[string][]agent.Message)
+		}
+		for _, name := range m.agentOrder {
+			if _, exists := m.agentMessages[name]; !exists {
+				m.agentMessages[name] = make([]agent.Message, 0)
+			}
+		}
+
 		successMsg := agent.Message{
 			AgentID:   "info",
 			AgentName: "System",
