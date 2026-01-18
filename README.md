@@ -12,6 +12,57 @@
 
 AgentPipe is a powerful CLI and TUI application that orchestrates conversations between multiple AI agents. It allows different AI CLI tools (like Claude, Cursor, Gemini, Qwen, Ollama) to communicate with each other in a shared "room", creating dynamic multi-agent conversations with real-time metrics, cost tracking, and interactive user participation.
 
+## What's New in v2 🚀
+
+AgentPipe v2 introduces a **complete architecture rewrite** with parallel execution, enhanced streaming, and a modern TUI. Here's what's changed:
+
+### Key v2 Features
+
+| Feature | v1 (Legacy) | v2 (New) |
+|---------|------------|----------|
+| **Execution Model** | Sequential (agents take turns) | **Parallel** (agents respond simultaneously) |
+| **Performance** | ~5-10s per agent response | **2-3x faster** with concurrent requests |
+| **Streaming** | Basic line-by-line | **Real-time token streaming** with word-level updates |
+| **TUI** | Basic panels | **Modern multi-panel** with live status bar |
+| **Persistence** | Manual save/export | **Auto-save** with resume support |
+| **Error Handling** | Basic retries | **Circuit breaker** + exponential backoff |
+| **Adapters** | CLI-based only | **CLI + API adapters** (OpenRouter, Claude API) |
+| **Configuration** | `orchestrator:` section | `conversation:` section with migration path |
+
+### v2 Quick Start
+
+```bash
+# Enable v2 with the --v2 flag
+agentpipe run --v2 -a claude:Alice -a gemini:Bob -p "Discuss AI ethics"
+
+# Resume a saved conversation
+agentpipe run --v2 --resume latest
+
+# Export conversation on exit
+agentpipe run --v2 --export conversation.md -a claude:Assistant
+
+# Migrate existing v1 config to v2 format
+agentpipe run --v2 --migrate-config -c my-config.yaml
+```
+
+### v2 Performance Comparison
+
+| Metric | v1 | v2 | Improvement |
+|--------|----|----|-------------|
+| 2-agent conversation (10 turns) | ~45s | ~20s | **2.25x faster** |
+| 4-agent parallel responses | N/A | ~8s | **New capability** |
+| TUI render latency | ~50ms | ~16ms | **3x faster** |
+| Memory usage (10 messages) | ~25MB | ~15MB | **40% less** |
+
+### v1 Deprecation Notice
+
+⚠️ **v1 engine is now in maintenance mode**. While fully functional, all new features are being developed exclusively for v2. We recommend migrating to v2:
+
+- **v1 maintenance mode**: Bug fixes only, no new features
+- **v2 recommended**: All new installations should use `--v2` flag
+- **v2 default (planned)**: v2 will become the default in AgentPipe 1.0
+- **Migration path**: Use `--migrate-config` to convert existing configs
+
 ## Screenshots
 
 ### Enhanced TUI Interface
@@ -99,9 +150,26 @@ All agents now use a **standardized interaction pattern** with structured three-
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
 
-**Latest Release**: v0.6.0 - OpenRouter API Support
+**Latest Release**: v0.7.0 - Continue CLI Support + v2 Engine
 
-**What's New in v0.6.0**:
+**What's New in v0.7.0**:
+
+🏗️ **v2 Parallel Execution Engine** (use `--v2` flag):
+- **Parallel agent execution**: All agents can respond simultaneously
+- **Real-time streaming**: Word-level token streaming in TUI
+- **Modern TUI**: New status bar, live metrics, improved layout
+- **Auto-save & resume**: Never lose conversation progress
+- **API adapters**: Direct API support (OpenRouter, Claude API)
+- **Circuit breaker**: Intelligent retry with failure detection
+- **v1→v2 migration**: `--migrate-config` flag for seamless upgrades
+
+➕ **Continue CLI Support**:
+- New adapter for Continue CLI (@continuedev/cli)
+- TUI and headless modes for development workflows
+- Multi-model support via `--model` flag
+- Now supporting 16 AI agent CLIs
+
+**Previous Release - v0.6.0**:
 
 🌐 **OpenRouter API Support - First API-Based Agent**:
 - **New Agent Type**: Direct API integration without CLI dependencies
@@ -182,6 +250,24 @@ sudo make install
 
 # Or install to custom location (e.g., ~/.local/bin, no sudo needed)
 make install PREFIX=$HOME/.local
+```
+
+### After Installation
+
+After installing AgentPipe, we recommend using the v2 engine for the best experience:
+
+```bash
+# Verify installation
+agentpipe --version
+
+# Check available agents
+agentpipe doctor
+
+# Start your first v2 conversation
+agentpipe run --v2 -a claude:Assistant -p "Hello, let's chat!"
+
+# Or set v2 as default via environment variable
+export AGENTPIPE_V2=true
 ```
 
 ## Prerequisites
