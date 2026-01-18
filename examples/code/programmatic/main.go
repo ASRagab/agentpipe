@@ -23,13 +23,13 @@ import (
 )
 
 func main() {
-	fmt.Println("=== AgentPipe v2 Programmatic Usage Example ===\n")
+	fmt.Println("=== AgentPipe v2 Programmatic Usage Example ===")
 
 	// Check for API key
 	if os.Getenv("OPENROUTER_API_KEY") == "" {
 		fmt.Println("Warning: OPENROUTER_API_KEY not set")
 		fmt.Println("Set it with: export OPENROUTER_API_KEY='your-key-here'")
-		fmt.Println("\nRunning with mock responses instead...\n")
+		fmt.Println("\nRunning with mock responses instead...")
 		runMockExample()
 		return
 	}

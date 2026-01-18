@@ -31,7 +31,7 @@ func main() {
 	http.HandleFunc("/health", handleHealth)
 
 	fmt.Printf("Webhook receiver listening on http://localhost:%s/webhook\n", port)
-	fmt.Println("Press Ctrl+C to stop\n")
+	fmt.Println("Press Ctrl+C to stop")
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)

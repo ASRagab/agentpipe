@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== AgentPipe v2 Custom Adapter Example ===\n")
+	fmt.Println("=== AgentPipe v2 Custom Adapter Example ===")
 
 	// The EchoAdapter is registered automatically via init() in adapter.go
 	// You can verify it's available:

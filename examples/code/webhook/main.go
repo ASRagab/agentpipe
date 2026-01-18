@@ -21,7 +21,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== AgentPipe v2 Webhook Integration Example ===\n")
+	fmt.Println("=== AgentPipe v2 Webhook Integration Example ===")
 
 	// Webhook URL - in production, this would be your external service
 	// For testing, run the server.go in this directory
@@ -29,7 +29,7 @@ func main() {
 	if webhookURL == "" {
 		webhookURL = "http://localhost:8080/webhook"
 		fmt.Printf("WEBHOOK_URL not set, using: %s\n", webhookURL)
-		fmt.Println("To test, run 'go run server.go' in another terminal\n")
+		fmt.Println("To test, run 'go run server.go' in another terminal")
 	}
 
 	// Check for API key
@@ -129,7 +129,7 @@ func runWebhookExample(webhookURL string) {
 
 // runMockWebhookExample demonstrates webhook integration without API calls.
 func runMockWebhookExample(webhookURL string) {
-	fmt.Println("Demonstrating webhook event format...\n")
+	fmt.Println("Demonstrating webhook event format...")
 
 	// Create webhook handler
 	handler := NewWebhookHandler(webhookURL, WebhookConfig{

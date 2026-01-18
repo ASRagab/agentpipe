@@ -243,10 +243,37 @@ The pkg/log package is NOT v1-specific. It is shared logging infrastructure used
 
   **Build & Tests:** All passing
 
-- [ ] Clean up test files:
+- [x] Clean up test files:
   - Remove v1 test files (pkg/*/..._test.go for v1 packages)
   - Keep pkg/v2/**/*_test.go
   - Update integration tests
+
+  **Completed 2026-01-18**: Cleaned up test files and fixed build issues.
+
+  **Test Files Status:**
+  - pkg/log/log_test.go - KEPT (shared logging infrastructure used by v2 code)
+  - pkg/utils/tokens_test.go - KEPT (used by pkg/v2/tui/components)
+  - pkg/artifact/artifact_test.go - KEPT (standalone, no v1 dependencies)
+  - pkg/ratelimit/ratelimit_test.go - KEPT (standalone, no v1 dependencies)
+  - pkg/metrics/*_test.go - KEPT (uses pkg/log, no v1 dependencies)
+  - pkg/v2/**/*_test.go - KEPT (all v2 tests)
+  - test/ directory - Removed (was already empty)
+
+  **Linting Fixes (examples/code/):**
+  - Fixed `fmt.Println("...\n")` redundant newline in 10 locations:
+    - examples/code/programmatic/main.go (2 fixes)
+    - examples/code/programmatic/streaming.go (2 fixes)
+    - examples/code/programmatic/persistence.go (2 fixes)
+    - examples/code/webhook/main.go (3 fixes)
+    - examples/code/webhook/server.go (1 fix)
+    - examples/code/custom-adapter/main.go (1 fix)
+  - Fixed `fmt.Errorf(message)` non-constant format string in 2 locations:
+    - examples/code/custom-adapter/adapter.go (lines 372, 383)
+
+  **Verification:**
+  - `go test ./...` - All tests pass
+  - `go build` - Build successful
+  - No v1 test files remaining that import deleted v1 packages
 
 - [ ] Update go.mod and dependencies:
   - Run go mod tidy to remove unused dependencies

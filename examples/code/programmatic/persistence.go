@@ -25,7 +25,7 @@ import (
 
 // RunPersistenceExample demonstrates save/load functionality.
 func RunPersistenceExample() {
-	fmt.Println("=== AgentPipe v2 Persistence Example ===\n")
+	fmt.Println("=== AgentPipe v2 Persistence Example ===")
 
 	// Define a temporary save directory
 	tempDir := filepath.Join(os.TempDir(), "agentpipe-example")
@@ -176,7 +176,7 @@ func exportToMarkdown(saveDir string) {
 
 // RunAutoSaveExample demonstrates auto-save functionality.
 func RunAutoSaveExample() {
-	fmt.Println("=== Auto-Save Example ===\n")
+	fmt.Println("=== Auto-Save Example ===")
 
 	// This example requires API access
 	if os.Getenv("OPENROUTER_API_KEY") == "" {

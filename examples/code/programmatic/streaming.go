@@ -22,7 +22,7 @@ import (
 
 // RunStreamingExample demonstrates streaming responses from an adapter.
 func RunStreamingExample() {
-	fmt.Println("=== AgentPipe v2 Streaming Example ===\n")
+	fmt.Println("=== AgentPipe v2 Streaming Example ===")
 
 	if os.Getenv("OPENROUTER_API_KEY") == "" {
 		fmt.Println("OPENROUTER_API_KEY not set. Skipping streaming example.")
@@ -122,7 +122,7 @@ func (w *StreamWriter) Write(p []byte) (n int, err error) {
 
 // RunCustomStreamingExample demonstrates using a custom writer for streaming.
 func RunCustomStreamingExample() {
-	fmt.Println("=== Custom Streaming Handler Example ===\n")
+	fmt.Println("=== Custom Streaming Handler Example ===")
 
 	if os.Getenv("OPENROUTER_API_KEY") == "" {
 		fmt.Println("OPENROUTER_API_KEY not set. Skipping.")

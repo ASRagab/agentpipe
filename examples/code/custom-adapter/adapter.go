@@ -369,7 +369,7 @@ func (e *EchoAdapter) handleErrorResponse(resp *http.Response) error {
 
 	switch resp.StatusCode {
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return errors.NewAuthError(e.agentID, e.agentName, resp.StatusCode, fmt.Errorf(message))
+		return errors.NewAuthError(e.agentID, e.agentName, resp.StatusCode, fmt.Errorf("%s", message))
 	case http.StatusTooManyRequests:
 		// Try to parse retry-after header
 		retryAfter := 60 * time.Second // Default
@@ -380,7 +380,7 @@ func (e *EchoAdapter) handleErrorResponse(resp *http.Response) error {
 		}
 		return errors.NewRateLimitError(e.agentID, e.agentName, retryAfter)
 	case http.StatusServiceUnavailable, http.StatusBadGateway, http.StatusGatewayTimeout:
-		return errors.NewNetworkError(e.agentID, e.agentName, fmt.Errorf(message))
+		return errors.NewNetworkError(e.agentID, e.agentName, fmt.Errorf("%s", message))
 	default:
 		return errors.NewAgentError(e.agentID, e.agentName, errors.ErrTypeUnknown, message, nil)
 	}
