@@ -88,11 +88,13 @@ This phase prepares AgentPipe v2.0.0-mvp for release. All code is finalized, tes
   - ✅ Moved [Unreleased] changes (provider updates, model fixes) into v2.0.0-mvp section
   - ✅ Cleared [Unreleased] for future changes
 
-- [ ] Update Homebrew formula:
-  - Update formula in Formula/agentpipe.rb
-  - Update version, URL, SHA256
-  - Test formula installation locally
-  - Prepare PR for homebrew-tap
+- [x] Update Homebrew formula:
+  - ✅ Formula is auto-updated by `.github/workflows/release.yml` during release
+  - ✅ Formula lives in external repository: `kevinelliott/homebrew-tap`
+  - ✅ Version, URL, SHA256 are calculated from release checksums automatically
+  - ⚠️ SKIPPED for v2.0.0-mvp: Pre-releases (versions with `-`) skip Homebrew updates per workflow logic: `if: "!contains(github.ref, '-')"`
+  - **Note**: Homebrew formula will be auto-updated when a stable release (e.g., v2.0.0 without suffix) is published
+  - **Verification**: Reviewed release.yml workflow - `update-homebrew` job correctly generates formula from checksums
 
 - [ ] Create release notes:
   - Write user-friendly summary of v2 features
