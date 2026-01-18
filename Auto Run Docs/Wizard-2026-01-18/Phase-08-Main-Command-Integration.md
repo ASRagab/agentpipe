@@ -83,12 +83,23 @@ This phase integrates all v2 components into the main agentpipe command, providi
 
   **Completed:** Environment variables `AGENTPIPE_CONFIG`, `AGENTPIPE_V2`, `AGENTPIPE_SAVE_DIR`, and `AGENTPIPE_TIMEOUT` are supported. `shouldUseV2()` checks `AGENTPIPE_V2` environment variable.
 
-- [ ] Write integration tests for run command:
+- [x] Write integration tests for run command:
   - TestRunV2Basic: Run with mock config, verify output
   - TestRunV2Headless: Piped input, verify stdout output
   - TestRunV2Resume: Save then resume, verify continuity
   - TestRunV2MigrationWarning: v1 config shows warning
   - TestDoctorV2: Verify v2 health checks pass
+
+  **Completed:** Created `cmd/run_v2_integration_test.go` with comprehensive integration tests:
+  - `TestRunV2Basic`: Tests v2 manager initialization with mock adapter, event bus subscription, and message sending
+  - `TestRunV2Headless`: Tests headless mode with piped input via stdin, verifying agent response output
+  - `TestRunV2Resume`: Tests save and resume functionality, verifying conversation continuity across sessions
+  - `TestRunV2MigrationWarning`: Tests v1 config detection using `checkAndWarnV1Config()` function
+  - `TestDoctorV2Checks`: Tests v2 doctor health checks using `performV2Checks()` function
+  - `TestRunV2CommandRecognition`: Tests command recognition for /save, /export, /status, /retry, /summary, /help
+  - `TestRunV2MultiAgentParallel`: Tests parallel execution with multiple agents using atomic counters
+  - `TestRunV2ConversationSummary`: Tests conversation summary generation with metrics
+  All tests use atomic counters (`sync/atomic.Int32`) for race-safe event counting. Tests pass with `-race` flag.
 
 - [ ] Update help text and documentation:
   - Update `agentpipe run --help` with v2 options
