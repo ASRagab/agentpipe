@@ -46,3 +46,14 @@ agentpipe-artifacts/
 # Build artifacts
 dist/
 .worktrees/
+
+# Claude Code local state
+.claude/settings.local.json
+.claude/memory.db
+
+# Claude Flow swarm state
+.swarm/
+
+# Coverage reports
+coverage.html
+coverage.out

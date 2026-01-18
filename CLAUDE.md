@@ -219,6 +219,17 @@ detect-secrets audit .secrets.baseline --report
 - `docs/*` - Documentation with code examples
 - `.secrets.baseline` - The baseline file itself
 
+### Security Best Practices
+
+1. **Never commit secrets**: Use environment variables for API keys, tokens, and credentials
+2. **Review before committing**: Run `git diff --staged` to review changes before commit
+3. **Use detect-secrets**: The pre-commit hook automatically blocks potential secrets
+4. **Rotate compromised keys**: If a secret is accidentally committed, rotate it immediately
+5. **Environment variables**: Store sensitive config in environment, not in code
+   - `OPENROUTER_API_KEY` - OpenRouter API access
+   - `AGENTPIPE_STREAM_API_KEY` - Streaming bridge authentication
+   - `HOMEBREW_TAP_TOKEN` - GitHub Actions Homebrew updates
+
 ## Quality Requirements
 
 **IMPORTANT**: Before committing any changes, ALL of the following checks MUST pass:
