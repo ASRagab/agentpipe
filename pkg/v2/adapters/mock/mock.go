@@ -42,6 +42,13 @@ type MockAdapter struct {
 	StreamMessageCalls int
 	// LastMessages stores the last messages passed to SendMessage/StreamMessage.
 	LastMessages []core.Message
+
+	// OnSendMessage is an optional callback for custom SendMessage behavior.
+	// If set, it overrides the default Response/Error behavior.
+	OnSendMessage func(ctx context.Context, messages []core.Message) (string, *core.Metrics, error)
+	// OnStreamMessage is an optional callback for custom StreamMessage behavior.
+	// If set, it overrides the default StreamChunks/Error behavior.
+	OnStreamMessage func(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error)
 }
 
 // NewMockAdapter creates a new mock adapter with sensible defaults.
@@ -60,10 +67,16 @@ func (m *MockAdapter) Initialize(agent core.Agent) error {
 }
 
 // SendMessage simulates sending a message to an AI.
+// If OnSendMessage is set, it uses that callback. Otherwise:
 // It waits for Delay, returns Error if set, otherwise returns Response.
 func (m *MockAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
 	m.SendMessageCalls++
 	m.LastMessages = messages
+
+	// Use callback if provided
+	if m.OnSendMessage != nil {
+		return m.OnSendMessage(ctx, messages)
+	}
 
 	// Wait for delay if set
 	if m.Delay > 0 {
@@ -96,10 +109,16 @@ func (m *MockAdapter) SendMessage(ctx context.Context, messages []core.Message) 
 }
 
 // StreamMessage simulates streaming a response.
+// If OnStreamMessage is set, it uses that callback. Otherwise:
 // It writes StreamChunks to the writer with StreamDelay between each chunk.
 func (m *MockAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
 	m.StreamMessageCalls++
 	m.LastMessages = messages
+
+	// Use callback if provided
+	if m.OnStreamMessage != nil {
+		return m.OnStreamMessage(ctx, messages, writer)
+	}
 
 	// If no chunks configured, simulate with the Response
 	chunks := m.StreamChunks
