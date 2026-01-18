@@ -128,10 +128,34 @@ The pkg/log package is NOT v1-specific. It is shared logging infrastructure used
 
   **pkg/log Status:** KEEP as shared logging infrastructure (used by internal/providers and cmd/)
 
-- [ ] Update main.go:
+- [x] Update main.go:
   - Ensure only v2 code paths
   - Remove v1 command registrations
   - Clean up imports
+
+  **Completed 2026-01-18**: Verified main.go and cmd/ are v2-only.
+
+  **Verification Results:**
+  - main.go: Clean (only imports cmd package)
+  - cmd/root.go: Uses shared infrastructure (pkg/log, internal/bridge, internal/version)
+  - All cmd/*.go files: Only use pkg/v2/* and internal/* packages
+  - pkg/log: KEPT as shared logging infrastructure (per Phase-13 notes)
+
+  **Commands Registered (all v2):**
+  - runCmd - Uses pkg/v2/*
+  - doctorCmd - Uses pkg/v2/adapters, pkg/v2/config, pkg/v2/core
+  - versionCmd - Uses pkg/v2/adapters
+  - bridgeCmd - Uses internal/bridge
+  - providersCmd - Uses internal/providers
+  - agentsCmd - Uses internal/registry
+
+  **Previously Removed v1 Commands:**
+  - cmd/init.go (deleted in task 3)
+  - cmd/export.go (deleted in task 3)
+  - cmd/resume.go (deleted in task 3)
+  - cmd/run_v2.go (merged into run.go in task 3)
+
+  **Build & Tests:** All passing
 
 - [ ] Remove v1 documentation:
   - Remove docs/ files specific to v1 architecture
