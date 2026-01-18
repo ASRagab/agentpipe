@@ -4,22 +4,70 @@ This phase performs a wholesale removal of all v1 code, documentation, and refer
 
 ## Tasks
 
-- [ ] Identify all v1 code locations:
+- [x] Identify all v1 code locations:
   - List all pkg/ directories that are v1 (not under pkg/v2/)
   - List all cmd/ files using v1 packages
   - Identify v1-specific configuration files
   - Find v1 documentation in docs/
   - Locate v1 example configurations
 
+  **Completed 2026-01-18**: Full audit documented in `Working/v1-code-audit.md`
+
+  **V1 Package Directories (16 dirs, 62 Go files):**
+  - pkg/adapters (19 files) - REMOVE (v2 equivalent exists)
+  - pkg/agent (3 files) - REMOVE
+  - pkg/artifact (4 files) - EVALUATE (may need porting)
+  - pkg/client (2 files) - REMOVE
+  - pkg/config (4 files) - REMOVE (v2 equivalent exists)
+  - pkg/conversation (2 files) - REMOVE
+  - pkg/errors (2 files) - REMOVE (v2 equivalent exists)
+  - pkg/export (2 files) - EVALUATE (may need porting)
+  - pkg/log (2 files) - EVALUATE (used by cmd/root.go)
+  - pkg/logger (2 files) - REMOVE
+  - pkg/metrics (4 files) - EVALUATE
+  - pkg/middleware (4 files) - EVALUATE
+  - pkg/orchestrator (2 files) - REMOVE (v2 has pkg/v2/manager)
+  - pkg/ratelimit (4 files) - EVALUATE
+  - pkg/tui (6 files) - REMOVE (v2 equivalent exists)
+  - pkg/utils (2 files) - EVALUATE
+
+  **cmd/ Files Using V1:**
+  - cmd/run.go - uses pkg/adapters, pkg/orchestrator, pkg/tui (REPLACE)
+  - cmd/run_test.go - associated tests (DELETE with run.go)
+
+  **V1 Examples (21 files in examples/):**
+  All YAML files in examples/ except examples/v2/
+
+  **V1 Documentation:**
+  ~20 files in docs/ reference v1 architecture
+  docs/v2/ has 8 files to keep
+
+  **V1 Tests:**
+  - test/benchmark/ (4 files) - EVALUATE
+  - test/integration/ (2 files) - REMOVE (uses v1 orchestrator)
+
+  **internal/ Status:**
+  - internal/bridge/ - KEEP (not v1-specific)
+  - internal/branding/ - KEEP
+  - internal/providers/ - KEEP
+  - internal/registry/ - KEEP
+  - internal/version/ - KEEP
+
+  **Note:** pkg/providers/ does not exist (task list error) - providers are in internal/providers/
+
 - [ ] Remove v1 adapter packages:
   - Remove pkg/adapters/ (v1 adapters - claude, gemini, qwen, etc.)
   - Remove pkg/client/ (v1 HTTP client)
   - Remove pkg/config/ (v1 configuration)
-  - Remove pkg/log/ (if not shared with v2)
+  - Remove pkg/log/ (if not shared with v2) - **NOTE: used by cmd/root.go, evaluate first**
   - Remove pkg/orchestrator/ (v1 orchestrator)
-  - Remove pkg/providers/ (v1 providers)
   - Remove pkg/tui/ (v1 TUI - replaced by pkg/v2/tui/)
-  - Remove pkg/types/ (v1 types)
+  - Remove pkg/agent/ (v1 agent interfaces)
+  - Remove pkg/conversation/ (v1 conversation types)
+  - Remove pkg/logger/ (duplicate logging package)
+  - ~~Remove pkg/providers/~~ - **Does not exist; providers are in internal/providers/**
+  - ~~Remove pkg/types/~~ - **Does not exist**
+  - **Additional packages to evaluate:** pkg/artifact, pkg/export, pkg/metrics, pkg/middleware, pkg/ratelimit, pkg/utils
 
 - [ ] Update cmd/ to use v2 only:
   - Update cmd/run.go to use pkg/v2/ packages
@@ -29,8 +77,9 @@ This phase performs a wholesale removal of all v1 code, documentation, and refer
   - Update cmd/root.go imports
 
 - [ ] Remove v1 internal packages:
-  - Remove internal/bridge/ if v1-only
+  - ~~Remove internal/bridge/~~ - **KEEP: Streaming bridge is shared, not v1-specific**
   - Update any shared internal/ code
+  - **NOTE: All internal/ packages (bridge, branding, providers, registry, version) should be KEPT**
 
 - [ ] Update main.go:
   - Ensure only v2 code paths
