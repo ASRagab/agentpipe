@@ -82,6 +82,14 @@ type EnhancedModel struct {
 
 	// Styles
 	agentColors map[string]lipgloss.Color
+
+	// Multi-window state
+	agentMessages      map[string][]agent.Message // Per-agent message buffers
+	agentViewports     map[string]viewport.Model  // Per-agent viewports
+	agentOrder         []string                   // Ordered list of agent names
+	selectedAgentIndex int                        // Which agent is in main view
+	autoFollow         bool                       // Toggle for following active agent
+	previewLines       int                        // Lines to show in previews (default: 3)
 }
 
 // Styles
