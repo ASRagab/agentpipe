@@ -35,6 +35,7 @@ type Model struct {
 	cancelFn  context.CancelFunc
 
 	// Components
+	statusBar    components.StatusBarModel
 	agentList    components.AgentListModel
 	conversation components.ConversationModel
 	input        components.InputModel
@@ -72,6 +73,7 @@ func New(mgr *manager.ConversationManager, eventBus *events.Bus) Model {
 		eventBus:     eventBus,
 		ctx:          ctx,
 		cancelFn:     cancel,
+		statusBar:    components.NewStatusBarModel(),
 		agentList:    components.NewAgentListModel(agents),
 		conversation: components.NewConversationModel(),
 		input:        components.NewInputModel(),
@@ -79,6 +81,9 @@ func New(mgr *manager.ConversationManager, eventBus *events.Bus) Model {
 		eventQueue:   make([]core.Event, 0),
 		lastRender:   time.Now(),
 	}
+
+	// Initialize status bar with conversation data
+	m.statusBar.SetAgentCounts(len(agents), len(agents))
 
 	// Set initial agent index for consistent colors
 	agentIndex := make(map[string]int)
@@ -167,6 +172,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.layout = CalculateLayout(msg.Width, msg.Height)
 		m.updateComponentSizes()
+		m.statusBar.SetWidth(m.layout.StatusBarWidth)
 
 		if !m.ready {
 			m.conversation.InitViewport(m.layout.ConversationWidth, m.layout.ConversationHeight)
@@ -310,6 +316,12 @@ func (m *Model) handleEvent(event core.Event) {
 	case core.EventMessageCreated:
 		if msg, ok := event.Data.(core.Message); ok {
 			m.conversation.AddMessage(msg)
+			// Update status bar with message count
+			m.statusBar.IncrementMessageCount()
+			// Count user messages as turns
+			if msg.Role == core.RoleUser {
+				m.statusBar.SetTurnCount(m.statusBar.GetTurnCount() + 1)
+			}
 		}
 
 	case core.EventMessageChunk:
@@ -334,6 +346,8 @@ func (m *Model) handleEvent(event core.Event) {
 					Tokens:   data.Message.Metrics.TotalTokens,
 					Cost:     data.Message.Metrics.Cost,
 				})
+				// Update status bar totals
+				m.statusBar.UpdateFromMetrics(data.Message.Metrics)
 			}
 		}
 
@@ -342,6 +356,8 @@ func (m *Model) handleEvent(event core.Event) {
 			m.agentList.UpdateStatus(data.AgentID, components.AgentStatusError)
 			m.agentList.UpdateError(data.AgentID, data.Error)
 			m.lastError = fmt.Sprintf("%s: %s", data.AgentName, data.Error)
+			// Update status bar to show error status
+			m.statusBar.SetStatus(core.ConversationStatusError)
 		}
 	}
 }
@@ -389,8 +405,8 @@ func (m Model) View() string {
 
 	var b strings.Builder
 
-	// Status bar at top
-	b.WriteString(m.renderStatusBar())
+	// Status bar at top (using the new component)
+	b.WriteString(m.statusBar.View())
 	b.WriteString("\n")
 
 	// Main panels (agent list + conversation) side by side
@@ -415,26 +431,6 @@ func (m Model) View() string {
 	}
 
 	return b.String()
-}
-
-// renderStatusBar renders the status bar at the top.
-func (m Model) renderStatusBar() string {
-	// Left side: title
-	title := styles.TitleStyle().Render("🚀 AgentPipe v2")
-
-	// Right side: stats
-	agentCount := m.agentList.AgentCount()
-	msgCount := m.conversation.MessageCount()
-	stats := fmt.Sprintf("Agents: %d | Messages: %d", agentCount, msgCount)
-	statsStyled := styles.StatusBarStyle().Render(stats)
-
-	// Combine with spacing
-	spacing := m.width - lipgloss.Width(title) - lipgloss.Width(statsStyled) - 2
-	if spacing < 0 {
-		spacing = 0
-	}
-
-	return title + strings.Repeat(" ", spacing) + statsStyled
 }
 
 // renderHelpOverlay renders the help overlay.

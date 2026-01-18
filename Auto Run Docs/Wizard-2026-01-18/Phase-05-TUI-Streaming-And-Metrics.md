@@ -29,13 +29,22 @@ This phase enhances the TUI with real-time streaming response display and compre
   - Right-align metrics badge in message box
   - **COMPLETED**: Enhanced `formatMetrics()` with shorter 't' suffix for tokens, added `formatMetricsWithAgent()` for badge format `[Claude | 145ms | 234t | $0.012]`, added `formatMetricsExpanded()` for detailed view `[Claude | 145ms | 100in/134out (234t) | $0.012]`, implemented `formatDuration()` for human-readable format (ms <1s, s <60s, m >=60s), implemented `formatCost()` with adaptive decimal places, added `MetricsBadgeStyle()`, `MetricsBadgeExpandedStyle()`, `CostHighStyle()`, and `CostLowStyle()` to styles package, comprehensive tests (10 new test cases covering formatting, edge cases, nil handling, and partial data)
 
-- [ ] Create status bar component in `pkg/v2/tui/components/status_bar.go`:
+- [x] Create status bar component in `pkg/v2/tui/components/status_bar.go`:
   - Show at top of TUI
   - Left side: Conversation status (Active, Paused, Completed)
   - Center: Current turn number and total messages
   - Right side: Running totals (Total tokens, Total cost, Elapsed time)
   - Update in real-time as conversation progresses
   - Show agent count: "Connected: 3/3 agents"
+  - **COMPLETED**: Created comprehensive StatusBarModel with:
+    - Status section with color-coded indicators (● Active green, ◐ Paused yellow, ✓ Completed blue, ✗ Error red)
+    - Center section showing Turn count, Message count, and Agent counts (e.g., "Turn: 5 │ Msgs: 12 │ Agents: 3/3")
+    - Totals section with running token count, cost, and elapsed time (e.g., "500t │ $0.050 │ 1m30s")
+    - Added 8 new styles: StatusBarContainerStyle, StatusBarCenterStyle, StatusBarTotalsStyle, StatusActiveStyle, StatusPausedStyle, StatusCompletedStyle, StatusErrorStyle
+    - Integrated with main TUI model for real-time updates from conversation events
+    - UpdateFromConversation() to sync from conversation state
+    - UpdateFromMetrics() to accumulate metrics as messages complete
+    - 13 comprehensive test cases covering all functionality
 
 - [ ] Implement smooth scrolling for new messages:
   - Track viewport scroll position

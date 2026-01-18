@@ -206,3 +206,52 @@ func CostLowStyle() lipgloss.Style {
 		Foreground(lipgloss.Color("34")). // Green for good
 		Italic(true)
 }
+
+// StatusBarContainerStyle returns the container style for the status bar.
+func StatusBarContainerStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(lipgloss.Color("236")).
+		Foreground(lipgloss.Color("252")).
+		Padding(0, 1)
+}
+
+// StatusBarCenterStyle returns the style for the center section of the status bar.
+func StatusBarCenterStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("250"))
+}
+
+// StatusBarTotalsStyle returns the style for the totals section of the status bar.
+func StatusBarTotalsStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245")).
+		Italic(true)
+}
+
+// StatusActiveStyle returns the style for active conversation status.
+func StatusActiveStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("34")). // Green
+		Bold(true)
+}
+
+// StatusPausedStyle returns the style for paused conversation status.
+func StatusPausedStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("226")). // Yellow
+		Bold(true)
+}
+
+// StatusCompletedStyle returns the style for completed conversation status.
+func StatusCompletedStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("33")). // Blue
+		Bold(true)
+}
+
+// StatusErrorStyle returns the style for error conversation status.
+func StatusErrorStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("196")). // Red
+		Bold(true)
+}
