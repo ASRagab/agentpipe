@@ -22,7 +22,7 @@ This phase creates comprehensive documentation and example configurations that e
   - Added "After Installation" section recommending v2 and AGENTPIPE_V2 env var
   - Configuration section already had v1/v2 migration documentation
 
-- [ ] Create v2-specific documentation in `docs/v2/`:
+- [x] Create v2-specific documentation in `docs/v2/`:
   - `quickstart.md`: 5-minute getting started guide
   - `configuration.md`: Full config reference with all options
   - `adapters.md`: Guide to available adapters and how to configure
@@ -30,20 +30,47 @@ This phase creates comprehensive documentation and example configurations that e
   - `architecture.md`: Technical overview for contributors
   - `migration.md`: Guide for migrating from v1
 
-- [ ] Create configuration reference in `docs/v2/configuration.md`:
+  **Completed 2026-01-18**: Created comprehensive v2 documentation in `docs/v2/` folder:
+  - `README.md`: Documentation index with navigation and document map
+  - `quickstart.md`: 5-minute getting started guide with installation, config setup, and first conversation
+  - `configuration.md`: Full config reference with all options, types, defaults, and examples
+  - `adapters.md`: Complete adapter documentation for openrouter, claude-api, claude-cli, gemini-cli
+  - `tui.md`: TUI usage guide with layout overview, keyboard shortcuts, and features
+  - `architecture.md`: Technical overview for contributors with package structure and data flow
+  - `migration.md`: Comprehensive v1 to v2 migration guide with field mappings and examples
+  All documents include YAML frontmatter with wiki-link cross-references for graph exploration.
+
+- [x] Create configuration reference in `docs/v2/configuration.md`:
   - Document every config field with type, default, description
   - Group by section (conversation, agents, tui, logging, persistence)
   - Include example values for each field
   - Document environment variable overrides
   - Document v1 compatibility and migration
 
-- [ ] Create adapter documentation in `docs/v2/adapters.md`:
+  **Completed 2026-01-18**: Included in the comprehensive docs/v2/configuration.md file with:
+  - All config sections documented (conversation, agents, tui, logging, persistence)
+  - Every field with type, default, and description in tables
+  - Complete example configuration with all options
+  - Environment variable overrides section
+  - CLI flags section
+  - Validation and troubleshooting tips
+
+- [x] Create adapter documentation in `docs/v2/adapters.md`:
   - Document each adapter: openrouter, claude-api, claude-cli, gemini-cli
   - Required config fields for each
   - Environment variables for API keys
   - Supported models for each adapter
   - Performance characteristics
   - Known limitations
+
+  **Completed 2026-01-18**: Included in the comprehensive docs/v2/adapters.md file with:
+  - All four adapters documented (openrouter, claude-api, claude, gemini)
+  - Required and optional config fields for each
+  - Environment variables with setup instructions
+  - Popular models with pricing tables
+  - Performance characteristics (latency, streaming, retry logic)
+  - Error handling and retry behavior
+  - Custom adapter creation guide
 
 - [ ] Create troubleshooting guide in `docs/v2/troubleshooting.md`:
   - Common error messages and solutions
