@@ -1053,3 +1053,340 @@ func TestProgressBarFillCalculation(t *testing.T) {
 		}
 	}
 }
+
+// ===============================
+// Error Display Tests
+// ===============================
+
+func TestErrorMessageInitialization(t *testing.T) {
+	model := NewConversationModel()
+
+	if model.errorMessages == nil {
+		t.Error("Expected errorMessages to be initialized")
+	}
+	if model.HasErrors() {
+		t.Error("Expected HasErrors to return false for new model")
+	}
+	if model.GetErrorMessageCount() != 0 {
+		t.Errorf("Expected 0 error messages, got %d", model.GetErrorMessageCount())
+	}
+}
+
+func TestAddErrorMessage(t *testing.T) {
+	model := NewConversationModel()
+
+	errInfo := core.NewAgentErrorInfo(core.ErrorTypeTimeout, "Request timed out", "agent-1", "Claude")
+	model.AddErrorMessage(errInfo)
+
+	if !model.HasErrors() {
+		t.Error("Expected HasErrors to return true after adding error")
+	}
+	if model.GetErrorMessageCount() != 1 {
+		t.Errorf("Expected 1 error message, got %d", model.GetErrorMessageCount())
+	}
+
+	// Check error was also added to messages
+	if len(model.messages) != 1 {
+		t.Errorf("Expected 1 message, got %d", len(model.messages))
+	}
+	if model.messages[0].Status != core.MessageStatusError {
+		t.Errorf("Expected message status to be error, got %s", model.messages[0].Status)
+	}
+}
+
+func TestAddAgentError(t *testing.T) {
+	model := NewConversationModel()
+
+	model.AddAgentError("agent-1", "Claude", "Connection refused")
+
+	if !model.HasErrors() {
+		t.Error("Expected HasErrors to return true")
+	}
+
+	errors := model.GetErrorMessages()
+	if len(errors) != 1 {
+		t.Fatalf("Expected 1 error, got %d", len(errors))
+	}
+
+	err := errors[0]
+	if err.AgentID != "agent-1" {
+		t.Errorf("Expected AgentID 'agent-1', got '%s'", err.AgentID)
+	}
+	if err.AgentName != "Claude" {
+		t.Errorf("Expected AgentName 'Claude', got '%s'", err.AgentName)
+	}
+	if err.Message != "Connection refused" {
+		t.Errorf("Expected message 'Connection refused', got '%s'", err.Message)
+	}
+	// Connection refused should be classified as network error
+	if err.ErrorType != core.ErrorTypeNetwork {
+		t.Errorf("Expected ErrorType 'network', got '%s'", err.ErrorType)
+	}
+}
+
+func TestErrorTypeClassification(t *testing.T) {
+	testCases := []struct {
+		errorMsg     string
+		expectedType core.ErrorType
+	}{
+		{"Request timed out", core.ErrorTypeTimeout},
+		{"deadline exceeded", core.ErrorTypeTimeout},
+		{"rate limit exceeded", core.ErrorTypeRateLimit},
+		{"429 Too Many Requests", core.ErrorTypeRateLimit},
+		{"connection refused", core.ErrorTypeNetwork},
+		{"network unreachable", core.ErrorTypeNetwork},
+		{"dns lookup failed", core.ErrorTypeNetwork},
+		{"unauthorized", core.ErrorTypeAuthentication},
+		{"invalid api key", core.ErrorTypeAuthentication},
+		{"403 Forbidden", core.ErrorTypeAuthentication},
+		{"500 Internal Server Error", core.ErrorTypeAPI},
+		{"502 Bad Gateway", core.ErrorTypeAPI},
+		{"some random error", core.ErrorTypeUnknown},
+	}
+
+	for _, tc := range testCases {
+		result := core.ClassifyError(tc.errorMsg)
+		if result != tc.expectedType {
+			t.Errorf("For '%s': expected %s, got %s", tc.errorMsg, tc.expectedType, result)
+		}
+	}
+}
+
+func TestGetLastError(t *testing.T) {
+	model := NewConversationModel()
+
+	// Test with no errors
+	if model.GetLastError() != nil {
+		t.Error("Expected GetLastError to return nil when no errors")
+	}
+
+	// Add first error
+	model.AddAgentError("agent-1", "Claude", "First error")
+
+	lastErr := model.GetLastError()
+	if lastErr == nil {
+		t.Fatal("Expected GetLastError to return error")
+	}
+	if lastErr.Message != "First error" {
+		t.Errorf("Expected message 'First error', got '%s'", lastErr.Message)
+	}
+
+	// Add second error
+	model.AddAgentError("agent-2", "Gemini", "Second error")
+
+	lastErr = model.GetLastError()
+	if lastErr == nil {
+		t.Fatal("Expected GetLastError to return error")
+	}
+	if lastErr.Message != "Second error" {
+		t.Errorf("Expected message 'Second error', got '%s'", lastErr.Message)
+	}
+}
+
+func TestGetAgentErrors(t *testing.T) {
+	model := NewConversationModel()
+
+	// Add errors for multiple agents
+	model.AddAgentError("agent-1", "Claude", "Error 1")
+	model.AddAgentError("agent-2", "Gemini", "Error 2")
+	model.AddAgentError("agent-1", "Claude", "Error 3")
+
+	// Get errors for agent-1
+	agent1Errors := model.GetAgentErrors("agent-1")
+	if len(agent1Errors) != 2 {
+		t.Errorf("Expected 2 errors for agent-1, got %d", len(agent1Errors))
+	}
+
+	// Get errors for agent-2
+	agent2Errors := model.GetAgentErrors("agent-2")
+	if len(agent2Errors) != 1 {
+		t.Errorf("Expected 1 error for agent-2, got %d", len(agent2Errors))
+	}
+
+	// Get errors for non-existent agent
+	agent3Errors := model.GetAgentErrors("agent-3")
+	if len(agent3Errors) != 0 {
+		t.Errorf("Expected 0 errors for agent-3, got %d", len(agent3Errors))
+	}
+}
+
+func TestClearErrors(t *testing.T) {
+	model := NewConversationModel()
+
+	model.AddAgentError("agent-1", "Claude", "Error 1")
+	model.AddAgentError("agent-2", "Gemini", "Error 2")
+
+	if model.GetErrorMessageCount() != 2 {
+		t.Errorf("Expected 2 errors before clear, got %d", model.GetErrorMessageCount())
+	}
+
+	model.ClearErrors()
+
+	if model.GetErrorMessageCount() != 0 {
+		t.Errorf("Expected 0 errors after clear, got %d", model.GetErrorMessageCount())
+	}
+	if model.HasErrors() {
+		t.Error("Expected HasErrors to return false after clear")
+	}
+
+	// Messages should still be there (part of history)
+	if len(model.messages) != 2 {
+		t.Errorf("Expected 2 messages still in history, got %d", len(model.messages))
+	}
+}
+
+func TestRecoverableErrorInfo(t *testing.T) {
+	testCases := []struct {
+		errType       core.ErrorType
+		recoverable   bool
+		hasRetryHint  bool
+	}{
+		{core.ErrorTypeTimeout, true, true},
+		{core.ErrorTypeRateLimit, true, true},
+		{core.ErrorTypeNetwork, true, true},
+		{core.ErrorTypeAuthentication, false, true}, // Has hint but not auto-recoverable
+		{core.ErrorTypeAPI, false, false},
+		{core.ErrorTypeInternal, false, false},
+		{core.ErrorTypeUnknown, false, false},
+	}
+
+	for _, tc := range testCases {
+		info := core.NewErrorInfo(tc.errType, "test error")
+		if info.Recoverable != tc.recoverable {
+			t.Errorf("For %s: expected recoverable=%v, got %v", tc.errType, tc.recoverable, info.Recoverable)
+		}
+		hasHint := info.RetryHint != ""
+		if hasHint != tc.hasRetryHint {
+			t.Errorf("For %s: expected hasRetryHint=%v, got %v", tc.errType, tc.hasRetryHint, hasHint)
+		}
+	}
+}
+
+func TestErrorMessageFormatting(t *testing.T) {
+	// Test with agent name
+	info := core.NewAgentErrorInfo(core.ErrorTypeTimeout, "Request timed out", "agent-1", "Claude")
+	formatted := core.FormatErrorMessage(info)
+
+	expectedPrefix := "Claude failed to respond"
+	if !containsSubstring(formatted, expectedPrefix) {
+		t.Errorf("Expected formatted message to contain '%s', got '%s'", expectedPrefix, formatted)
+	}
+	if !containsSubstring(formatted, "Request timed out") {
+		t.Errorf("Expected formatted message to contain error message")
+	}
+
+	// Test without agent name
+	info2 := core.NewErrorInfo(core.ErrorTypeAPI, "API error occurred")
+	formatted2 := core.FormatErrorMessage(info2)
+
+	if !containsSubstring(formatted2, "Error:") {
+		t.Errorf("Expected formatted message to contain 'Error:', got '%s'", formatted2)
+	}
+}
+
+func TestFormatErrorTypeBadge(t *testing.T) {
+	model := NewConversationModel()
+
+	testCases := []struct {
+		errType       core.ErrorType
+		expectedLabel string
+	}{
+		{core.ErrorTypeTimeout, "TIMEOUT"},
+		{core.ErrorTypeRateLimit, "RATE LIMIT"},
+		{core.ErrorTypeNetwork, "NETWORK"},
+		{core.ErrorTypeAuthentication, "AUTH"},
+		{core.ErrorTypeAPI, "API"},
+		{core.ErrorTypeInternal, "INTERNAL"},
+		{core.ErrorTypeUnknown, "ERROR"},
+	}
+
+	for _, tc := range testCases {
+		badge := model.formatErrorTypeBadge(tc.errType)
+		if !containsSubstring(badge, tc.expectedLabel) {
+			t.Errorf("For %s: expected badge to contain '%s', got '%s'", tc.errType, tc.expectedLabel, badge)
+		}
+	}
+}
+
+func TestErrorMessageRendering(t *testing.T) {
+	model := NewConversationModel()
+	model.InitViewport(80, 24)
+
+	// Add an error message
+	model.AddAgentError("agent-1", "Claude", "Connection timeout")
+
+	// Render messages
+	content := model.renderMessages()
+
+	// Check that error indicator is present
+	if !containsSubstring(content, "✗") {
+		t.Error("Expected content to contain error icon ✗")
+	}
+	if !containsSubstring(content, "Claude") {
+		t.Error("Expected content to contain agent name 'Claude'")
+	}
+	if !containsSubstring(content, "failed to respond") {
+		t.Error("Expected content to contain 'failed to respond'")
+	}
+}
+
+func TestGetStreamingMessagesForAgent(t *testing.T) {
+	model := NewConversationModel()
+
+	// Start streaming for multiple agents
+	model.StartStreaming("msg-1", "agent-1", "Claude")
+	model.StartStreaming("msg-2", "agent-1", "Claude")
+	model.StartStreaming("msg-3", "agent-2", "Gemini")
+
+	// Get streaming messages for agent-1
+	agent1Msgs := model.GetStreamingMessagesForAgent("agent-1")
+	if len(agent1Msgs) != 2 {
+		t.Errorf("Expected 2 streaming messages for agent-1, got %d", len(agent1Msgs))
+	}
+
+	// Get streaming messages for agent-2
+	agent2Msgs := model.GetStreamingMessagesForAgent("agent-2")
+	if len(agent2Msgs) != 1 {
+		t.Errorf("Expected 1 streaming message for agent-2, got %d", len(agent2Msgs))
+	}
+
+	// Get streaming messages for non-existent agent
+	agent3Msgs := model.GetStreamingMessagesForAgent("agent-3")
+	if len(agent3Msgs) != 0 {
+		t.Errorf("Expected 0 streaming messages for agent-3, got %d", len(agent3Msgs))
+	}
+}
+
+func TestErrorMessageWithStreamingCancellation(t *testing.T) {
+	model := NewConversationModel()
+
+	// Start streaming
+	model.StartStreaming("msg-1", "agent-1", "Claude")
+	model.AppendChunk(core.MessageChunk{
+		MessageID: "msg-1",
+		AgentID:   "agent-1",
+		AgentName: "Claude",
+		Content:   "Starting response...",
+		Index:     0,
+	})
+
+	if !model.HasStreamingMessages() {
+		t.Error("Expected streaming messages before error")
+	}
+
+	// Simulate error by cancelling streaming and adding error
+	for messageID := range model.GetStreamingMessagesForAgent("agent-1") {
+		model.CancelStreaming(messageID)
+	}
+	model.AddAgentError("agent-1", "Claude", "Connection lost")
+
+	// Streaming should be cancelled
+	if model.HasStreamingMessages() {
+		t.Error("Expected no streaming messages after cancellation")
+	}
+
+	// Error should be present
+	if !model.HasErrors() {
+		t.Error("Expected error to be present")
+	}
+}

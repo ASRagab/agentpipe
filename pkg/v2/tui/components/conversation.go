@@ -32,10 +32,31 @@ type StreamingMessage struct {
 	ChunkCount int
 }
 
+// ErrorMessage represents an error to be displayed inline in the conversation.
+type ErrorMessage struct {
+	// ID is the unique identifier for this error message.
+	ID string
+	// Timestamp is when the error occurred.
+	Timestamp time.Time
+	// AgentID is the ID of the agent that encountered the error (if applicable).
+	AgentID string
+	// AgentName is the name of the agent that encountered the error (if applicable).
+	AgentName string
+	// ErrorType categorizes the error for styling and behavior.
+	ErrorType core.ErrorType
+	// Message is the human-readable error message.
+	Message string
+	// Recoverable indicates whether the error can be retried.
+	Recoverable bool
+	// RetryHint provides guidance on how to retry (if recoverable).
+	RetryHint string
+}
+
 // ConversationModel manages the conversation view panel.
 type ConversationModel struct {
 	messages          []core.Message
 	streamingMessages map[string]*StreamingMessage // keyed by MessageID
+	errorMessages     []ErrorMessage               // Inline error messages
 	viewport          viewport.Model
 	width             int
 	height            int
@@ -54,6 +75,7 @@ func NewConversationModel() ConversationModel {
 	return ConversationModel{
 		messages:          make([]core.Message, 0),
 		streamingMessages: make(map[string]*StreamingMessage),
+		errorMessages:     make([]ErrorMessage, 0),
 		agentIndex:        make(map[string]int),
 		cursorVisible:     true,
 		autoScroll:        true,
@@ -347,6 +369,12 @@ func (m ConversationModel) renderStreamingMessage(b *strings.Builder, sm *Stream
 func (m ConversationModel) renderMessage(b *strings.Builder, msg core.Message) {
 	timestamp := msg.Timestamp.Format("15:04:05")
 
+	// Check if this is an error message (has error status)
+	if msg.Status == core.MessageStatusError {
+		m.renderErrorStatusMessage(b, msg)
+		return
+	}
+
 	switch msg.Role {
 	case core.RoleUser:
 		// User messages - prefixed with "You:"
@@ -386,6 +414,82 @@ func (m ConversationModel) renderMessage(b *strings.Builder, msg core.Message) {
 	}
 
 	b.WriteString("\n")
+}
+
+// renderErrorStatusMessage renders a message with error status inline with red styling.
+func (m ConversationModel) renderErrorStatusMessage(b *strings.Builder, msg core.Message) {
+	timestamp := msg.Timestamp.Format("15:04:05")
+
+	// Error icon and header
+	var header string
+	if msg.AgentName != "" {
+		header = fmt.Sprintf("[%s] %s %s failed to respond:", timestamp, styles.ErrorIconStyle().Render("✗"), msg.AgentName)
+	} else {
+		header = fmt.Sprintf("[%s] %s Error:", timestamp, styles.ErrorIconStyle().Render("✗"))
+	}
+	b.WriteString(styles.ErrorMessageHeaderStyle().Render(header))
+	b.WriteString("\n")
+
+	// Error content with red styling
+	b.WriteString(styles.ErrorMessageStyle().Render(msg.Content))
+	b.WriteString("\n")
+}
+
+// renderInlineError renders a detailed error message with type badge and retry hint.
+func (m ConversationModel) renderInlineError(b *strings.Builder, errMsg ErrorMessage) {
+	timestamp := errMsg.Timestamp.Format("15:04:05")
+
+	// Error type badge
+	typeBadge := m.formatErrorTypeBadge(errMsg.ErrorType)
+
+	// Header with error icon, type badge, and agent name
+	var header string
+	if errMsg.AgentName != "" {
+		header = fmt.Sprintf("[%s] %s %s %s:",
+			timestamp,
+			styles.ErrorIconStyle().Render("✗"),
+			typeBadge,
+			styles.ErrorAgentStyle().Render(errMsg.AgentName+" failed to respond"))
+	} else {
+		header = fmt.Sprintf("[%s] %s %s",
+			timestamp,
+			styles.ErrorIconStyle().Render("✗"),
+			typeBadge)
+	}
+	b.WriteString(header)
+	b.WriteString("\n")
+
+	// Error message content
+	b.WriteString(styles.ErrorMessageStyle().Render(errMsg.Message))
+	b.WriteString("\n")
+
+	// Retry hint for recoverable errors
+	if errMsg.Recoverable && errMsg.RetryHint != "" {
+		b.WriteString(styles.ErrorRetryHintStyle().Render("→ " + errMsg.RetryHint))
+		b.WriteString("\n")
+	}
+}
+
+// formatErrorTypeBadge formats an error type as a styled badge.
+func (m ConversationModel) formatErrorTypeBadge(errType core.ErrorType) string {
+	var label string
+	switch errType {
+	case core.ErrorTypeTimeout:
+		label = "TIMEOUT"
+	case core.ErrorTypeRateLimit:
+		label = "RATE LIMIT"
+	case core.ErrorTypeNetwork:
+		label = "NETWORK"
+	case core.ErrorTypeAuthentication:
+		label = "AUTH"
+	case core.ErrorTypeAPI:
+		label = "API"
+	case core.ErrorTypeInternal:
+		label = "INTERNAL"
+	default:
+		label = "ERROR"
+	}
+	return styles.ErrorTypeStyle().Render(label)
 }
 
 // formatMetrics formats metrics for inline display.
@@ -715,4 +819,88 @@ func (m *ConversationModel) JumpToBottom() {
 		m.userScrolledUp = false
 		m.hasNewMessages = false
 	}
+}
+
+// AddErrorMessage adds an inline error message to the conversation.
+// This creates a system message with error status for display.
+func (m *ConversationModel) AddErrorMessage(errInfo core.ErrorInfo) {
+	// Create an error message using the core helper
+	msg := core.NewErrorMessage(errInfo)
+	m.messages = append(m.messages, msg)
+
+	// Also add to errorMessages for detailed tracking
+	errMsg := ErrorMessage{
+		ID:          msg.ID,
+		Timestamp:   errInfo.Timestamp,
+		AgentID:     errInfo.AgentID,
+		AgentName:   errInfo.AgentName,
+		ErrorType:   errInfo.Type,
+		Message:     errInfo.Message,
+		Recoverable: errInfo.Recoverable,
+		RetryHint:   errInfo.RetryHint,
+	}
+	m.errorMessages = append(m.errorMessages, errMsg)
+
+	// Refresh content
+	m.refreshContent()
+}
+
+// AddAgentError adds an error message for a specific agent failure.
+// This is a convenience method for the common case of an agent failing to respond.
+func (m *ConversationModel) AddAgentError(agentID, agentName, errorMsg string) {
+	errType := core.ClassifyError(errorMsg)
+	errInfo := core.NewAgentErrorInfo(errType, errorMsg, agentID, agentName)
+	m.AddErrorMessage(errInfo)
+}
+
+// GetErrorMessages returns all error messages in the conversation.
+func (m *ConversationModel) GetErrorMessages() []ErrorMessage {
+	return m.errorMessages
+}
+
+// GetErrorMessageCount returns the number of error messages.
+func (m *ConversationModel) GetErrorMessageCount() int {
+	return len(m.errorMessages)
+}
+
+// HasErrors returns true if there are any error messages.
+func (m *ConversationModel) HasErrors() bool {
+	return len(m.errorMessages) > 0
+}
+
+// ClearErrors removes all error messages from the conversation.
+func (m *ConversationModel) ClearErrors() {
+	m.errorMessages = make([]ErrorMessage, 0)
+	// Don't clear from messages array - those are part of history
+}
+
+// GetLastError returns the most recent error message, if any.
+func (m *ConversationModel) GetLastError() *ErrorMessage {
+	if len(m.errorMessages) == 0 {
+		return nil
+	}
+	return &m.errorMessages[len(m.errorMessages)-1]
+}
+
+// GetAgentErrors returns all error messages for a specific agent.
+func (m *ConversationModel) GetAgentErrors(agentID string) []ErrorMessage {
+	var errors []ErrorMessage
+	for _, err := range m.errorMessages {
+		if err.AgentID == agentID {
+			errors = append(errors, err)
+		}
+	}
+	return errors
+}
+
+// GetStreamingMessagesForAgent returns a map of message IDs to streaming messages
+// for a specific agent. Useful for cancelling streaming on error.
+func (m *ConversationModel) GetStreamingMessagesForAgent(agentID string) map[string]*StreamingMessage {
+	result := make(map[string]*StreamingMessage)
+	for id, sm := range m.streamingMessages {
+		if sm.AgentID == agentID {
+			result[id] = sm
+		}
+	}
+	return result
 }

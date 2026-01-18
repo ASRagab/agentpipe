@@ -61,12 +61,22 @@ This phase enhances the TUI with real-time streaming response display and compre
   - Show exact duration when complete
   - **COMPLETED**: Added `ProgressBarConfig` struct with configurable width and estimated duration, implemented `renderProgressBar()` function with thin box-drawing characters (━ for filled, ─ for empty), color-coded styling via `ProgressBarFillStyle()` based on elapsed time (green <1s, yellow 1-3s, red >3s), integrated progress bar into `renderStreamingMessage()` to display below each streaming message, added 4 new styles (`ProgressBarContainerStyle`, `ProgressBarFillStyle`, `ProgressBarEmptyStyle`, `ProgressBarDurationStyle`), and comprehensive tests (13 new test cases covering zero elapsed, partial fill, full fill, color thresholds, custom config, zero/negative config handling, and integration with streaming messages)
 
-- [ ] Implement error display in TUI:
+- [x] Implement error display in TUI:
   - Show error messages inline in conversation with red styling
   - Include error type and actionable message
   - Show retry button/hint for recoverable errors
   - Agent list shows error status with details on select
   - System message for "Agent X failed to respond: [reason]"
+  - **COMPLETED**: Created comprehensive error display system:
+    - Added `pkg/v2/core/errors.go` with ErrorType enum (timeout, rate_limit, network, auth, api, internal, unknown), ErrorInfo struct, ClassifyError() for auto-detection, FormatErrorMessage(), NewErrorMessage()
+    - Added 10 new styles to styles package: ErrorMessageStyle, ErrorMessageHeaderStyle, ErrorTypeStyle, ErrorRetryHintStyle, ErrorIconStyle, RecoverableErrorStyle, NonRecoverableErrorStyle, ErrorBorderStyle, ErrorAgentStyle
+    - Added ErrorMessage struct to conversation model with ID, Timestamp, AgentID, AgentName, ErrorType, Message, Recoverable, RetryHint fields
+    - Implemented renderErrorStatusMessage() for inline error display with ✗ icon and red styling
+    - Implemented renderInlineError() with error type badge and retry hints for recoverable errors
+    - Implemented formatErrorTypeBadge() for styled error type labels (TIMEOUT, RATE LIMIT, NETWORK, AUTH, API, INTERNAL, ERROR)
+    - Added AddErrorMessage(), AddAgentError(), GetErrorMessages(), GetErrorMessageCount(), HasErrors(), ClearErrors(), GetLastError(), GetAgentErrors(), GetStreamingMessagesForAgent() methods
+    - Updated TUI handleEvent to add inline error messages to conversation and cancel streaming on agent error
+    - Added 17 comprehensive tests covering initialization, error adding, type classification, formatting, rendering, and streaming cancellation
 
 - [ ] Add token/cost estimation for user input:
   - Estimate input tokens as user types (simple word count * 1.3)

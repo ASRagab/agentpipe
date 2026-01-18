@@ -353,11 +353,24 @@ func (m *Model) handleEvent(event core.Event) {
 
 	case core.EventAgentError:
 		if data, ok := event.Data.(core.AgentErrorData); ok {
+			// Update agent list status
 			m.agentList.UpdateStatus(data.AgentID, components.AgentStatusError)
 			m.agentList.UpdateError(data.AgentID, data.Error)
+
+			// Add error message to conversation for inline display
+			m.conversation.AddAgentError(data.AgentID, data.AgentName, data.Error)
+
+			// Update last error for bottom bar display
 			m.lastError = fmt.Sprintf("%s: %s", data.AgentName, data.Error)
+
 			// Update status bar to show error status
 			m.statusBar.SetStatus(core.ConversationStatusError)
+
+			// Cancel any streaming messages from this agent
+			// (in case the error occurred during streaming)
+			for messageID := range m.conversation.GetStreamingMessagesForAgent(data.AgentID) {
+				m.conversation.CancelStreaming(messageID)
+			}
 		}
 	}
 }

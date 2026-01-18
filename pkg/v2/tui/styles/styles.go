@@ -316,3 +316,74 @@ func ProgressBarDurationStyle(elapsedSeconds float64) lipgloss.Style {
 		Foreground(color).
 		Italic(true)
 }
+
+// ===============================
+// Error Display Styles
+// ===============================
+
+// ErrorMessageStyle returns the style for error message content in conversation.
+func ErrorMessageStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("196")). // Red
+		PaddingLeft(2)
+}
+
+// ErrorMessageHeaderStyle returns the style for error message headers.
+func ErrorMessageHeaderStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("196")). // Red
+		Bold(true)
+}
+
+// ErrorTypeStyle returns the style for error type badges.
+func ErrorTypeStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")).  // White
+		Background(lipgloss.Color("196")). // Red background
+		Bold(true).
+		Padding(0, 1)
+}
+
+// ErrorRetryHintStyle returns the style for retry hint text.
+func ErrorRetryHintStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("226")). // Yellow for attention
+		Italic(true).
+		PaddingLeft(2)
+}
+
+// ErrorIconStyle returns the style for error icons.
+func ErrorIconStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("196")). // Red
+		Bold(true)
+}
+
+// RecoverableErrorStyle returns the style for recoverable error indicators.
+func RecoverableErrorStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("214")). // Orange for warning/recoverable
+		Bold(true)
+}
+
+// NonRecoverableErrorStyle returns the style for non-recoverable error indicators.
+func NonRecoverableErrorStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("196")). // Red for critical
+		Bold(true)
+}
+
+// ErrorBorderStyle returns the style for error message borders.
+func ErrorBorderStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("196")). // Red border
+		Padding(0, 1)
+}
+
+// ErrorAgentStyle returns the style for agent name in error messages.
+func ErrorAgentStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("203")). // Salmon/pink-red
+		Bold(true)
+}
