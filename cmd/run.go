@@ -15,11 +15,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/ASRagab/agentpipe/pkg/v2/config"
-	"github.com/ASRagab/agentpipe/pkg/v2/core"
-	"github.com/ASRagab/agentpipe/pkg/v2/events"
-	"github.com/ASRagab/agentpipe/pkg/v2/manager"
-	v2tui "github.com/ASRagab/agentpipe/pkg/v2/tui"
+	"github.com/ASRagab/agentpipe/pkg/config"
+	"github.com/ASRagab/agentpipe/pkg/core"
+	"github.com/ASRagab/agentpipe/pkg/events"
+	"github.com/ASRagab/agentpipe/pkg/manager"
+	v2tui "github.com/ASRagab/agentpipe/pkg/tui"
 )
 
 // Run command flags

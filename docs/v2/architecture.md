@@ -29,7 +29,7 @@ v2 is built around these principles:
 ## Package Structure
 
 ```
-pkg/v2/
+pkg/
 ├── core/           # Core data types and interfaces
 │   ├── message.go  # Message, Metrics, Role types
 │   ├── agent.go    # Agent struct and config
@@ -439,14 +439,14 @@ func TestConversationFlow(t *testing.T) {
 Test full system with real or mock APIs:
 
 ```bash
-go test ./pkg/v2/e2e/... -tags=e2e
+go test ./pkg/e2e/... -tags=e2e
 ```
 
 ## Contributing Guidelines
 
 ### Adding a New Adapter
 
-1. Create adapter file in `pkg/v2/adapters/api/` or `pkg/v2/adapters/cli/`
+1. Create adapter file in `pkg/adapters/api/` or `pkg/adapters/cli/`
 2. Implement `AgentAdapter` interface
 3. Register in `init()` function:
 
@@ -456,12 +456,12 @@ func init() {
 }
 ```
 
-4. Add tests with mocked HTTP/CLI responses
-5. Update documentation in `docs/v2/adapters.md`
+1. Add tests with mocked HTTP/CLI responses
+2. Update documentation in `docs/v2/adapters.md`
 
 ### Adding New Event Types
 
-1. Define event type constant in `pkg/v2/core/events.go`
+1. Define event type constant in `pkg/core/events.go`
 2. Create data type for event payload
 3. Add handling in TUI and other subscribers
 4. Document in this architecture guide
@@ -472,13 +472,13 @@ func init() {
 - **Test Coverage**: >80% for new code
 - **Race Detection**: All tests run with `-race`
 - **Documentation**: Godoc for all exported types
-- **Error Handling**: Use `pkg/v2/errors` types
+- **Error Handling**: Use `pkg/errors` types
 
 ### Development Workflow
 
 ```bash
 # Run tests
-go test -race ./pkg/v2/...
+go test -race ./pkg/...
 
 # Run linter
 golangci-lint run --timeout=5m

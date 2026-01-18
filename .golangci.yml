@@ -65,19 +65,19 @@ linters:
       - linters:
           - gocognit
           - gocyclo
-        path: pkg/v2/tui/
+        path: pkg/tui/
       - linters:
           - govet
-        path: pkg/v2/tui/
+        path: pkg/tui/
         text: copylocks
       - linters:
           - gocognit
           - gocyclo
-        path: pkg/v2/config/
+        path: pkg/config/
       - linters:
           - gocyclo
           - gocognit
-        path: pkg/v2/persistence/
+        path: pkg/persistence/
       - linters:
           - errcheck
           - gosec
@@ -87,15 +87,15 @@ linters:
         path: examples/
       - linters:
           - govet
-        path: pkg/v2/pool/
+        path: pkg/pool/
         text: (copylocks|shadow)
       - linters:
           - govet
-        path: pkg/v2/config/migrate\.go
+        path: pkg/config/migrate\.go
         text: shadow
       - linters:
           - gosec
-        path: pkg/v2/config/
+        path: pkg/config/
         text: 'G306:'
       - linters:
           - gosec
@@ -110,7 +110,7 @@ linters:
           - dupl
           - gocognit
           - gocyclo
-        path: pkg/v2/adapters/
+        path: pkg/adapters/
       - linters:
           - dupl
         path: internal/registry/
@@ -180,17 +180,17 @@ linters:
       - linters:
           - staticcheck
         text: ST1005
-        path: pkg/v2/adapters/
+        path: pkg/adapters/
       - linters:
           - staticcheck
         text: SA1019
-        path: pkg/v2/tui/
+        path: pkg/tui/
       - linters:
           - prealloc
         path: pkg/adapters/
       - linters:
           - misspell
-        path: pkg/v2/
+        path: pkg/
     paths:
       - third_party$
       - builtin$

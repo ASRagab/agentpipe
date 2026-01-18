@@ -46,7 +46,7 @@ AgentPipe v2 is a ground-up rewrite focused on **parallel execution**, **real-ti
   - Streaming chunks emitted via event bus for UI updates
 
 - **Event-Driven Architecture**
-  - New `pkg/v2/events/` package with publish-subscribe event bus
+  - New `pkg/events/` package with publish-subscribe event bus
   - Loose coupling between components for extensibility
   - Event types: `message.created`, `message.chunk`, `agent.typing`, `agent.done`, `agent.error`
   - Subscribe to specific events or all events with unsubscribe functions
@@ -57,31 +57,31 @@ AgentPipe v2 is a ground-up rewrite focused on **parallel execution**, **real-ti
   - CLI adapters remain available as fallbacks
   - Foundation for future API adapters (Google AI, Groq, etc.)
 
-- **Conversation Manager** (`pkg/v2/manager/`)
+- **Conversation Manager** (`pkg/manager/`)
   - Orchestrates conversation flow and agent coordination
   - Thread-safe message history with sync.RWMutex
   - Integrates with event bus, agent pool, and persistence
   - Methods: `SendUserMessage()`, `GetMessages()`, `GetAgents()`, `Save()`, `Shutdown()`
 
-- **Agent Pool** (`pkg/v2/pool/`)
+- **Agent Pool** (`pkg/pool/`)
   - Parallel execution with controlled concurrency
   - WaitGroup-based coordination for multiple agents
   - Per-agent timeout handling
   - Health check integration before execution
 
-- **Circuit Breaker Pattern** (`pkg/v2/adapters/circuit_breaker.go`)
+- **Circuit Breaker Pattern** (`pkg/adapters/circuit_breaker.go`)
   - Intelligent failure detection with configurable thresholds
   - Automatic circuit opening after repeated failures
   - Half-open state for recovery testing
   - Prevents cascade failures across agents
 
-- **Enhanced Retry Logic** (`pkg/v2/adapters/retry.go`)
+- **Enhanced Retry Logic** (`pkg/adapters/retry.go`)
   - Exponential backoff with jitter
   - Configurable max retries, initial delay, max delay
   - Respects `Retry-After` headers from APIs
   - Classifies retryable vs non-retryable errors
 
-- **Improved Error Handling** (`pkg/v2/errors/`)
+- **Improved Error Handling** (`pkg/errors/`)
   - Standardized `AgentError` type with classification
   - Error types: timeout, rate_limit, auth, network, api, unknown
   - `Recoverable` flag and `RetryAfter` duration
@@ -100,7 +100,7 @@ AgentPipe v2 is a ground-up rewrite focused on **parallel execution**, **real-ti
 
 - **Config Migration**
   - `--migrate-config` flag to convert v1 configs to v2 format
-  - `pkg/v2/config/migrate.go` with field mapping logic
+  - `pkg/config/migrate.go` with field mapping logic
   - Backup created before migration
   - Validates migrated config before saving
 
@@ -122,7 +122,7 @@ AgentPipe v2 is a ground-up rewrite focused on **parallel execution**, **real-ti
   - Cost tracking per message and cumulative
   - Response duration in status bar
 
-- **Component Architecture** (`pkg/v2/tui/components/`)
+- **Component Architecture** (`pkg/tui/components/`)
   - `StatusBarModel` - Top bar with conversation state
   - `AgentListModel` - Left panel with agent status
   - `ConversationModel` - Main chat display with streaming
@@ -154,13 +154,13 @@ AgentPipe v2 is a ground-up rewrite focused on **parallel execution**, **real-ti
   - `webhook/` - Forward events to external webhooks
 
 - **Godoc Documentation**
-  - All exported types in `pkg/v2/` have comprehensive godoc
+  - All exported types in `pkg/` have comprehensive godoc
   - Package-level documentation with usage examples
   - Cross-references between related packages
 
 ### Added - Testing
 
-- **E2E Test Suite** (`pkg/v2/e2e/`)
+- **E2E Test Suite** (`pkg/e2e/`)
   - `conversation_test.go` - Full conversation flow tests
   - `parallel_test.go` - Parallel execution verification
   - `persistence_test.go` - Save/load round-trip tests
@@ -170,7 +170,7 @@ AgentPipe v2 is a ground-up rewrite focused on **parallel execution**, **real-ti
   - `benchmark_test.go` - Performance regression tests
   - `platform_test.go` - Cross-platform validation
 
-- **Mock Adapter** (`pkg/v2/adapters/mock/`)
+- **Mock Adapter** (`pkg/adapters/mock/`)
   - Configurable response delays and errors
   - Streaming simulation support
   - Useful for unit and integration tests
@@ -196,11 +196,11 @@ AgentPipe v2 is a ground-up rewrite focused on **parallel execution**, **real-ti
 - **Adapter Type Naming**
   - v1 `type: claude` → v2 `type: claude-api` (API) or `type: claude` (CLI)
   - Explicit adapter type selection
-  - CLI adapters moved to `pkg/v2/adapters/cli/`
-  - API adapters in `pkg/v2/adapters/api/`
+  - CLI adapters moved to `pkg/adapters/cli/`
+  - API adapters in `pkg/adapters/api/`
 
 - **Adapter Interface**
-  - New `AgentAdapter` interface in `pkg/v2/adapters/`
+  - New `AgentAdapter` interface in `pkg/adapters/`
   - Methods: `Initialize()`, `SendMessage()`, `StreamMessage()`, `IsAvailable()`, `GetModel()`, `HealthCheck()`
   - Separate from v1 `Agent` interface
   - Adapter registry with `Register()` and factory functions

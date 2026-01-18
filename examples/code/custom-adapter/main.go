@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/ASRagab/agentpipe/pkg/v2/core"
-	"github.com/ASRagab/agentpipe/pkg/v2/events"
-	"github.com/ASRagab/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/core"
+	"github.com/ASRagab/agentpipe/pkg/events"
+	"github.com/ASRagab/agentpipe/pkg/manager"
 )
 
 func main() {

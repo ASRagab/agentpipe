@@ -15,12 +15,12 @@ import (
 	"time"
 
 	// Import to register adapters
-	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/api"
+	_ "github.com/ASRagab/agentpipe/pkg/adapters/api"
 
-	"github.com/ASRagab/agentpipe/pkg/v2/core"
-	"github.com/ASRagab/agentpipe/pkg/v2/events"
-	"github.com/ASRagab/agentpipe/pkg/v2/manager"
-	"github.com/ASRagab/agentpipe/pkg/v2/persistence"
+	"github.com/ASRagab/agentpipe/pkg/core"
+	"github.com/ASRagab/agentpipe/pkg/events"
+	"github.com/ASRagab/agentpipe/pkg/manager"
+	"github.com/ASRagab/agentpipe/pkg/persistence"
 )
 
 // RunPersistenceExample demonstrates save/load functionality.

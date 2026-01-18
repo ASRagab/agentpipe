@@ -45,8 +45,8 @@ go run main.go webhook_handler.go
 
 ```go
 import (
-    "github.com/ASRagab/agentpipe/pkg/v2/core"
-    "github.com/ASRagab/agentpipe/pkg/v2/events"
+    "github.com/ASRagab/agentpipe/pkg/core"
+    "github.com/ASRagab/agentpipe/pkg/events"
 )
 
 eventBus := events.NewBus()
@@ -252,5 +252,5 @@ See [internal/bridge](../../../internal/bridge) for the full implementation.
 ## Related Documentation
 
 - [Architecture Overview](../../../docs/architecture.md)
-- [Event Types](../../../pkg/v2/core/events.go)
+- [Event Types](../../../pkg/core/events.go)
 - [Bridge Implementation](../../../internal/bridge/)

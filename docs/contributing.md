@@ -40,7 +40,7 @@ Thank you for your interest in contributing to AgentPipe! This document provides
 - **golangci-lint v1.x**: For code linting (v2.x config format differs)
 - **make**: For build automation (optional)
 
-> **Note**: AgentPipe v2 is the current architecture. The codebase is organized with core packages in `pkg/v2/` and shared infrastructure in `pkg/log/` and `internal/`.
+> **Note**: AgentPipe v2 is the current architecture. The codebase is organized with core packages in `pkg/` and shared infrastructure in `pkg/log/` and `internal/`.
 
 ### Development Setup
 
@@ -189,7 +189,7 @@ pkg/
 └── utils/          # Utility functions (tokens, costs)
 ```
 
-> **v2 Development**: When working on v2 features, focus on the `pkg/v2/` directory. The v2 engine uses a different architecture with parallel execution, event-driven updates, and the ConversationManager pattern.
+> **v2 Development**: When working on v2 features, focus on the `pkg/` directory. The v2 engine uses a different architecture with parallel execution, event-driven updates, and the ConversationManager pattern.
 
 ### Naming Conventions
 
@@ -498,7 +498,7 @@ git push origin feature/your-feature-name
 
 v2 supports both CLI-based and API-based adapters. API-based adapters communicate directly with provider APIs without requiring CLI installations.
 
-1. Create adapter in `pkg/v2/adapters/`
+1. Create adapter in `pkg/adapters/`
 2. Implement `AgentAdapter` interface:
 
    ```go
@@ -523,13 +523,13 @@ When testing v2 features:
 
 ```bash
 # Run v2-specific tests
-go test -v ./pkg/v2/...
+go test -v ./pkg/...
 
 # Test v2 integration
 go test -v ./test/integration/ -run TestV2
 
 # Test with actual API (requires credentials)
-OPENROUTER_API_KEY=your-key go test -v ./pkg/v2/adapters/ -run TestOpenRouter
+OPENROUTER_API_KEY=your-key go test -v ./pkg/adapters/ -run TestOpenRouter
 
 # Run v2 demo
 ./agentpipe run --v2 -a openrouter:anthropic/claude-3-haiku:Test -p "Hello"

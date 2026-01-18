@@ -95,7 +95,7 @@ agents:
 Use the v2 errors package for consistent error classification:
 
 ```go
-import "github.com/ASRagab/agentpipe/pkg/v2/errors"
+import "github.com/ASRagab/agentpipe/pkg/errors"
 
 // Create typed errors
 errors.NewRateLimitError(agentID, agentName, retryAfter, nil)

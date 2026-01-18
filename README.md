@@ -1253,7 +1253,7 @@ agentpipe/
 
 When creating a new agent adapter, follow the standardized pattern for consistency:
 
-1. **Create adapter structure** in `pkg/v2/adapters/`:
+1. **Create adapter structure** in `pkg/adapters/`:
 
 ```go
 package adapters
@@ -1265,7 +1265,7 @@ import (
     "strings"
     "time"
 
-    "github.com/ASRagab/agentpipe/pkg/v2/core"
+    "github.com/ASRagab/agentpipe/pkg/core"
     "github.com/ASRagab/agentpipe/pkg/log"
 )
 
@@ -1463,7 +1463,7 @@ func init() {
 }
 ```
 
-**See existing adapters** in `pkg/v2/adapters/` for complete reference implementations:
+**See existing adapters** in `pkg/adapters/` for complete reference implementations:
 
 - `claude.go` - Simple stdin-based pattern
 - `codex.go` - Non-interactive exec mode with flags

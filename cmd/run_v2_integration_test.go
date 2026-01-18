@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ASRagab/agentpipe/pkg/v2/config"
-	"github.com/ASRagab/agentpipe/pkg/v2/core"
-	"github.com/ASRagab/agentpipe/pkg/v2/events"
-	"github.com/ASRagab/agentpipe/pkg/v2/manager"
-	"github.com/ASRagab/agentpipe/pkg/v2/persistence"
+	"github.com/ASRagab/agentpipe/pkg/config"
+	"github.com/ASRagab/agentpipe/pkg/core"
+	"github.com/ASRagab/agentpipe/pkg/events"
+	"github.com/ASRagab/agentpipe/pkg/manager"
+	"github.com/ASRagab/agentpipe/pkg/persistence"
 
 	// Import mock adapter to register it
-	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/mock"
+	_ "github.com/ASRagab/agentpipe/pkg/adapters/mock"
 )
 
 // TestRunV2Basic tests running the v2 engine with a mock configuration.

@@ -8,9 +8,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ASRagab/agentpipe/internal/version"
-	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
-	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/api"
-	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/cli"
+	"github.com/ASRagab/agentpipe/pkg/adapters"
+	_ "github.com/ASRagab/agentpipe/pkg/adapters/api"
+	_ "github.com/ASRagab/agentpipe/pkg/adapters/cli"
 )
 
 var (

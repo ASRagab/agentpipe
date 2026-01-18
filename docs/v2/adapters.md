@@ -22,6 +22,7 @@ Adapters connect AgentPipe to different AI providers. v2 supports both API-based
 ### API-Based Adapters
 
 Direct HTTP integration with AI providers. Benefits:
+
 - No external CLI dependencies
 - Lower latency
 - Accurate token counts from API responses
@@ -30,6 +31,7 @@ Direct HTTP integration with AI providers. Benefits:
 ### CLI-Based Adapters
 
 Execute external CLI tools. Benefits:
+
 - Leverage existing CLI installations
 - Support for providers without public APIs
 - Easy to add new providers
@@ -320,7 +322,7 @@ type AgentAdapter interface {
 Register custom adapters:
 
 ```go
-import "github.com/ASRagab/agentpipe/pkg/v2/adapters"
+import "github.com/ASRagab/agentpipe/pkg/adapters"
 
 func init() {
     adapters.Register("my-adapter", func() adapters.AgentAdapter {
@@ -347,6 +349,7 @@ export OPENROUTER_API_KEY="sk-..."
 ### "Unknown adapter: X"
 
 Valid adapter names:
+
 - `openrouter`
 - `claude-api`
 - `claude`

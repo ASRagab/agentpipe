@@ -14,14 +14,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ASRagab/agentpipe/internal/registry"
-	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
-	"github.com/ASRagab/agentpipe/pkg/v2/config"
-	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/adapters"
+	"github.com/ASRagab/agentpipe/pkg/config"
+	"github.com/ASRagab/agentpipe/pkg/core"
 
 	// Import v2 adapters to register them for v2 doctor checks
-	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/api"
-	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/cli"
-	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/mock"
+	_ "github.com/ASRagab/agentpipe/pkg/adapters/api"
+	_ "github.com/ASRagab/agentpipe/pkg/adapters/cli"
+	_ "github.com/ASRagab/agentpipe/pkg/adapters/mock"
 )
 
 type AgentCheck struct {

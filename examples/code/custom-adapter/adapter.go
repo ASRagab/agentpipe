@@ -14,10 +14,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/ASRagab/agentpipe/pkg/adapters"
+	"github.com/ASRagab/agentpipe/pkg/core"
+	"github.com/ASRagab/agentpipe/pkg/errors"
 	"github.com/ASRagab/agentpipe/pkg/log"
-	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
-	"github.com/ASRagab/agentpipe/pkg/v2/core"
-	"github.com/ASRagab/agentpipe/pkg/v2/errors"
 )
 
 // EchoAdapter is an example custom adapter that echoes back the last user message.

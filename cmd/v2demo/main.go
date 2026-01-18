@@ -14,15 +14,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ASRagab/agentpipe/pkg/core"
+	"github.com/ASRagab/agentpipe/pkg/events"
 	"github.com/ASRagab/agentpipe/pkg/log"
-	"github.com/ASRagab/agentpipe/pkg/v2/core"
-	"github.com/ASRagab/agentpipe/pkg/v2/events"
-	"github.com/ASRagab/agentpipe/pkg/v2/manager"
-	"github.com/ASRagab/agentpipe/pkg/v2/persistence"
+	"github.com/ASRagab/agentpipe/pkg/manager"
+	"github.com/ASRagab/agentpipe/pkg/persistence"
 
 	// Import adapters to register them
-	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/api"
-	"github.com/ASRagab/agentpipe/pkg/v2/config"
+	_ "github.com/ASRagab/agentpipe/pkg/adapters/api"
+	"github.com/ASRagab/agentpipe/pkg/config"
 )
 
 func main() {

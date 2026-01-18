@@ -9,11 +9,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ASRagab/agentpipe/pkg/v2/config"
-	"github.com/ASRagab/agentpipe/pkg/v2/core"
-	"github.com/ASRagab/agentpipe/pkg/v2/events"
-	"github.com/ASRagab/agentpipe/pkg/v2/manager"
-	"github.com/ASRagab/agentpipe/pkg/v2/tui"
+	"github.com/ASRagab/agentpipe/pkg/config"
+	"github.com/ASRagab/agentpipe/pkg/core"
+	"github.com/ASRagab/agentpipe/pkg/events"
+	"github.com/ASRagab/agentpipe/pkg/manager"
+	"github.com/ASRagab/agentpipe/pkg/tui"
 )
 
 func main() {
