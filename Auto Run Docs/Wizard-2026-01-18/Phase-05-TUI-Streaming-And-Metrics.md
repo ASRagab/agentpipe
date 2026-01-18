@@ -78,11 +78,21 @@ This phase enhances the TUI with real-time streaming response display and compre
     - Updated TUI handleEvent to add inline error messages to conversation and cancel streaming on agent error
     - Added 17 comprehensive tests covering initialization, error adding, type classification, formatting, rendering, and streaming cancellation
 
-- [ ] Add token/cost estimation for user input:
+- [x] Add token/cost estimation for user input:
   - Estimate input tokens as user types (simple word count * 1.3)
   - Show estimated cost in input panel footer
   - Update estimate in real-time as user types
   - Clear when message sent
+  - **COMPLETED**: Added token/cost estimation to InputModel:
+    - Added `showTokenEstimate`, `targetModel`, `lastTokenEstimate`, `lastCostEstimate` fields to InputModel
+    - Implemented `EstimateInputTokens()` function using word count * 1.3 formula
+    - Implemented `EstimateInputCost()` function using provider registry for accurate pricing
+    - Added `updateTokenEstimate()` method for real-time calculation on content change
+    - Added `renderTokenEstimateFooter()` for footer display with format "~15t | ~$0.0001"
+    - Added `SetShowTokenEstimate()`, `SetTargetModel()`, `GetTokenEstimate()`, `GetCostEstimate()` getter/setter methods
+    - Estimates cleared on submit (Ctrl+Enter) and clear (Esc)
+    - Added `TokenEstimateStyle()` and `TokenEstimateHighlightStyle()` to styles package
+    - Comprehensive test coverage (14 test cases covering estimation, formatting, model state, and view rendering)
 
 - [ ] Write tests for streaming display:
   - TestStreamingChunks: Mock chunks arrive, verify display updates

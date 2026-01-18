@@ -387,3 +387,23 @@ func ErrorAgentStyle() lipgloss.Style {
 		Foreground(lipgloss.Color("203")). // Salmon/pink-red
 		Bold(true)
 }
+
+// ===============================
+// Token/Cost Estimation Styles
+// ===============================
+
+// TokenEstimateStyle returns the style for token/cost estimate in input panel footer.
+// Uses a subtle, italicized style to indicate these are estimates.
+func TokenEstimateStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245")). // Subtle gray
+		Italic(true)
+}
+
+// TokenEstimateHighlightStyle returns the style for highlighted token estimates.
+// Used when the estimate is notably high.
+func TokenEstimateHighlightStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("214")). // Orange for attention
+		Italic(true)
+}
