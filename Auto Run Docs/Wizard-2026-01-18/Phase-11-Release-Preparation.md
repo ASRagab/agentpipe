@@ -79,12 +79,14 @@ This phase prepares AgentPipe v2.0.0-mvp for release. All code is finalized, tes
   - ✅ Updated CHANGELOG.md: [2.0.0-mvp] with comparison links
   - **Verified**: `./agentpipe version --v2` shows "v2 Engine Version: 2.0.0-mvp"
 
-- [ ] Finalize CHANGELOG.md:
-  - List all v2.0.0-mvp changes
-  - Categorize: Added, Changed, Deprecated, Fixed
-  - Include migration notes
-  - Add release date
-  - Credit contributors
+- [x] Finalize CHANGELOG.md:
+  - ✅ List all v2.0.0-mvp changes (comprehensive section with 200+ items)
+  - ✅ Categorize: Added, Changed, Deprecated, Fixed, Known Issues, Performance
+  - ✅ Include migration notes (6-step migration guide with table)
+  - ✅ Add release date: 2026-01-18
+  - ✅ Credit contributors: Kevin Elliott, Ahmad Ragab, GitHub Copilot SWE Agent, Dependabot
+  - ✅ Moved [Unreleased] changes (provider updates, model fixes) into v2.0.0-mvp section
+  - ✅ Cleared [Unreleased] for future changes
 
 - [ ] Update Homebrew formula:
   - Update formula in Formula/agentpipe.rb

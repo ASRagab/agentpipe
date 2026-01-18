@@ -7,18 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- Updated `providers.json` with latest models from Catwalk
-  - Anthropic: Added `claude-opus-4-5-20251101` ($5/$25 per 1M tokens)
-  - Gemini: Added `gemini-3-pro-preview`, `gemini-3-flash-preview`
-  - OpenAI: Added `gpt-5.2`, `gpt-5.1-codex` variants (18 models total)
-  - VertexAI: Added Gemini 3 previews and Claude models
-
-### Fixed
-- Fixed invalid model references in example configs
-  - `simple-conversation.yaml`: `claude-4-sonnet` → `claude-sonnet-4-5-20250929`
-  - `brainstorm.yaml`: `claude-3-opus` → `claude-opus-4-5-20251101`
-  - `troubleshooting.md`: `claude-3-haiku` → `claude-3-5-haiku-20241022`
+Nothing yet.
 
 ## [2.0.0-mvp] - 2026-01-18
 
@@ -262,6 +251,30 @@ AgentPipe v2 is a ground-up rewrite focused on **parallel execution**, **real-ti
 | +6 months | v1 end of life |
 
 **Recommendation**: Migrate to v2 within 3 months for best support and new features.
+
+### Additional Changes
+
+- Updated `providers.json` with latest models from Catwalk
+  - Anthropic: Added `claude-opus-4-5-20251101` ($5/$25 per 1M tokens)
+  - Gemini: Added `gemini-3-pro-preview`, `gemini-3-flash-preview`
+  - OpenAI: Added `gpt-5.2`, `gpt-5.1-codex` variants (18 models total)
+  - VertexAI: Added Gemini 3 previews and Claude models
+
+### Fixed in Release
+
+- Fixed invalid model references in example configs
+  - `simple-conversation.yaml`: `claude-4-sonnet` → `claude-sonnet-4-5-20250929`
+  - `brainstorm.yaml`: `claude-3-opus` → `claude-opus-4-5-20251101`
+  - `troubleshooting.md`: `claude-3-haiku` → `claude-3-5-haiku-20241022`
+
+### Contributors
+
+Thank you to all contributors who made this release possible:
+
+- **Kevin Elliott** - Lead developer and maintainer
+- **Ahmad Ragab** - V2 architecture, testing, and release automation
+- **GitHub Copilot SWE Agent** - AI-assisted development
+- **Dependabot** - Dependency updates
 
 ## [0.7.0] - 2025-01-27
 
