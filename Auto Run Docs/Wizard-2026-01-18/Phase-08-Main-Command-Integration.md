@@ -101,15 +101,30 @@ This phase integrates all v2 components into the main agentpipe command, providi
   - `TestRunV2ConversationSummary`: Tests conversation summary generation with metrics
   All tests use atomic counters (`sync/atomic.Int32`) for race-safe event counting. Tests pass with `-race` flag.
 
-- [ ] Update help text and documentation:
+- [x] Update help text and documentation:
   - Update `agentpipe run --help` with v2 options
   - Add examples for common v2 workflows
   - Document v1 vs v2 differences
   - Add troubleshooting section for v2 issues
 
-- [ ] Create v2 example scripts in `examples/v2/`:
+  **Completed:** Enhanced `cmd/run.go` with comprehensive v2 documentation in the Long description field. Added:
+  - V2 ENGINE section explaining parallel execution, persistence, and graceful degradation features
+  - V2 EXAMPLES section with 6 practical command examples (basic, timeout/save-dir, resume, headless, export, migrate)
+  - V1 VS V2 DIFFERENCES table comparing execution model, failure handling, persistence, config format, and interactive commands
+  - V2 INTERACTIVE COMMANDS section documenting /save, /export, /status, /retry, /summary, /help, /quit
+  - V2 ENVIRONMENT VARIABLES section documenting AGENTPIPE_V2, AGENTPIPE_CONFIG, AGENTPIPE_SAVE_DIR, AGENTPIPE_TIMEOUT
+  - V2 TROUBLESHOOTING section with solutions for "failed to resume", "all agents failed", "config migration", and "timeout errors"
+
+- [x] Create v2 example scripts in `examples/v2/`:
   - `basic-conversation.sh`: Simple two-agent conversation
   - `headless-query.sh`: Single question, piped output
   - `resume-conversation.sh`: Save and resume demo
   - `multi-model-comparison.sh`: Same question to multiple models
   - Make scripts executable with proper shebang
+
+  **Completed:** Created 4 comprehensive example scripts in `examples/v2/`:
+  - `basic-conversation.sh`: Demonstrates TUI mode with auto-save, config validation, and environment checks
+  - `headless-query.sh`: Shows piped input support, clean stdout output, and stderr metrics for CI/CD integration
+  - `resume-conversation.sh`: Full demo of persistence features with start/resume/list/export subcommands
+  - `multi-model-comparison.sh`: Parallel execution with GPT-4o, Claude Sonnet 3.5, and Gemini Pro via OpenRouter
+  All scripts include comprehensive documentation, error handling, and usage examples. Made executable with chmod +x.

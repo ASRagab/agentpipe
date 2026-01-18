@@ -58,7 +58,84 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Start a conversation between AI agents",
 	Long: `Start a conversation between multiple AI agents. You can specify agents
-directly via command line flags or use a YAML configuration file.`,
+directly via command line flags or use a YAML configuration file.
+
+V2 ENGINE (RECOMMENDED):
+  The v2 engine introduces parallel execution, persistence, and graceful degradation.
+  Enable it with --v2 flag or AGENTPIPE_V2=true environment variable.
+
+  Features:
+    • Parallel agent execution (faster responses)
+    • Auto-save and resume conversations
+    • Circuit breaker for agent failures
+    • Graceful degradation when agents fail
+    • Markdown export on exit
+
+V2 EXAMPLES:
+  # Basic v2 conversation
+  agentpipe run --v2 -c config.yaml
+
+  # v2 with custom timeout and save directory
+  agentpipe run --v2 -c config.yaml --v2-timeout 90 --save-dir ./chats
+
+  # Resume a previous conversation
+  agentpipe run --v2 --resume latest
+  agentpipe run --v2 --resume abc12345
+
+  # Headless mode with piped input
+  echo "What is 2+2?" | agentpipe run --v2 -c config.yaml
+
+  # Export conversation to Markdown on exit
+  agentpipe run --v2 -c config.yaml --export conversation.md
+
+  # Migrate v1 config to v2 format (creates backup)
+  agentpipe run --v2 --migrate-config -c old-config.yaml
+
+V1 VS V2 DIFFERENCES:
+  | Feature             | v1               | v2                          |
+  |---------------------|------------------|------------------------------|
+  | Execution           | Sequential       | Parallel (default)           |
+  | Agent failures      | Stops session    | Graceful degradation         |
+  | Persistence         | Manual save      | Auto-save with resume        |
+  | Config format       | orchestrator:    | conversation: (with adapter) |
+  | Interactive cmds    | None             | /save, /status, /retry, etc. |
+
+V2 INTERACTIVE COMMANDS:
+  When running in interactive mode (no piped input), use these commands:
+    /save           Save conversation immediately
+    /export [file]  Export to Markdown (default: conversation_<timestamp>.md)
+    /status         Show agent status and circuit breaker states
+    /retry          Retry failed agents (resets circuit breakers)
+    /summary        Display conversation summary with metrics
+    /help           Show available commands
+    /quit           Exit conversation (also /exit, /q)
+
+V2 ENVIRONMENT VARIABLES:
+  AGENTPIPE_V2=true       Enable v2 engine by default
+  AGENTPIPE_CONFIG=path   Default config file path
+  AGENTPIPE_SAVE_DIR=dir  Directory for conversation saves
+  AGENTPIPE_TIMEOUT=60    Default agent timeout in seconds
+
+V2 TROUBLESHOOTING:
+  "failed to resume conversation":
+    - Check that the conversation ID exists in your save directory
+    - Use 'latest' to resume the most recent conversation
+    - Verify save-dir matches where the conversation was saved
+
+  "all agents failed":
+    - Use /status to see which agents failed and why
+    - Use /retry to reset circuit breakers and try again
+    - Check agent health with 'agentpipe doctor --v2 -c config.yaml'
+
+  "config migration issues":
+    - Backup is saved as <config>.v1.backup before migration
+    - Check the migrated config for correct adapter assignments
+    - See examples/v2/demo-config.yaml for v2 config format
+
+  "timeout errors":
+    - Increase timeout with --v2-timeout flag
+    - Check network connectivity to AI providers
+    - Some agents (Claude, Cursor) need longer startup times`,
 	Run: runConversation,
 }
 
