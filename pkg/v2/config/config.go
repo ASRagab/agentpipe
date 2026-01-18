@@ -94,14 +94,86 @@ type PersistenceConfig struct {
 }
 
 // LoadConfig loads a configuration file from the given path.
+// It automatically detects and migrates v1 configurations to v2 format.
 func LoadConfig(path string) (*Config, error) {
+	return LoadConfigWithOptions(path, LoadOptions{})
+}
+
+// LoadOptions controls configuration loading behavior.
+type LoadOptions struct {
+	// AutoMigrateV1 enables automatic migration of v1 configs (default: true when not set).
+	AutoMigrateV1 *bool
+	// SaveMigratedConfig saves the migrated config to disk (default: false).
+	SaveMigratedConfig bool
+}
+
+// LoadConfigWithOptions loads a configuration file with custom options.
+func LoadConfigWithOptions(path string, opts LoadOptions) (*Config, error) {
 	// Read file
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Parse YAML
+	// Check for v1 configuration format
+	autoMigrate := true
+	if opts.AutoMigrateV1 != nil {
+		autoMigrate = *opts.AutoMigrateV1
+	}
+
+	if autoMigrate {
+		isV1, detectErr := DetectV1Config(data)
+		if detectErr != nil {
+			log.WithFields(map[string]interface{}{
+				"path":  path,
+				"error": detectErr.Error(),
+			}).Warn("failed to detect v1 config, proceeding with v2 parsing")
+		} else if isV1 {
+			// Migrate v1 config
+			result, migrateErr := MigrateV1Config(data)
+			if migrateErr != nil {
+				return nil, fmt.Errorf("failed to migrate v1 config: %w", migrateErr)
+			}
+
+			// Log deprecation warning
+			log.WithFields(map[string]interface{}{
+				"path":           path,
+				"source_version": result.SourceVersion,
+			}).Warn("v1 configuration format is deprecated; automatically migrated to v2 format")
+
+			for _, warning := range result.Warnings {
+				log.Warn(warning)
+			}
+
+			// Optionally save the migrated config
+			if opts.SaveMigratedConfig {
+				if saveErr := SaveMigratedConfig(path, result.Config); saveErr != nil {
+					log.WithFields(map[string]interface{}{
+						"path":  path,
+						"error": saveErr.Error(),
+					}).Warn("failed to save migrated config")
+				}
+			}
+
+			// Apply defaults to migrated config
+			result.Config.applyDefaults()
+
+			// Validate
+			if err := result.Config.Validate(); err != nil {
+				return nil, fmt.Errorf("invalid migrated configuration: %w", err)
+			}
+
+			log.WithFields(map[string]interface{}{
+				"path":        path,
+				"agent_count": len(result.Config.Agents),
+				"migrated":    true,
+			}).Info("configuration loaded (migrated from v1)")
+
+			return result.Config, nil
+		}
+	}
+
+	// Parse YAML as v2 config
 	var config Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)

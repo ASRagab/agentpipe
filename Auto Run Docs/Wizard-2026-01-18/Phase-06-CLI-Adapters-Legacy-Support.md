@@ -59,7 +59,7 @@ This phase implements CLI-based adapters for agents that operate through command
   - Skip tests if actual CLIs not installed (use build tags)
   - **Completed 2026-01-18**: 30+ test cases covering all adapters, streaming, timeouts, error handling, cost estimation, adapter registration
 
-- [ ] Implement v1 configuration compatibility in `pkg/v2/config/migrate.go`:
+- [x] Implement v1 configuration compatibility in `pkg/v2/config/migrate.go`:
   - DetectV1Config() checking for v1-style fields (no "adapter" field)
   - MigrateV1Config() that:
     - Maps `type: claude` to `adapter: claude-api` (if ANTHROPIC_API_KEY set) or `adapter: claude-cli`
@@ -69,24 +69,28 @@ This phase implements CLI-based adapters for agents that operate through command
     - Logs migration warnings
   - AutoMigrateOnLoad option in config loader
   - SaveMigratedConfig() to write updated config with backup
+  - **Completed 2026-01-18**: Full implementation with V1Config struct, orchestrator migration, automatic adapter detection with API key preference
 
-- [ ] Update configuration loader to handle both formats:
+- [x] Update configuration loader to handle both formats:
   - LoadConfig() calls DetectV1Config() first
   - If v1 detected, call MigrateV1Config()
   - Log deprecation warning about v1 format
   - Continue with v2 initialization
+  - **Completed 2026-01-18**: LoadConfigWithOptions() added with AutoMigrateV1 and SaveMigratedConfig options, seamless v1->v2 migration
 
-- [ ] Write migration tests in `pkg/v2/config/migrate_test.go`:
+- [x] Write migration tests in `pkg/v2/config/migrate_test.go`:
   - TestDetectV1Config: Correctly identifies v1 configs
   - TestMigrateV1Config: All agent types migrate correctly
   - TestMigratePreservesFields: Non-migrated fields preserved
   - TestMigrateWithAPIKey: Prefers API adapter when key available
   - TestLoadV1Config: End-to-end v1 config loading
+  - **Completed 2026-01-18**: 20+ test cases covering detection, migration, field preservation, API key preference, end-to-end loading, save/backup functionality
 
-- [ ] Create example v1-compatible config in `examples/v2/legacy-config.yaml`:
+- [x] Create example v1-compatible config in `examples/v2/legacy-config.yaml`:
   - Use v1 config format with type: claude, type: gemini
   - Document that this format is deprecated but supported
   - Include comment pointing to v2 config format
+  - **Completed 2026-01-18**: Created comprehensive example with 4 agents (claude, gemini, qwen), full deprecation notice, migration behavior documentation
 
 - [ ] Test CLI adapters with real CLIs (manual):
   - Test with Claude CLI if installed
