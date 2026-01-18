@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/ASRagab/agentpipe/pkg/agent"
 )
 
 // Preview tile styles

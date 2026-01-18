@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kevinelliott/agentpipe/internal/version"
+	"github.com/ASRagab/agentpipe/internal/version"
 )
 
 func TestPrintRunningModeIndicator(t *testing.T) {

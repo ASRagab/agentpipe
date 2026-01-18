@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/log"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 // ConversationMetadata contains summary information about a saved conversation.

@@ -211,9 +211,9 @@ Thank you to everyone who made this release possible:
 
 ## 🔗 Links
 
-- **GitHub Repository**: https://github.com/kevinelliott/agentpipe
-- **Full Changelog**: https://github.com/kevinelliott/agentpipe/blob/main/CHANGELOG.md
-- **Issue Tracker**: https://github.com/kevinelliott/agentpipe/issues
+- **GitHub Repository**: https://github.com/ASRagab/agentpipe
+- **Full Changelog**: https://github.com/ASRagab/agentpipe/blob/main/CHANGELOG.md
+- **Issue Tracker**: https://github.com/ASRagab/agentpipe/issues
 
 ---
 

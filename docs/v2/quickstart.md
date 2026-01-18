@@ -35,13 +35,13 @@ brew install kevinelliott/tap/agentpipe
 ### Option 2: Go Install
 
 ```bash
-go install github.com/kevinelliott/agentpipe@latest
+go install github.com/ASRagab/agentpipe@latest
 ```
 
 ### Option 3: Build from Source
 
 ```bash
-git clone https://github.com/kevinelliott/agentpipe.git
+git clone https://github.com/ASRagab/agentpipe.git
 cd agentpipe
 go build -o agentpipe .
 ```
@@ -189,5 +189,5 @@ AgentPipe requires a minimum terminal size of 80x24. Resize your terminal window
 
 ## Getting Help
 
-- **GitHub Issues**: [github.com/kevinelliott/agentpipe/issues](https://github.com/kevinelliott/agentpipe/issues)
-- **Discussions**: [github.com/kevinelliott/agentpipe/discussions](https://github.com/kevinelliott/agentpipe/discussions)
+- **GitHub Issues**: [github.com/ASRagab/agentpipe/issues](https://github.com/ASRagab/agentpipe/issues)
+- **Discussions**: [github.com/ASRagab/agentpipe/discussions](https://github.com/ASRagab/agentpipe/discussions)

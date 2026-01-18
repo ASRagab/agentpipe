@@ -7,8 +7,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/config"
+	"github.com/ASRagab/agentpipe/pkg/agent"
+	"github.com/ASRagab/agentpipe/pkg/config"
 )
 
 // BenchmarkConfigValidate benchmarks configuration validation

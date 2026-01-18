@@ -11,11 +11,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
-	"github.com/kevinelliott/agentpipe/pkg/v2/tui/components"
-	"github.com/kevinelliott/agentpipe/pkg/v2/tui/styles"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/v2/tui/components"
+	"github.com/ASRagab/agentpipe/pkg/v2/tui/styles"
 )
 
 // FocusedPanel represents which panel currently has focus.

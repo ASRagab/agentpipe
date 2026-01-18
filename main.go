@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/kevinelliott/agentpipe/cmd"
+	"github.com/ASRagab/agentpipe/cmd"
 )
 
 func main() {

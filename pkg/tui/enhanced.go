@@ -15,13 +15,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rs/zerolog"
 
-	"github.com/kevinelliott/agentpipe/internal/branding"
-	"github.com/kevinelliott/agentpipe/internal/version"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/config"
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/logger"
-	"github.com/kevinelliott/agentpipe/pkg/orchestrator"
+	"github.com/ASRagab/agentpipe/internal/branding"
+	"github.com/ASRagab/agentpipe/internal/version"
+	"github.com/ASRagab/agentpipe/pkg/agent"
+	"github.com/ASRagab/agentpipe/pkg/config"
+	"github.com/ASRagab/agentpipe/pkg/log"
+	"github.com/ASRagab/agentpipe/pkg/logger"
+	"github.com/ASRagab/agentpipe/pkg/orchestrator"
 )
 
 type panel int
@@ -1556,7 +1556,7 @@ func (m *EnhancedModel) renderLogo() string {
 	// Use the colored ASCII logo from branding package
 	logo := branding.ASCIILogo
 
-	versionInfo := fmt.Sprintf("%s // https://github.com/kevinelliott/agentpipe", version.Version)
+	versionInfo := fmt.Sprintf("%s // https://github.com/ASRagab/agentpipe", version.Version)
 
 	content := lipgloss.JoinVertical(lipgloss.Center,
 		logo, // Already has color, no need to style it

@@ -434,7 +434,7 @@ AgentPipe using excessive CPU.
 
 2. **Update to latest version:**
    ```bash
-   go install github.com/kevinelliott/agentpipe@latest
+   go install github.com/ASRagab/agentpipe@latest
    ```
 
 3. **Try headless mode to eliminate TUI overhead:**
@@ -645,6 +645,6 @@ Include in your bug report:
 
 ### Resources
 
-- **GitHub Issues**: [github.com/kevinelliott/agentpipe/issues](https://github.com/kevinelliott/agentpipe/issues)
-- **Discussions**: [github.com/kevinelliott/agentpipe/discussions](https://github.com/kevinelliott/agentpipe/discussions)
+- **GitHub Issues**: [github.com/ASRagab/agentpipe/issues](https://github.com/ASRagab/agentpipe/issues)
+- **Discussions**: [github.com/ASRagab/agentpipe/discussions](https://github.com/ASRagab/agentpipe/discussions)
 - **Documentation**: See [[quickstart]], [[configuration]], [[adapters]], [[tui]]

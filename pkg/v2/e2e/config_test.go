@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/v2/config"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
+	"github.com/ASRagab/agentpipe/pkg/v2/config"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
 )
 
 // TestV1ConfigMigration verifies that v1 configuration files are migrated correctly.
@@ -399,17 +399,26 @@ agents:
   - id: fast-agent
     name: Fast Agent
     type: mock
+    adapter: mock
     model: mock-model
     timeout: 10s
+    config:
+      system_prompt: "fast agent"
   - id: slow-agent
     name: Slow Agent
     type: mock
+    adapter: mock
     model: mock-model
     timeout: 60s
+    config:
+      system_prompt: "slow agent"
   - id: default-agent
     name: Default Agent
     type: mock
+    adapter: mock
     model: mock-model
+    config:
+      system_prompt: "default agent"
 `
 		configPath := filepath.Join(tempDir, "timeout.yaml")
 		if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {

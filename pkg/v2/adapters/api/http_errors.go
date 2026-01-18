@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/errors"
+	"github.com/ASRagab/agentpipe/pkg/v2/errors"
 )
 
 // HTTPErrorClassifier provides utilities for classifying HTTP errors

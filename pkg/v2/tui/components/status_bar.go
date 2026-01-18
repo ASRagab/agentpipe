@@ -8,8 +8,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/tui/styles"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/tui/styles"
 )
 
 // StatusBarModel manages the status bar at the top of the TUI.

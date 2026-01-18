@@ -15,11 +15,11 @@ import (
 	"time"
 
 	// Import the API adapter package to register the openrouter adapter
-	_ "github.com/kevinelliott/agentpipe/pkg/v2/adapters/api"
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/api"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
 )
 
 func main() {

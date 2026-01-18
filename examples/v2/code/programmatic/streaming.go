@@ -14,10 +14,10 @@ import (
 	"time"
 
 	// Import to register adapters
-	_ "github.com/kevinelliott/agentpipe/pkg/v2/adapters/api"
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/api"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 // RunStreamingExample demonstrates streaming responses from an adapter.

@@ -5,7 +5,7 @@
 
 set -e
 
-echo "🍺 Setting up Homebrew tap for kevinelliott/agentpipe"
+echo "🍺 Setting up Homebrew tap for ASRagab/agentpipe"
 echo ""
 
 # Check if gh CLI is installed
@@ -108,7 +108,7 @@ brew install --HEAD kevinelliott/tap/agentpipe
 ## Issues
 
 For issues with formulae, please file them at the respective project repositories:
-- [AgentPipe Issues](https://github.com/kevinelliott/agentpipe/issues)
+- [AgentPipe Issues](https://github.com/ASRagab/agentpipe/issues)
 
 For tap-specific issues:
 - [Tap Issues](https://github.com/kevinelliott/homebrew-tap/issues)

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 func TestNewAgentListModel(t *testing.T) {
@@ -243,8 +243,8 @@ func TestTruncateString(t *testing.T) {
 		{"short", 10, "short"},
 		{"exactly10c", 10, "exactly10c"},
 		{"this is too long", 10, "this is..."},
-		{"abc", 3, "abc"}, // Edge case: maxLen equals length
-		{"ab", 5, "ab"},   // String shorter than max
+		{"abc", 3, "abc"},   // Edge case: maxLen equals length
+		{"ab", 5, "ab"},     // String shorter than max
 		{"test", 2, "test"}, // Edge case: maxLen < 3, don't truncate
 	}
 

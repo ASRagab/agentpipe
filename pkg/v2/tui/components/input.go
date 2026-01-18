@@ -8,8 +8,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/kevinelliott/agentpipe/pkg/utils"
-	"github.com/kevinelliott/agentpipe/pkg/v2/tui/styles"
+	"github.com/ASRagab/agentpipe/pkg/utils"
+	"github.com/ASRagab/agentpipe/pkg/v2/tui/styles"
 )
 
 // InputModel manages the user input panel.

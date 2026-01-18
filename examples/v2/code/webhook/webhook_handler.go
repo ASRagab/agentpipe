@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 // WebhookConfig contains configuration for the webhook handler.
@@ -253,8 +253,8 @@ type Metrics struct {
 
 // ConversationStartedPayload is the data for conversation.started events.
 type ConversationStartedPayload struct {
-	ConversationID string              `json:"conversation_id"`
-	Agents         []AgentPayload      `json:"agents"`
+	ConversationID string         `json:"conversation_id"`
+	Agents         []AgentPayload `json:"agents"`
 }
 
 // AgentPayload represents an agent in event payloads.

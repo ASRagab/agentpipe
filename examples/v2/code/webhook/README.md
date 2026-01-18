@@ -45,8 +45,8 @@ go run main.go webhook_handler.go
 
 ```go
 import (
-    "github.com/kevinelliott/agentpipe/pkg/v2/core"
-    "github.com/kevinelliott/agentpipe/pkg/v2/events"
+    "github.com/ASRagab/agentpipe/pkg/v2/core"
+    "github.com/ASRagab/agentpipe/pkg/v2/events"
 )
 
 eventBus := events.NewBus()

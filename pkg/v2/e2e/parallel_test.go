@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
 )
 
 // TestParallelTiming verifies that N agents complete in O(1) not O(N).

@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/config"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
-	"github.com/kevinelliott/agentpipe/pkg/v2/persistence"
+	"github.com/ASRagab/agentpipe/pkg/v2/config"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/v2/persistence"
 
 	// Import mock adapter to register it
-	_ "github.com/kevinelliott/agentpipe/pkg/v2/adapters/mock"
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/mock"
 )
 
 // TestRunV2Basic tests running the v2 engine with a mock configuration.
@@ -539,10 +539,10 @@ agents:
 // TestRunV2CommandRecognition tests that v2 special commands are properly recognized.
 func TestRunV2CommandRecognition(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       string
-		isCommand   bool
-		isExitCmd   bool
+		name      string
+		input     string
+		isCommand bool
+		isExitCmd bool
 	}{
 		{"normal text", "Hello world", false, false},
 		{"save command", "/save", true, false},

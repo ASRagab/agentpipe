@@ -6,8 +6,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 // MockAdapter is a configurable adapter for testing purposes.

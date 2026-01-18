@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/config"
+	"github.com/ASRagab/agentpipe/pkg/agent"
+	"github.com/ASRagab/agentpipe/pkg/config"
 )
 
 // TestNewState tests creating a new state

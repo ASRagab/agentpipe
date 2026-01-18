@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/ASRagab/agentpipe/pkg/agent"
 )
 
 func TestExportJSON(t *testing.T) {

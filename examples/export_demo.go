@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/export"
+	"github.com/ASRagab/agentpipe/pkg/agent"
+	"github.com/ASRagab/agentpipe/pkg/export"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/kevinelliott/agentpipe/pkg/v2/adapters/mock" // Register mock adapter
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/mock" // Register mock adapter
 )
 
 func TestLoadConfig(t *testing.T) {

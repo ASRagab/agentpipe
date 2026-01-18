@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
 )
 
 func main() {
@@ -76,10 +76,10 @@ func main() {
 	config := manager.Config{
 		Timeout: 30 * time.Second,
 		GracefulDegradation: manager.GracefulDegradationConfig{
-			Enabled:              true,
-			PauseOnAllFailed:     true,
+			Enabled:                  true,
+			PauseOnAllFailed:         true,
 			RetryFailedOnNextMessage: true,
-			EmitSystemMessages:   true,
+			EmitSystemMessages:       true,
 		},
 	}
 

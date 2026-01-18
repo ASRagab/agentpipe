@@ -380,8 +380,8 @@ Your v1 installation remains functional.
 
 ## Getting Help
 
-- **Migration issues**: [GitHub Issues](https://github.com/kevinelliott/agentpipe/issues)
-- **Questions**: [GitHub Discussions](https://github.com/kevinelliott/agentpipe/discussions)
+- **Migration issues**: [GitHub Issues](https://github.com/ASRagab/agentpipe/issues)
+- **Questions**: [GitHub Discussions](https://github.com/ASRagab/agentpipe/discussions)
 - **Documentation**: See [[configuration]] for full v2 config reference
 
 ## Quick Reference

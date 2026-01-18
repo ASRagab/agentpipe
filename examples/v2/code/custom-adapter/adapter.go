@@ -14,10 +14,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/errors"
+	"github.com/ASRagab/agentpipe/pkg/log"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/errors"
 )
 
 // EchoAdapter is an example custom adapter that echoes back the last user message.
@@ -173,8 +173,8 @@ func (e *EchoAdapter) SendMessage(ctx context.Context, messages []core.Message) 
 	// In a real adapter, you would get these from the API response
 	metrics := &core.Metrics{
 		Duration:     duration,
-		InputTokens:  len(lastUserMessage) / 4,  // Rough estimate
-		OutputTokens: len(response) / 4,         // Rough estimate
+		InputTokens:  len(lastUserMessage) / 4, // Rough estimate
+		OutputTokens: len(response) / 4,        // Rough estimate
 		TotalTokens:  (len(lastUserMessage) + len(response)) / 4,
 		Model:        e.model,
 		Cost:         0.0001, // Example cost

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	v2errors "github.com/kevinelliott/agentpipe/pkg/v2/errors"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	v2errors "github.com/ASRagab/agentpipe/pkg/v2/errors"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
 )
 
 func TestDefaultTimeoutConfig(t *testing.T) {

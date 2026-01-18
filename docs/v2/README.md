@@ -98,5 +98,5 @@ examples/v2/code/
 
 ## Need Help?
 
-- **GitHub Issues**: [github.com/kevinelliott/agentpipe/issues](https://github.com/kevinelliott/agentpipe/issues)
-- **Discussions**: [github.com/kevinelliott/agentpipe/discussions](https://github.com/kevinelliott/agentpipe/discussions)
+- **GitHub Issues**: [github.com/ASRagab/agentpipe/issues](https://github.com/ASRagab/agentpipe/issues)
+- **Discussions**: [github.com/ASRagab/agentpipe/discussions](https://github.com/ASRagab/agentpipe/discussions)

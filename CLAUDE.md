@@ -68,7 +68,7 @@ AgentPipe is a CLI and TUI application that orchestrates conversations between m
 
 5. **Linting errors**
    - Empty branches: Add comment or `_ = err`
-   - Imports: Use `goimports -local github.com/kevinelliott/agentpipe`
+   - Imports: Use `goimports -local github.com/ASRagab/agentpipe`
    - Deprecated methods: Updated viewport scroll methods
 
 ### Agent Adapters
@@ -164,7 +164,7 @@ golangci-lint run --timeout=5m
 
 # Format
 gofmt -w .
-goimports -local github.com/kevinelliott/agentpipe -w .
+goimports -local github.com/ASRagab/agentpipe -w .
 
 # Run with TUI
 ./agentpipe run -t -c examples/brainstorm.yaml

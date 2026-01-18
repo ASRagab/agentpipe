@@ -13,16 +13,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/internal/bridge"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/artifact"
-	"github.com/kevinelliott/agentpipe/pkg/config"
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/logger"
-	"github.com/kevinelliott/agentpipe/pkg/metrics"
-	"github.com/kevinelliott/agentpipe/pkg/middleware"
-	"github.com/kevinelliott/agentpipe/pkg/ratelimit"
-	"github.com/kevinelliott/agentpipe/pkg/utils"
+	"github.com/ASRagab/agentpipe/internal/bridge"
+	"github.com/ASRagab/agentpipe/pkg/agent"
+	"github.com/ASRagab/agentpipe/pkg/artifact"
+	"github.com/ASRagab/agentpipe/pkg/config"
+	"github.com/ASRagab/agentpipe/pkg/log"
+	"github.com/ASRagab/agentpipe/pkg/logger"
+	"github.com/ASRagab/agentpipe/pkg/metrics"
+	"github.com/ASRagab/agentpipe/pkg/middleware"
+	"github.com/ASRagab/agentpipe/pkg/ratelimit"
+	"github.com/ASRagab/agentpipe/pkg/utils"
 )
 
 // ConversationMode defines how agents take turns in a conversation.
@@ -86,24 +86,24 @@ type OrchestratorConfig struct {
 // It manages agent registration, turn-taking, message history, and logging.
 // All methods are safe for concurrent use.
 type Orchestrator struct {
-	config            OrchestratorConfig
-	agents            []agent.Agent
-	messages          []agent.Message
-	rateLimiters      map[string]*ratelimit.Limiter // per-agent rate limiters
-	middlewareChain   *middleware.Chain             // message processing middleware
-	mu                sync.RWMutex
-	writer            io.Writer
-	logger            *logger.ChatLogger
-	currentTurnNumber int                     // tracks the current turn number for middleware context
-	metrics           *metrics.Metrics        // Prometheus metrics for monitoring
-	bridgeEmitter     bridge.BridgeEmitter    // optional streaming bridge for real-time updates
-	conversationStart time.Time               // conversation start time for duration tracking
-	commandInfo       *bridge.CommandInfo     // information about the command that started this conversation
-	summary           *bridge.SummaryMetadata // conversation summary (populated after completion if enabled)
-	artifactWriter    *artifact.Writer        // optional artifact writer for saving extracted artifacts
-	artifactConfig    artifact.Config         // artifact extraction configuration
-	artifactCallback  ArtifactCallback        // optional callback for artifact save notifications
-	collectedArtifacts []artifact.Artifact    // tracks all artifacts created during conversation for context injection
+	config             OrchestratorConfig
+	agents             []agent.Agent
+	messages           []agent.Message
+	rateLimiters       map[string]*ratelimit.Limiter // per-agent rate limiters
+	middlewareChain    *middleware.Chain             // message processing middleware
+	mu                 sync.RWMutex
+	writer             io.Writer
+	logger             *logger.ChatLogger
+	currentTurnNumber  int                     // tracks the current turn number for middleware context
+	metrics            *metrics.Metrics        // Prometheus metrics for monitoring
+	bridgeEmitter      bridge.BridgeEmitter    // optional streaming bridge for real-time updates
+	conversationStart  time.Time               // conversation start time for duration tracking
+	commandInfo        *bridge.CommandInfo     // information about the command that started this conversation
+	summary            *bridge.SummaryMetadata // conversation summary (populated after completion if enabled)
+	artifactWriter     *artifact.Writer        // optional artifact writer for saving extracted artifacts
+	artifactConfig     artifact.Config         // artifact extraction configuration
+	artifactCallback   ArtifactCallback        // optional callback for artifact save notifications
+	collectedArtifacts []artifact.Artifact     // tracks all artifacts created during conversation for context injection
 }
 
 // NewOrchestrator creates a new Orchestrator with the given configuration.
@@ -208,8 +208,8 @@ func (o *Orchestrator) SetArtifactConfig(cfg artifact.Config) {
 		o.artifactWriter = artifact.NewWriter(cfg.OutputDir)
 
 		log.WithFields(map[string]interface{}{
-			"output_dir":       cfg.OutputDir,
-			"instruct_agents":  cfg.InstructAgents,
+			"output_dir":      cfg.OutputDir,
+			"instruct_agents": cfg.InstructAgents,
 		}).Info("artifact extraction enabled")
 	} else {
 		o.artifactWriter = nil

@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	// Import v2 adapters to ensure they are registered in their init() functions
-	_ "github.com/kevinelliott/agentpipe/pkg/v2/adapters/api"
-	_ "github.com/kevinelliott/agentpipe/pkg/v2/adapters/mock"
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/api"
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/mock"
 )
 
 func TestDoctorV2FlagsExist(t *testing.T) {

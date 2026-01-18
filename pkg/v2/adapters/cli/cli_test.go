@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 // Test helper: create a mock CLI script that echoes responses
@@ -310,8 +310,8 @@ func TestEstimateTokens(t *testing.T) {
 		expected int
 	}{
 		{"", 0},
-		{"a", 0},   // Less than 4 chars
-		{"test", 1}, // 4 chars = 1 token
+		{"a", 0},           // Less than 4 chars
+		{"test", 1},        // 4 chars = 1 token
 		{"hello world", 2}, // 11 chars = ~2 tokens
 	}
 

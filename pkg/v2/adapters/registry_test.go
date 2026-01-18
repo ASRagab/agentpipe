@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 // testAdapter is a simple adapter for testing purposes

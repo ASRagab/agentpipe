@@ -15,12 +15,12 @@ import (
 	"time"
 
 	// Import to register adapters
-	_ "github.com/kevinelliott/agentpipe/pkg/v2/adapters/api"
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/api"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
-	"github.com/kevinelliott/agentpipe/pkg/v2/persistence"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/v2/persistence"
 )
 
 // RunPersistenceExample demonstrates save/load functionality.
@@ -217,7 +217,7 @@ func RunAutoSaveExample() {
 	config := manager.Config{
 		Timeout: 30 * time.Second,
 		Persistence: manager.PersistenceConfig{
-			Enabled:      true,            // Enable auto-save
+			Enabled:      true, // Enable auto-save
 			SaveDir:      tempDir,
 			SaveInterval: 5 * time.Second, // Also save every 5 seconds
 		},

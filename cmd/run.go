@@ -15,17 +15,17 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/kevinelliott/agentpipe/internal/bridge"
-	"github.com/kevinelliott/agentpipe/internal/version"
-	_ "github.com/kevinelliott/agentpipe/pkg/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/agent"
-	"github.com/kevinelliott/agentpipe/pkg/artifact"
-	"github.com/kevinelliott/agentpipe/pkg/config"
-	"github.com/kevinelliott/agentpipe/pkg/conversation"
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/logger"
-	"github.com/kevinelliott/agentpipe/pkg/orchestrator"
-	"github.com/kevinelliott/agentpipe/pkg/tui"
+	"github.com/ASRagab/agentpipe/internal/bridge"
+	"github.com/ASRagab/agentpipe/internal/version"
+	_ "github.com/ASRagab/agentpipe/pkg/adapters"
+	"github.com/ASRagab/agentpipe/pkg/agent"
+	"github.com/ASRagab/agentpipe/pkg/artifact"
+	"github.com/ASRagab/agentpipe/pkg/config"
+	"github.com/ASRagab/agentpipe/pkg/conversation"
+	"github.com/ASRagab/agentpipe/pkg/log"
+	"github.com/ASRagab/agentpipe/pkg/logger"
+	"github.com/ASRagab/agentpipe/pkg/orchestrator"
+	"github.com/ASRagab/agentpipe/pkg/tui"
 )
 
 var (

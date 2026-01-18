@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/errors"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/log"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/errors"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
 )
 
 // TimeoutConfig contains timeout configuration for agent execution.

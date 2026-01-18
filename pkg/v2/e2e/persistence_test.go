@@ -10,9 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
-	"github.com/kevinelliott/agentpipe/pkg/v2/persistence"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/persistence"
 )
 
 // TestSaveAndResume verifies full conversation save and resume functionality.

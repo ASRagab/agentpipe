@@ -10,7 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/ASRagab/agentpipe/pkg/log"
 )
 
 // V1Config represents the legacy v1 configuration format.

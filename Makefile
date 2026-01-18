@@ -16,9 +16,9 @@ INSTALL?=install
 
 # Go build flags
 LDFLAGS=-ldflags "-w -s \
-	-X github.com/kevinelliott/agentpipe/internal/version.Version=$(VERSION) \
-	-X github.com/kevinelliott/agentpipe/internal/version.CommitHash=$(COMMIT) \
-	-X github.com/kevinelliott/agentpipe/internal/version.BuildDate=$(DATE)"
+	-X github.com/ASRagab/agentpipe/internal/version.Version=$(VERSION) \
+	-X github.com/ASRagab/agentpipe/internal/version.CommitHash=$(COMMIT) \
+	-X github.com/ASRagab/agentpipe/internal/version.BuildDate=$(DATE)"
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'

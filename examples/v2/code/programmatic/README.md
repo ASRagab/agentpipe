@@ -36,7 +36,7 @@ go run main.go
 ### 1. Core Types
 
 ```go
-import "github.com/kevinelliott/agentpipe/pkg/v2/core"
+import "github.com/ASRagab/agentpipe/pkg/v2/core"
 
 // Create an agent
 agent := core.Agent{
@@ -63,8 +63,8 @@ conv := core.NewConversation(agents)
 
 ```go
 import (
-    "github.com/kevinelliott/agentpipe/pkg/v2/manager"
-    "github.com/kevinelliott/agentpipe/pkg/v2/events"
+    "github.com/ASRagab/agentpipe/pkg/v2/manager"
+    "github.com/ASRagab/agentpipe/pkg/v2/events"
 )
 
 // Create event bus
@@ -111,7 +111,7 @@ eventBus.SubscribeAll(func(event core.Event) {
 ### 4. Streaming
 
 ```go
-import "github.com/kevinelliott/agentpipe/pkg/v2/adapters"
+import "github.com/ASRagab/agentpipe/pkg/v2/adapters"
 
 // Get the adapter
 adapter, _ := adapters.Get("openrouter")
@@ -124,7 +124,7 @@ metrics, err := adapter.StreamMessage(ctx, messages, os.Stdout)
 ### 5. Loading Configuration
 
 ```go
-import "github.com/kevinelliott/agentpipe/pkg/v2/config"
+import "github.com/ASRagab/agentpipe/pkg/v2/config"
 
 // Load from YAML file
 cfg, err := config.LoadConfig("config.yaml")

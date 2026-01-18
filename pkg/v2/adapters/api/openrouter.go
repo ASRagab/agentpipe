@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/errors"
+	"github.com/ASRagab/agentpipe/pkg/log"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/errors"
 )
 
 const (
@@ -27,14 +27,14 @@ const (
 
 // OpenRouterAdapter implements the AgentAdapter interface for OpenRouter's API.
 type OpenRouterAdapter struct {
-	apiKey         string
-	model          string
-	temperature    float64
-	maxTokens      int
-	httpClient     *http.Client
-	systemPrompt   string
-	agentID        string
-	agentName      string
+	apiKey          string
+	model           string
+	temperature     float64
+	maxTokens       int
+	httpClient      *http.Client
+	systemPrompt    string
+	agentID         string
+	agentName       string
 	errorClassifier *HTTPErrorClassifier
 }
 
@@ -464,7 +464,7 @@ func (o *OpenRouterAdapter) processStream(body io.Reader, writer io.Writer) (*ch
 func (o *OpenRouterAdapter) setHeaders(req *http.Request) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+o.apiKey)
-	req.Header.Set("HTTP-Referer", "https://github.com/kevinelliott/agentpipe")
+	req.Header.Set("HTTP-Referer", "https://github.com/ASRagab/agentpipe")
 	req.Header.Set("X-Title", "AgentPipe")
 }
 

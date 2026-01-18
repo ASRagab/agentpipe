@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/log"
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/log"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 // CLIAdapter extends AgentAdapter with CLI-specific methods.
@@ -36,13 +36,13 @@ type CLIAdapter interface {
 
 // BaseCLIAdapter provides common functionality for CLI-based adapters.
 type BaseCLIAdapter struct {
-	cliPath     string
-	cliName     string
-	model       string
+	cliPath      string
+	cliName      string
+	model        string
 	systemPrompt string
-	extraFlags  []string
-	agentName   string
-	agentID     string
+	extraFlags   []string
+	agentName    string
+	agentID      string
 }
 
 // CommonCLILocations are common directories to search for CLI binaries.

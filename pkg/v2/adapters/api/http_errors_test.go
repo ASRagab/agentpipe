@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/errors"
+	"github.com/ASRagab/agentpipe/pkg/v2/errors"
 )
 
 func TestNewHTTPErrorClassifier(t *testing.T) {

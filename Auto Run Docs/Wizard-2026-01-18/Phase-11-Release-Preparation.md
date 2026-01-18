@@ -122,7 +122,7 @@ This phase prepares AgentPipe v2.0.0-mvp for release. All code is finalized, tes
   - **Tag Message**: Includes summary of v2 parallel execution features
   - **Tagged Commit**: a64ec46 (MAESTRO: docs(phase-11): create v2.0.0-mvp release notes)
   - **Date**: 2026-01-18
-  - **Note**: Tag pushed to fork (ASRagab/agentpipe). For official release, tag should be pushed to upstream (kevinelliott/agentpipe)
+  - **Note**: Tag pushed to fork (ASRagab/agentpipe). For official release, tag should be pushed to upstream (ASRagab/agentpipe)
 
 - [x] Create GitHub release:
   - ✅ Created release via `gh release create v2.0.0-mvp --prerelease`
@@ -130,7 +130,7 @@ This phase prepares AgentPipe v2.0.0-mvp for release. All code is finalized, tes
   - ✅ Marked as prerelease (since version contains "-mvp")
   - ✅ Release notes from RELEASE_NOTES_v2.0.0-mvp.md attached
   - ⚠️ Pre-built binaries NOT attached: GitHub Actions release workflow should attach them automatically when triggered. Manual build and attachment may be required if workflow doesn't run.
-  - **Note**: Release created on fork (ASRagab/agentpipe). For official release, should be created on upstream (kevinelliott/agentpipe) where release workflow has proper permissions and will trigger correctly.
+  - **Note**: Release created on fork (ASRagab/agentpipe). For official release, should be created on upstream (ASRagab/agentpipe) where release workflow has proper permissions and will trigger correctly.
 
 - [x] Announce release:
   - [ ] Post in GitHub Discussions

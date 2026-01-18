@@ -4,17 +4,16 @@ package e2e
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
-	"github.com/kevinelliott/agentpipe/pkg/v2/tui"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/v2/tui"
 )
 
 // newTestTUIModel creates a TUI model for testing.
@@ -36,24 +35,19 @@ func TestTUIRender(t *testing.T) {
 
 		// Create test program
 		tm := teatest.NewTestModel(t, model, teatest.WithInitialTermSize(120, 40))
-		defer tm.Quit()
 
 		// Wait for initial render
 		time.Sleep(200 * time.Millisecond)
 
-		// Get output
-		output := tm.FinalOutput(t, teatest.WithFinalTimeout(3*time.Second))
-		if output == nil {
-			t.Skip("teatest not capturing output correctly")
-			return
-		}
+		// Quit the TUI to capture final output
+		tm.Send(tea.KeyMsg{Type: tea.KeyCtrlC})
 
-		rendered := string(output)
+		// Wait for program to finish
+		tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 
-		// Verify key UI elements are present
-		if !strings.Contains(rendered, "Alice") && !strings.Contains(rendered, "Bob") {
-			t.Log("Note: Agent names might not appear in minimal render")
-		}
+		// Test that TUI ran without panics - output verification is optional
+		// since teatest output capturing can be flaky in headless environments
+		t.Log("TUI render completed without errors")
 	})
 }
 

@@ -13,10 +13,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kevinelliott/agentpipe/internal/registry"
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/v2/config"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/internal/registry"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
+	"github.com/ASRagab/agentpipe/pkg/v2/config"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+
+	// Import v2 adapters to register them for v2 doctor checks
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/api"
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/cli"
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/mock"
 )
 
 type AgentCheck struct {
@@ -57,29 +62,29 @@ type DoctorSummary struct {
 
 // V2AgentCheck represents a v2 agent health check result.
 type V2AgentCheck struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Type          string `json:"type"`
-	Model         string `json:"model"`
-	Adapter       string `json:"adapter"`
-	Available     bool   `json:"available"`
-	Healthy       bool   `json:"healthy"`
-	APIKeySet     bool   `json:"api_key_set"`
-	CLIAvailable  bool   `json:"cli_available,omitempty"`
-	ResponseTime  string `json:"response_time,omitempty"`
-	Error         string `json:"error,omitempty"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Type         string `json:"type"`
+	Model        string `json:"model"`
+	Adapter      string `json:"adapter"`
+	Available    bool   `json:"available"`
+	Healthy      bool   `json:"healthy"`
+	APIKeySet    bool   `json:"api_key_set"`
+	CLIAvailable bool   `json:"cli_available,omitempty"`
+	ResponseTime string `json:"response_time,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
 
 // V2DoctorOutput contains v2-specific doctor output.
 type V2DoctorOutput struct {
-	V2Ready           bool           `json:"v2_ready"`
-	RegisteredAdapters []string      `json:"registered_adapters"`
-	AgentChecks       []V2AgentCheck `json:"agent_checks,omitempty"`
-	ConfigFile        string         `json:"config_file,omitempty"`
-	ConfigValid       bool           `json:"config_valid"`
-	ConfigError       string         `json:"config_error,omitempty"`
-	HealthyAgents     int            `json:"healthy_agents"`
-	TotalAgents       int            `json:"total_agents"`
+	V2Ready            bool           `json:"v2_ready"`
+	RegisteredAdapters []string       `json:"registered_adapters"`
+	AgentChecks        []V2AgentCheck `json:"agent_checks,omitempty"`
+	ConfigFile         string         `json:"config_file,omitempty"`
+	ConfigValid        bool           `json:"config_valid"`
+	ConfigError        string         `json:"config_error,omitempty"`
+	HealthyAgents      int            `json:"healthy_agents"`
+	TotalAgents        int            `json:"total_agents"`
 }
 
 var (

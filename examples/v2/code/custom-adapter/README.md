@@ -30,7 +30,7 @@ type AgentAdapter interface {
 cd examples/v2/code/custom-adapter
 
 # Initialize the module (if running standalone)
-go mod init github.com/kevinelliott/agentpipe/examples/v2/code/custom-adapter
+go mod init github.com/ASRagab/agentpipe/examples/v2/code/custom-adapter
 go mod tidy
 
 # Run the example
@@ -95,7 +95,7 @@ agents:
 Use the v2 errors package for consistent error classification:
 
 ```go
-import "github.com/kevinelliott/agentpipe/pkg/v2/errors"
+import "github.com/ASRagab/agentpipe/pkg/v2/errors"
 
 // Create typed errors
 errors.NewRateLimitError(agentID, agentName, retryAfter, nil)

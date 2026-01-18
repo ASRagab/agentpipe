@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	pkgerrors "github.com/kevinelliott/agentpipe/pkg/v2/errors"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	pkgerrors "github.com/ASRagab/agentpipe/pkg/v2/errors"
 )
 
 // mockAdapterForCircuitBreaker is a test adapter that can be configured to fail or succeed.

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 func TestNewStatusBarModel(t *testing.T) {

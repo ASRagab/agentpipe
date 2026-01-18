@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	_ "github.com/kevinelliott/agentpipe/pkg/v2/adapters/cli"  // Register CLI adapters
-	_ "github.com/kevinelliott/agentpipe/pkg/v2/adapters/mock" // Register mock adapter
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/cli"  // Register CLI adapters
+	_ "github.com/ASRagab/agentpipe/pkg/v2/adapters/mock" // Register mock adapter
 )
 
 func TestDetectV1Config_Orchestrator(t *testing.T) {

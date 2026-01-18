@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/log"
+	"github.com/ASRagab/agentpipe/pkg/log"
 )
 
 // OpenAICompatClient is an HTTP client for OpenAI-compatible APIs.

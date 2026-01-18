@@ -7,7 +7,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 // AgentAdapter defines the interface that all AI provider adapters must implement.

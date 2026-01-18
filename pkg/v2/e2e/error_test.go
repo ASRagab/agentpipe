@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
 )
 
 // TestNetworkFailureRecovery simulates network drop and verifies retry behavior.
@@ -492,7 +492,8 @@ func TestCircuitBreakerReset(t *testing.T) {
 
 // TestAdapterNotFound verifies error when adapter doesn't exist.
 func TestAdapterNotFound(t *testing.T) {
-	agents := []core.Agent{
+	// Define agents to verify they would be created with invalid adapter
+	_ = []core.Agent{
 		core.NewAgent("invalid", "nonexistent-adapter", "Invalid", "model", "nonexistent-adapter"),
 	}
 

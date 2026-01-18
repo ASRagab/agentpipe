@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
 )
 
 func TestNewConversationModel(t *testing.T) {
@@ -1030,8 +1030,8 @@ func TestProgressBarFillCalculation(t *testing.T) {
 	model := NewConversationModel()
 
 	testCases := []struct {
-		elapsed    time.Duration
-		estimated  time.Duration
+		elapsed             time.Duration
+		estimated           time.Duration
 		expectedFillPercent float64
 	}{
 		{0, 10 * time.Second, 0.0},
@@ -1237,9 +1237,9 @@ func TestClearErrors(t *testing.T) {
 
 func TestRecoverableErrorInfo(t *testing.T) {
 	testCases := []struct {
-		errType       core.ErrorType
-		recoverable   bool
-		hasRetryHint  bool
+		errType      core.ErrorType
+		recoverable  bool
+		hasRetryHint bool
 	}{
 		{core.ErrorTypeTimeout, true, true},
 		{core.ErrorTypeRateLimit, true, true},

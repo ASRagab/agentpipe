@@ -242,9 +242,9 @@ func TestV2FlagsExist(t *testing.T) {
 
 func TestV2FlagDefaults(t *testing.T) {
 	tests := []struct {
-		name         string
-		flagName     string
-		expectedDef  string
+		name        string
+		flagName    string
+		expectedDef string
 	}{
 		{"v2 default", "v2", "false"},
 		{"parallel default", "parallel", "true"},

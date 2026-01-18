@@ -15,11 +15,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/config"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
-	v2tui "github.com/kevinelliott/agentpipe/pkg/v2/tui"
+	"github.com/ASRagab/agentpipe/pkg/v2/config"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
+	v2tui "github.com/ASRagab/agentpipe/pkg/v2/tui"
 )
 
 // V2 flags

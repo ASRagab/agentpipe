@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
-	"github.com/kevinelliott/agentpipe/pkg/v2/adapters/mock"
-	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	pkgerrors "github.com/kevinelliott/agentpipe/pkg/v2/errors"
-	"github.com/kevinelliott/agentpipe/pkg/v2/events"
-	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
-	"github.com/kevinelliott/agentpipe/pkg/v2/pool"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters"
+	"github.com/ASRagab/agentpipe/pkg/v2/adapters/mock"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	pkgerrors "github.com/ASRagab/agentpipe/pkg/v2/errors"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
+	"github.com/ASRagab/agentpipe/pkg/v2/pool"
 )
 
 // TestRetryOnNetworkError verifies that network errors trigger retry with exponential backoff.
@@ -346,10 +346,10 @@ func TestGracefulDegradation(t *testing.T) {
 	config := manager.Config{
 		Timeout: 10 * time.Second,
 		GracefulDegradation: manager.GracefulDegradationConfig{
-			Enabled:                 true,
-			PauseOnAllFailed:        true,
+			Enabled:                  true,
+			PauseOnAllFailed:         true,
 			RetryFailedOnNextMessage: true,
-			EmitSystemMessages:      true,
+			EmitSystemMessages:       true,
 		},
 	}
 

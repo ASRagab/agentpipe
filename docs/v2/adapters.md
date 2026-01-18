@@ -320,7 +320,7 @@ type AgentAdapter interface {
 Register custom adapters:
 
 ```go
-import "github.com/kevinelliott/agentpipe/pkg/v2/adapters"
+import "github.com/ASRagab/agentpipe/pkg/v2/adapters"
 
 func init() {
     adapters.Register("my-adapter", func() adapters.AgentAdapter {

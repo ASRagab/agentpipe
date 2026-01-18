@@ -2,13 +2,13 @@
 
 ![AgentPipe Logo](screenshots/agentpipe-logo.png)
 
-[![CI](https://github.com/kevinelliott/agentpipe/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/kevinelliott/agentpipe/actions/workflows/test.yml)
+[![CI](https://github.com/ASRagab/agentpipe/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/ASRagab/agentpipe/actions/workflows/test.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
-[![Release](https://img.shields.io/github/v/release/kevinelliott/agentpipe?color=success)](https://github.com/kevinelliott/agentpipe/releases)
-[![License](https://img.shields.io/github/license/kevinelliott/agentpipe?color=blue)](https://github.com/kevinelliott/agentpipe/blob/main/LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kevinelliott/agentpipe)](https://goreportcard.com/report/github.com/kevinelliott/agentpipe)
-[![Downloads](https://img.shields.io/github/downloads/kevinelliott/agentpipe/total?color=brightgreen)](https://github.com/kevinelliott/agentpipe/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/kevinelliott/agentpipe?color=yellow&logo=github)](https://github.com/kevinelliott/agentpipe)
+[![Release](https://img.shields.io/github/v/release/ASRagab/agentpipe?color=success)](https://github.com/ASRagab/agentpipe/releases)
+[![License](https://img.shields.io/github/license/ASRagab/agentpipe?color=blue)](https://github.com/ASRagab/agentpipe/blob/main/LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ASRagab/agentpipe)](https://goreportcard.com/report/github.com/ASRagab/agentpipe)
+[![Downloads](https://img.shields.io/github/downloads/ASRagab/agentpipe/total?color=brightgreen)](https://github.com/ASRagab/agentpipe/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/ASRagab/agentpipe?color=yellow&logo=github)](https://github.com/ASRagab/agentpipe)
 
 AgentPipe is a powerful CLI and TUI application that orchestrates conversations between multiple AI agents. It allows different AI CLI tools (like Claude, Cursor, Gemini, Qwen, Ollama) to communicate with each other in a shared "room", creating dynamic multi-agent conversations with real-time metrics, cost tracking, and interactive user participation.
 
@@ -227,19 +227,19 @@ brew install agentpipe
 ### Using the install script
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/kevinelliott/agentpipe/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ASRagab/agentpipe/main/install.sh | bash
 ```
 
 ### Using Go
 
 ```bash
-go install github.com/kevinelliott/agentpipe@latest
+go install github.com/ASRagab/agentpipe@latest
 ```
 
 ### Build from source
 
 ```bash
-git clone https://github.com/kevinelliott/agentpipe.git
+git clone https://github.com/ASRagab/agentpipe.git
 cd agentpipe
 
 # Build only
@@ -1221,7 +1221,7 @@ The TUI is divided into multiple panels:
 
 ```bash
 # Clone the repository
-git clone https://github.com/kevinelliott/agentpipe.git
+git clone https://github.com/ASRagab/agentpipe.git
 cd agentpipe
 
 # Build the binary
@@ -1301,8 +1301,8 @@ import (
     "strings"
     "time"
 
-    "github.com/kevinelliott/agentpipe/pkg/agent"
-    "github.com/kevinelliott/agentpipe/pkg/log"
+    "github.com/ASRagab/agentpipe/pkg/agent"
+    "github.com/ASRagab/agentpipe/pkg/log"
 )
 
 type MyAgent struct {
@@ -1621,7 +1621,7 @@ AgentPipe includes comprehensive Prometheus metrics for production monitoring:
 
 ```go
 // Enable metrics in your code
-import "github.com/kevinelliott/agentpipe/pkg/metrics"
+import "github.com/ASRagab/agentpipe/pkg/metrics"
 
 // Start metrics server
 server := metrics.NewServer(metrics.ServerConfig{Addr: ":9090"})
