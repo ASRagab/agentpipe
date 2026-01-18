@@ -26,6 +26,7 @@ Welcome to the AgentPipe v2 documentation. This directory contains comprehensive
 |----------|-------------|
 | [[adapters]] | Guide to available AI adapters |
 | [[tui]] | Terminal UI usage and shortcuts |
+| [[troubleshooting]] | Common issues and solutions |
 
 ## Developer Documentation
 
@@ -52,13 +53,14 @@ Welcome to the AgentPipe v2 documentation. This directory contains comprehensive
 
 ```
 docs/v2/
-├── README.md        ← You are here
-├── quickstart.md    ← Start here
-├── configuration.md ← Full config reference
-├── adapters.md      ← AI provider adapters
-├── tui.md           ← Terminal UI guide
-├── architecture.md  ← Technical internals
-└── migration.md     ← v1 → v2 migration
+├── README.md          ← You are here
+├── quickstart.md      ← Start here
+├── configuration.md   ← Full config reference
+├── adapters.md        ← AI provider adapters
+├── tui.md             ← Terminal UI guide
+├── troubleshooting.md ← Common issues and fixes
+├── architecture.md    ← Technical internals
+└── migration.md       ← v1 → v2 migration
 ```
 
 ## Need Help?

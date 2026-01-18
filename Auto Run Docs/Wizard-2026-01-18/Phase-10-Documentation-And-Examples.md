@@ -72,13 +72,27 @@ This phase creates comprehensive documentation and example configurations that e
   - Error handling and retry behavior
   - Custom adapter creation guide
 
-- [ ] Create troubleshooting guide in `docs/v2/troubleshooting.md`:
+- [x] Create troubleshooting guide in `docs/v2/troubleshooting.md`:
   - Common error messages and solutions
   - API key configuration issues
   - Network and timeout issues
   - TUI rendering issues
   - Performance troubleshooting
   - Debug mode and logging
+
+  **Completed 2026-01-18**: Created comprehensive troubleshooting guide in `docs/v2/troubleshooting.md`:
+  - Quick diagnostics section with doctor command usage
+  - API key configuration issues (not found, auth failed, 401/403 errors)
+  - Network and timeout issues (connection refused, timeouts, rate limits)
+  - Configuration issues (missing agents, unknown adapters, invalid durations)
+  - TUI rendering issues (terminal size, Unicode, colors, input problems)
+  - Performance troubleshooting (slow responses, high CPU, memory issues)
+  - Debug mode and logging configuration
+  - CLI-specific issues (Claude CLI not found, health check failures)
+  - Persistence issues (save/load problems)
+  - Migration issues from v1 to v2
+  - Reporting bugs section with required information
+  Updated docs/v2/README.md to include troubleshooting in User Guides table and Document Map.
 
 - [ ] Create example configurations in `examples/v2/`:
   - `minimal.yaml`: Simplest working config with one agent
