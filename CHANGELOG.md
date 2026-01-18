@@ -20,9 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `brainstorm.yaml`: `claude-3-opus` → `claude-opus-4-5-20251101`
   - `troubleshooting.md`: `claude-3-haiku` → `claude-3-5-haiku-20241022`
 
-## [2.0.0] - 2026-01-18
+## [2.0.0-mvp] - 2026-01-18
 
-### 🚀 Major Release: Complete Architecture Rewrite
+### 🚀 Major Release: Complete Architecture Rewrite (MVP)
 
 AgentPipe v2 is a ground-up rewrite focused on **parallel execution**, **real-time streaming**, and an **event-driven architecture**. This is the recommended version for all new users.
 
@@ -1404,8 +1404,8 @@ AgentPipe v2 is a ground-up rewrite focused on **parallel execution**, **real-ti
 - **Clean Message Display**: Smart consolidation of headers and proper paragraph formatting
 - **Cost Transparency**: See exactly how much each conversation costs
 
-[Unreleased]: https://github.com/kevinelliott/agentpipe/compare/v2.0.0...HEAD
-[2.0.0]: https://github.com/kevinelliott/agentpipe/compare/v0.7.0...v2.0.0
+[Unreleased]: https://github.com/kevinelliott/agentpipe/compare/v2.0.0-mvp...HEAD
+[2.0.0-mvp]: https://github.com/kevinelliott/agentpipe/compare/v0.7.0...v2.0.0-mvp
 [0.7.0]: https://github.com/kevinelliott/agentpipe/compare/v0.6.0...v0.7.0
 [v0.2.1]: https://github.com/kevinelliott/agentpipe/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/kevinelliott/agentpipe/compare/v0.1.5...v0.2.0

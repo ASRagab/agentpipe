@@ -150,9 +150,9 @@ All agents now use a **standardized interaction pattern** with structured three-
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
 
-**Latest Release**: v0.7.0 - Continue CLI Support + v2 Engine
+**Latest Release**: v2.0.0-mvp - Complete Architecture Rewrite
 
-**What's New in v0.7.0**:
+**What's New in v2.0.0-mvp**:
 
 🏗️ **v2 Parallel Execution Engine** (use `--v2` flag):
 - **Parallel agent execution**: All agents can respond simultaneously

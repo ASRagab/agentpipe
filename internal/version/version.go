@@ -20,7 +20,7 @@ var (
 	BuildDate = "unknown"
 
 	// V2EngineVersion is the version of the v2 parallel execution engine
-	V2EngineVersion = "2.0.0"
+	V2EngineVersion = "2.0.0-mvp"
 
 	// V2EngineFeatures lists the capabilities of the v2 engine
 	V2EngineFeatures = []string{

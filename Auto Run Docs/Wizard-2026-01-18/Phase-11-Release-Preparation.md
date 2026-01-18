@@ -72,11 +72,12 @@ This phase prepares AgentPipe v2.0.0-mvp for release. All code is finalized, tes
   - [ ] Test error handling (invalid key, timeout)
   - **Note**: ⚠️ SKIPPED BY AUTOMATION - This checklist requires human manual testing with real OS installations, API credentials, and visual inspection. The subtasks remain unchecked for human testers to complete before release. Automation has verified: build passes, tests pass, benchmarks pass, linting passes.
 
-- [ ] Update version numbers:
-  - Update version in cmd/version.go to "2.0.0-mvp"
-  - Update version in go.mod if needed
-  - Update version in README.md
-  - Update version in CHANGELOG.md
+- [x] Update version numbers:
+  - ✅ Updated V2EngineVersion in internal/version/version.go to "2.0.0-mvp"
+  - ✅ go.mod unchanged (Go version 1.24 is correct, module version set at build time)
+  - ✅ Updated README.md: "Latest Release: v2.0.0-mvp - Complete Architecture Rewrite"
+  - ✅ Updated CHANGELOG.md: [2.0.0-mvp] with comparison links
+  - **Verified**: `./agentpipe version --v2` shows "v2 Engine Version: 2.0.0-mvp"
 
 - [ ] Finalize CHANGELOG.md:
   - List all v2.0.0-mvp changes
