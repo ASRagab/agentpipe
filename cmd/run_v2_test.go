@@ -268,3 +268,125 @@ func TestV2FlagDefaults(t *testing.T) {
 		})
 	}
 }
+
+func TestTruncateForBox(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		maxLen   int
+		expected string
+	}{
+		{
+			name:     "short string unchanged",
+			input:    "config.yaml",
+			maxLen:   20,
+			expected: "config.yaml",
+		},
+		{
+			name:     "exact length unchanged",
+			input:    "exactly-20-chars-xx",
+			maxLen:   20,
+			expected: "exactly-20-chars-xx",
+		},
+		{
+			name:     "long string truncated with ellipsis",
+			input:    "/path/to/very/long/config/file.yaml",
+			maxLen:   20,
+			expected: "...ong/config/file.yaml",
+		},
+		{
+			name:     "empty string unchanged",
+			input:    "",
+			maxLen:   20,
+			expected: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := truncateForBox(tc.input, tc.maxLen)
+			if result != tc.expected {
+				t.Errorf("truncateForBox(%q, %d) = %q, want %q", tc.input, tc.maxLen, result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestCheckAndWarnV1Config(t *testing.T) {
+	// Create temporary directory for test configs
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name        string
+		configData  string
+		expectError bool
+	}{
+		{
+			name: "v1 config with orchestrator",
+			configData: `version: "1.0"
+agents:
+  - id: agent-1
+    type: claude
+    name: Test Agent
+    prompt: "You are helpful"
+orchestrator:
+  mode: round-robin
+  max_turns: 10
+`,
+			expectError: false,
+		},
+		{
+			name: "v2 config no warning",
+			configData: `conversation:
+  timeout: 30s
+  mode: parallel
+agents:
+  - id: agent-1
+    type: mock
+    adapter: mock
+    name: Test Agent
+    model: mock-model
+    config:
+      system_prompt: "You are helpful"
+`,
+			expectError: false,
+		},
+		{
+			name: "v1 config with flat prompt",
+			configData: `agents:
+  - id: agent-1
+    type: claude
+    name: Test Agent
+    prompt: "You are helpful"
+`,
+			expectError: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create temp config file
+			configPath := tmpDir + "/" + tc.name + ".yaml"
+			err := os.WriteFile(configPath, []byte(tc.configData), 0644)
+			if err != nil {
+				t.Fatalf("failed to write test config: %v", err)
+			}
+
+			// Call checkAndWarnV1Config
+			err = checkAndWarnV1Config(configPath)
+			if tc.expectError && err == nil {
+				t.Error("expected error but got none")
+			}
+			if !tc.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestCheckAndWarnV1Config_FileNotFound(t *testing.T) {
+	err := checkAndWarnV1Config("/nonexistent/path/config.yaml")
+	if err == nil {
+		t.Error("expected error for nonexistent file, got nil")
+	}
+}

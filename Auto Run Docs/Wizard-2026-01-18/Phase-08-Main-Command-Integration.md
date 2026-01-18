@@ -45,16 +45,26 @@ This phase integrates all v2 components into the main agentpipe command, providi
 
   **Completed:** Added `--v2` flag and `--config/-c` flag to doctor command. Added `V2AgentCheck` and `V2DoctorOutput` types. Implemented `runDoctorV2()`, `performV2Checks()`, `loadAndValidateV2Config()`, `checkV2ConfigAgents()`, `checkV2Agent()`, and `printV2HumanReadableOutput()` functions. The v2 doctor checks registered adapters, validates config files, tests API key availability, checks CLI binary availability, and performs health checks on each configured agent with timeout. Created comprehensive tests in `cmd/doctor_test.go`.
 
-- [ ] Update version command:
+- [x] Update version command:
   - Show v2 engine version
   - Show adapter versions/capabilities
   - Indicate if running v1 or v2 mode
 
-- [ ] Create migration path from v1:
+  **Completed:** Enhanced version command with v2 engine info. Added `V2EngineVersion` (2.0.0) and `V2EngineFeatures` list to `internal/version/version.go`. Added `GetV2EngineInfo()` and `GetV2VersionString()` helper functions. Added `--v2` flag to show v2 engine version and features (parallel-execution, graceful-degradation, circuit-breaker, health-monitoring, persistence, conversation-resume, markdown-export). Added `--adapters` flag to display registered adapters with availability status ([+] available, [x] not available). Added `--all` flag to show combined output. Shows default running mode indicator based on `AGENTPIPE_V2` environment variable. Created `cmd/version_test.go` with comprehensive tests for all new functionality.
+
+- [x] Create migration path from v1:
   - If config detected as v1, log deprecation warning
   - Offer to auto-migrate config with `--migrate-config` flag
   - Backup original config before migration
   - Update README with migration instructions
+
+  **Completed:** Enhanced `loadV2Config()` in `cmd/run_v2.go` with `checkAndWarnV1Config()` function that displays a user-visible deprecation warning box when v1 configs are detected. The warning explains the migration process and shows the exact command to run (`agentpipe run --v2 --migrate-config -c <config>`). Added `truncateForBox()` helper for formatting long paths. Updated `README.md` with comprehensive "Migrating from v1 to v2 Configuration" section including:
+  - Comparison table of v1 vs v2 differences
+  - Migration command example with backup info
+  - Complete v2 configuration example
+  - Environment variables table
+  - v2-specific CLI flags table
+  Added tests in `cmd/run_v2_test.go`: `TestTruncateForBox` and `TestCheckAndWarnV1Config` with file not found edge case.
 
 - [x] Implement conversation summary on exit:
   - Print summary when conversation ends or user quits

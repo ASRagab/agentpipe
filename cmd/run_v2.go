@@ -168,6 +168,12 @@ func loadV2Config(configPath string) (*config.Config, error) {
 		}
 	}
 
+	// Check for v1 config and display user-visible warning
+	if err := checkAndWarnV1Config(configPath); err != nil {
+		// Non-fatal - just log the detection error
+		fmt.Fprintf(os.Stderr, "Warning: Could not check config version: %v\n", err)
+	}
+
 	opts := config.LoadOptions{
 		SaveMigratedConfig: v2MigrateConfig,
 	}
@@ -178,6 +184,56 @@ func loadV2Config(configPath string) (*config.Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// checkAndWarnV1Config checks if the config file is in v1 format and warns the user.
+func checkAndWarnV1Config(configPath string) error {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	isV1, err := config.DetectV1Config(data)
+	if err != nil {
+		return fmt.Errorf("failed to detect config version: %w", err)
+	}
+
+	if isV1 {
+		// Display user-visible deprecation warning
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "┌──────────────────────────────────────────────────────────────────┐")
+		fmt.Fprintln(os.Stderr, "│  ⚠️  DEPRECATION WARNING: v1 configuration format detected        │")
+		fmt.Fprintln(os.Stderr, "├──────────────────────────────────────────────────────────────────┤")
+		fmt.Fprintln(os.Stderr, "│  Your config file uses the legacy v1 format which is deprecated. │")
+		fmt.Fprintln(os.Stderr, "│  The config will be automatically migrated in memory for now.    │")
+		fmt.Fprintln(os.Stderr, "│                                                                  │")
+		fmt.Fprintln(os.Stderr, "│  To permanently migrate your config file, run:                   │")
+		fmt.Fprintf(os.Stderr, "│    agentpipe run --v2 --migrate-config -c %s\n", truncateForBox(configPath, 20))
+		fmt.Fprintln(os.Stderr, "│                                                                  │")
+		fmt.Fprintln(os.Stderr, "│  This will:                                                      │")
+		fmt.Fprintln(os.Stderr, "│    • Backup your original config to <filename>.v1.backup        │")
+		fmt.Fprintln(os.Stderr, "│    • Convert to v2 format with parallel execution support       │")
+		fmt.Fprintln(os.Stderr, "│    • Add new v2 features: timeouts, persistence, etc.           │")
+		fmt.Fprintln(os.Stderr, "│                                                                  │")
+		fmt.Fprintln(os.Stderr, "│  See: agentpipe run --help for v2 options                        │")
+		fmt.Fprintln(os.Stderr, "└──────────────────────────────────────────────────────────────────┘")
+		fmt.Fprintln(os.Stderr, "")
+
+		// If --migrate-config flag was passed, confirm the migration
+		if v2MigrateConfig {
+			fmt.Fprintln(os.Stderr, "📁 Migrating config file with backup...")
+		}
+	}
+
+	return nil
+}
+
+// truncateForBox truncates a string to fit in the warning box.
+func truncateForBox(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return "..." + s[len(s)-maxLen:]
 }
 
 // runV2TUI runs the v2 TUI mode.

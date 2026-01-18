@@ -403,6 +403,76 @@ logging:
 - **reactive**: Agents respond based on who spoke last
 - **free-form**: Agents decide when to participate
 
+### Migrating from v1 to v2 Configuration
+
+AgentPipe v2 introduces a new parallel execution engine with enhanced features. If you have existing v1 configuration files, AgentPipe will automatically detect and migrate them in memory when using the `--v2` flag.
+
+**Differences between v1 and v2 configuration:**
+
+| Feature | v1 (Legacy) | v2 (New) |
+|---------|------------|----------|
+| Root section | `orchestrator:` | `conversation:` |
+| Agent prompt | `prompt:` (top-level) | `config.system_prompt:` (nested) |
+| Adapter specification | Implicit from `type:` | Explicit `adapter:` field |
+| Execution model | Sequential | Parallel by default |
+| Persistence | Manual save/export | Auto-save with resume |
+
+**To permanently migrate your v1 config to v2:**
+
+```bash
+# This will backup your original file and convert to v2 format
+agentpipe run --v2 --migrate-config -c your-config.yaml
+
+# Your original config is backed up to: your-config.yaml.v1.backup
+```
+
+**Example v2 configuration:**
+
+```yaml
+# v2 format
+conversation:
+  timeout: 30s
+  mode: parallel
+  max_turns: 10
+
+agents:
+  - id: claude-agent
+    type: claude
+    adapter: claude-api        # Explicit adapter (or claude-cli)
+    name: "Claude Assistant"
+    model: claude-sonnet-4-5
+    config:
+      system_prompt: "You are a helpful assistant."  # Nested under config
+      temperature: 0.7
+      max_tokens: 1000
+
+persistence:
+  save_dir: ~/.agentpipe/v2/chats
+  auto_save: true
+```
+
+**v2 Environment Variables:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AGENTPIPE_V2` | Enable v2 engine by default | `false` |
+| `AGENTPIPE_CONFIG` | Default config file path | - |
+| `AGENTPIPE_SAVE_DIR` | Directory for conversation saves | `~/.agentpipe/v2/chats` |
+| `AGENTPIPE_TIMEOUT` | Default agent timeout (seconds) | `60` |
+
+**v2-specific CLI flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--v2` | Use v2 parallel execution engine |
+| `--parallel` | Enable parallel agent execution (default: true) |
+| `--v2-timeout` | Agent timeout in seconds (default: 60) |
+| `--save-dir` | Directory for conversation saves |
+| `--resume` | Resume a saved conversation (use 'latest' for most recent) |
+| `--export` | Export conversation to Markdown on exit |
+| `--auto-save` | Enable auto-save (default: true) |
+| `--migrate-config` | Migrate v1 config to v2 format with backup |
+
 ## Commands
 
 ### `agentpipe run`
