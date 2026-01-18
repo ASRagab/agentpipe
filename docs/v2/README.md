@@ -47,6 +47,21 @@ Ready-to-use configurations for common use cases (in `examples/v2/`):
 | `brainstorm.yaml` | Creative brainstorming with diverse perspectives |
 | `research.yaml` | Research and fact-finding with verification |
 
+## Code Examples
+
+Working Go code examples for extending and integrating AgentPipe v2 (in `examples/v2/code/`):
+
+| Example | Description |
+|---------|-------------|
+| [custom-adapter/](../../examples/v2/code/custom-adapter/) | Implement a custom `AgentAdapter` for any AI provider |
+| [programmatic/](../../examples/v2/code/programmatic/) | Use v2 as a library: conversations, streaming, persistence |
+| [webhook/](../../examples/v2/code/webhook/) | Forward events to webhooks for analytics and integration |
+
+Each example includes:
+- Complete, runnable Go code
+- Detailed README with explanations
+- Best practices and patterns from the v2 codebase
+
 ## Quick Links
 
 - **Installation**: See [[quickstart#installation]]
@@ -74,6 +89,11 @@ docs/v2/
 ├── troubleshooting.md ← Common issues and fixes
 ├── architecture.md    ← Technical internals
 └── migration.md       ← v1 → v2 migration
+
+examples/v2/code/
+├── custom-adapter/    ← Create custom AI adapters
+├── programmatic/      ← Library usage patterns
+└── webhook/           ← External integrations
 ```
 
 ## Need Help?

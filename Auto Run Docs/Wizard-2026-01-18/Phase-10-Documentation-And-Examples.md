@@ -113,11 +113,28 @@ This phase creates comprehensive documentation and example configurations that e
   All configs include detailed comments explaining model choices, temperature settings, and use cases.
   Updated docs/v2/README.md with new Example Configurations section.
 
-- [ ] Create code examples in `examples/v2/code/`:
+- [x] Create code examples in `examples/v2/code/`:
   - `custom-adapter/`: Example of implementing a custom adapter
   - `programmatic/`: Using v2 as a library in Go code
   - `webhook/`: Emitting events to webhook for external integration
   - Each with README explaining the example
+
+  **Completed 2026-01-18**: Created 3 comprehensive code examples:
+  - `custom-adapter/`: Complete EchoAdapter implementation demonstrating AgentAdapter interface
+    - `adapter.go` - Full adapter with Initialize, SendMessage, StreamMessage, HealthCheck
+    - `main.go` - Example usage with conversation manager
+    - `README.md` - Implementation guide with interface documentation
+  - `programmatic/`: Using v2 as a Go library
+    - `main.go` - Basic programmatic usage with event subscriptions
+    - `streaming.go` - Streaming responses with custom writers
+    - `persistence.go` - Save/load/export conversations
+    - `README.md` - Component documentation with code snippets
+  - `webhook/`: Forwarding events to external webhooks
+    - `main.go` - Webhook integration example
+    - `webhook_handler.go` - Async webhook handler with retry logic
+    - `server.go` - Test webhook receiver server
+    - `README.md` - Event payload documentation and patterns
+  Updated docs/v2/README.md with new Code Examples section and Document Map.
 
 - [ ] Write API documentation (godoc):
   - Document all exported types in pkg/v2/core
