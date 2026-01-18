@@ -239,8 +239,10 @@ golangci-lint run --timeout=5m
   - **Fixed**: Same fix as above. Agent messages are now only added once via the `EventAgentDone` handler which calls `CompleteStreaming()`.
 - [x] Version shows "dev" not "vdev"
   - **Fixed**: Modified line 568-572 in `pkg/tui/tui.go` to check if version is "dev" or already starts with "v" before prepending the "v" prefix. Now displays "dev" correctly instead of "vdev".
-- [ ] Full logo visible (all 6 lines)
-- [ ] No INF log messages visible in TUI
+- [x] Full logo visible (all 6 lines)
+  - **Fixed**: Improved the main panel height calculation in `View()` at lines 540-548 in `pkg/tui/tui.go`. Now properly accounts for header elements (logo + version + status bar = `LogoHeight + 2`) and footer elements (input + padding = `InputHeight + 2`). Added a minimum height guard of 10 lines to prevent panels from becoming too small on shorter terminals.
+- [x] No INF log messages visible in TUI
+  - **Fixed**: Added `zerolog.SetGlobalLevel(zerolog.FatalLevel)` in `cmd/run.go` just before calling `v2tui.RunWithContext()`. This suppresses all INFO, DEBUG, and WARN level log messages when TUI mode is active, preventing log output from bleeding through and disrupting the TUI display. Only fatal errors will be logged in TUI mode.
 - [ ] Single status bar (not two)
 - [ ] All tests pass
 - [ ] No lint errors

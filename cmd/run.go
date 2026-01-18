@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -221,6 +222,11 @@ func executeConversation(cmd *cobra.Command, cfgPath string) error {
 
 	// Run TUI or headless mode
 	if useTUI {
+		// Suppress console logging in TUI mode to prevent log output
+		// from bleeding through and disrupting the TUI display.
+		// Set level to FatalLevel to only show fatal errors (essentially disabling logs).
+		// The TUI handles its own status display.
+		zerolog.SetGlobalLevel(zerolog.FatalLevel)
 		return v2tui.RunWithContext(ctx, mgr, eventBus)
 	}
 
