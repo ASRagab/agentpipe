@@ -45,30 +45,30 @@ type EnhancedModel struct {
 	userInput    textarea.Model
 
 	// State
-	messages      []agent.Message
-	logMessages   []string
-	activePanel   panel
-	showModal     bool
-	modalContent  string
-	selectedAgent int
-	width         int
-	height        int
-	ready         bool
-	running       bool
-	userTurn      bool
-	err           error
+	messages         []agent.Message
+	logMessages      []string
+	activePanel      panel
+	showModal        bool
+	modalContent     string
+	selectedAgent    int
+	width            int
+	height           int
+	ready            bool
+	running          bool
+	userTurn         bool
+	err              error
 	msgChan          <-chan agent.Message
 	msgSendChan      chan<- agent.Message // Send-only channel for sending messages
 	logChan          <-chan string
 	artifactChan     <-chan ArtifactSavedMsg
 	artifactSendChan chan<- ArtifactSavedMsg // Send-only channel for external artifact notifications
-	turnCount     int
-	initialized   bool
-	initializing  bool
-	activeAgent   string             // Track which agent is currently responding
-	chatLogger    *logger.ChatLogger // For logging conversations
-	totalCost     float64            // Track total cost of conversation
-	totalTime     time.Duration      // Track total time of agent requests
+	turnCount        int
+	initialized      bool
+	initializing     bool
+	activeAgent      string             // Track which agent is currently responding
+	chatLogger       *logger.ChatLogger // For logging conversations
+	totalCost        float64            // Track total cost of conversation
+	totalTime        time.Duration      // Track total time of agent requests
 
 	// Initialization params
 	skipHealthCheck    bool
@@ -1086,7 +1086,7 @@ func (m *EnhancedModel) renderMultiWindowLayout() string {
 	// Render tab indicator
 	tabIndicator := m.renderTabIndicator()
 	tabBar := lipgloss.NewStyle().
-		Width(m.width - 8).
+		Width(m.width-8).
 		Align(lipgloss.Center).
 		Padding(0, 1).
 		Render(tabIndicator)
