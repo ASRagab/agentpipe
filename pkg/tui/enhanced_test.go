@@ -47,7 +47,14 @@ func createTestEnhancedModel(cfg *config.Config, activePanel panel, showModal bo
 		ready:       true,
 		activePanel: activePanel,
 		showModal:   showModal,
-		agentColors: make(map[string]lipgloss.Color),
+		// Multi-window state
+		agentColors:        make(map[string]lipgloss.Color),
+		agentMessages:      make(map[string][]agent.Message),
+		agentViewports:     make(map[string]viewport.Model),
+		agentOrder:         make([]string, 0),
+		selectedAgentIndex: 0,
+		autoFollow:         true,
+		previewLines:       3,
 	}
 
 	return m
