@@ -1,6 +1,6 @@
 # Webhook Integration Example
 
-This example demonstrates how to integrate AgentPipe v2 with external systems using webhooks. Events from conversations can be sent to any HTTP endpoint for logging, analytics, or triggering external workflows.
+This example demonstrates how to integrate AgentPipe with external systems using webhooks. Events from conversations can be sent to any HTTP endpoint for logging, analytics, or triggering external workflows.
 
 ## Overview
 
@@ -31,7 +31,7 @@ These events can be forwarded to webhooks for:
 
 ```bash
 # Terminal 1: Start the webhook receiver
-cd examples/v2/code/webhook
+cd examples/code/webhook
 go run server.go
 
 # Terminal 2: Run the webhook example
@@ -244,13 +244,13 @@ agentpipe bridge setup
 agentpipe bridge test
 
 # Events are automatically streamed during conversations
-agentpipe run --v2 -c config.yaml
+agentpipe run -c config.yaml
 ```
 
 See [internal/bridge](../../../internal/bridge) for the full implementation.
 
 ## Related Documentation
 
-- [Architecture Overview](../../../docs/v2/architecture.md)
+- [Architecture Overview](../../../docs/architecture.md)
 - [Event Types](../../../pkg/v2/core/events.go)
 - [Bridge Implementation](../../../internal/bridge/)

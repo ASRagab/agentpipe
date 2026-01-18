@@ -515,7 +515,7 @@ v2 supports both CLI-based and API-based adapters. API-based adapters communicat
 4. Add comprehensive tests with mock HTTP responses
 5. Register factory in adapter registry
 6. Update `docs/v2/adapters.md`
-7. Add example configuration in `examples/v2/`
+7. Add example configuration in `examples/`
 
 ### v2 Testing
 

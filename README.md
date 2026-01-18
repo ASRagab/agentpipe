@@ -128,8 +128,8 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
   - Streaming and non-streaming message support
   - Smart model matching with provider registry integration
 - **Example Configurations**:
-  - `examples/openrouter-conversation.yaml` - Multi-provider conversation
-  - `examples/openrouter-solo.yaml` - Single agent testing
+  - `examples/multi-model.yaml` - Multi-provider conversation
+  - `examples/minimal.yaml` - Single agent testing
 - **Foundation for Future API Agents**: Paves the way for direct Anthropic API, Google AI API, etc.
 
 **Previous Release - v0.4.9** (2025-10-25): Crush CLI support
@@ -388,10 +388,10 @@ agentpipe run -a kimi:some-model:Assistant  # ❌ Will fail
 
 ```bash
 # Run with a configuration file
-agentpipe run -c examples/simple-conversation.yaml
+agentpipe run -c examples/two-agents.yaml
 
-# Run a debate between three agents
-agentpipe run -c examples/debate.yaml --tui
+# Run a code review session with TUI
+agentpipe run -c examples/code-review.yaml --tui
 
 # Brainstorming session with multiple agents
 agentpipe run -c examples/brainstorm.yaml
@@ -817,8 +817,8 @@ OpenRouter provides unified API access to 400+ models from multiple providers wi
 
 **Example Configurations:**
 
-- `examples/openrouter-conversation.yaml` - Multi-provider conversation
-- `examples/openrouter-solo.yaml` - Single agent reasoning task
+- `examples/multi-model.yaml` - Multi-provider conversation
+- `examples/minimal.yaml` - Single agent setup
 
 **Use Cases:**
 
@@ -1516,8 +1516,6 @@ agents:
     model: claude-sonnet-4.5
 ```
 
-See `examples/amp-coding.yaml` for a complete example.
-
 ### Standardized Agent Interaction Pattern
 
 All AgentPipe adapters now implement a **consistent, reliable interaction pattern** that ensures agents properly understand and respond to conversation context:
@@ -1620,7 +1618,7 @@ orch.SetMetrics(metrics.DefaultMetrics)
 - `http://localhost:9090/health` - Health check
 - `http://localhost:9090/` - Web UI with documentation
 
-See `examples/prometheus-metrics.yaml` for complete configuration, Prometheus queries, Grafana dashboard setup, and alerting rules.
+*Note: Prometheus metrics requires programmatic setup. See `pkg/metrics/` for implementation details.*
 
 ### Real-Time Conversation Streaming
 
@@ -1785,7 +1783,7 @@ orch.AddMiddleware(custom)
 - `RoleValidationMiddleware` - Role validation
 - `ErrorRecoveryMiddleware` - Panic recovery
 
-See `examples/middleware.yaml` for complete examples.
+*Note: Middleware requires programmatic setup. See `pkg/middleware/` for implementation details.*
 
 ### Rate Limiting
 

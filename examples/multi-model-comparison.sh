@@ -1,7 +1,7 @@
 #!/bin/bash
 # multi-model-comparison.sh - Same question to multiple models
 #
-# This script demonstrates using v2 parallel execution to send the same
+# This script demonstrates using parallel execution to send the same
 # question to multiple AI models simultaneously and compare their responses.
 #
 # Great for:
@@ -20,7 +20,7 @@
 #   ./multi-model-comparison.sh "Write a haiku about coding"
 #
 # Features demonstrated:
-#   - v2 parallel execution (all models respond simultaneously)
+#   - parallel execution (all models respond simultaneously)
 #   - Multiple models in single conversation
 #   - Headless mode for clean output
 #   - Cost and token tracking
@@ -122,10 +122,10 @@ echo "========================================"
 echo ""
 
 # Pipe the question to v2 headless mode
-echo "$QUESTION" | agentpipe run --v2 \
+echo "$QUESTION" | agentpipe run \
     --config "$TEMP_CONFIG" \
     --auto-save=false \
-    --v2-timeout 120
+    --timeout 120
 
 echo ""
 echo "========================================"
@@ -140,4 +140,3 @@ echo "  - Check token usage and cost in the summary above"
 echo ""
 echo "To save this comparison, redirect output to a file:"
 echo "  $0 \"$QUESTION\" > comparison.txt 2>&1"
-

@@ -1,7 +1,7 @@
 #!/bin/bash
-# basic-conversation.sh - Simple two-agent conversation using v2 engine
+# basic-conversation.sh - Simple two-agent conversation
 #
-# This script demonstrates the v2 parallel execution engine with two agents
+# This script demonstrates the parallel execution engine with two agents
 # having a conversation about a given topic.
 #
 # Prerequisites:
@@ -15,7 +15,7 @@
 #   ./basic-conversation.sh my-config.yaml     # Use custom config
 #
 # Features demonstrated:
-#   - v2 parallel execution
+#   - Parallel execution
 #   - Auto-save enabled
 #   - TUI interface
 #   - Metrics display
@@ -26,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG="${1:-$SCRIPT_DIR/demo-config.yaml}"
 
 echo "========================================"
-echo "  AgentPipe v2 - Basic Conversation"
+echo "  AgentPipe - Basic Conversation"
 echo "========================================"
 echo ""
 echo "Config: $CONFIG"
@@ -36,10 +36,10 @@ echo ""
 if [ ! -f "$CONFIG" ]; then
     echo "Error: Config file not found: $CONFIG"
     echo ""
-    echo "Available v2 configs:"
+    echo "Available configs:"
     ls -1 "$SCRIPT_DIR"/*.yaml 2>/dev/null || echo "  (none found)"
     echo ""
-    echo "You can also create one using examples/v2/demo-config.yaml as a template."
+    echo "You can also create one using examples/demo-config.yaml as a template."
     exit 1
 fi
 
@@ -52,14 +52,13 @@ if grep -q "claude-api" "$CONFIG" && [ -z "$ANTHROPIC_API_KEY" ]; then
     echo "Warning: ANTHROPIC_API_KEY not set (may be needed for Claude API agents)"
 fi
 
-echo "Starting v2 conversation with TUI..."
+echo "Starting conversation with TUI..."
 echo "(Press Ctrl+C to exit, use 'q' in TUI)"
 echo ""
 
-# Run with v2 engine, TUI enabled, auto-save on
-exec agentpipe run --v2 \
+# Run with TUI enabled, auto-save on
+exec agentpipe run \
     --config "$CONFIG" \
     --tui \
     --auto-save \
-    --v2-timeout 60
-
+    --timeout 60

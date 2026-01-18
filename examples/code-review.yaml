@@ -1,4 +1,4 @@
-# AgentPipe v2 - Code Review Configuration
+# AgentPipe - Code Review Configuration
 # ============================================
 # Optimized configuration for code discussion and review.
 # Uses models with strong code understanding and pairs complementary
@@ -9,7 +9,7 @@
 #
 # Usage:
 #   export OPENROUTER_API_KEY=your-key-here
-#   agentpipe run --v2 -c examples/v2/code-review.yaml
+#   agentpipe run -c examples/code-review.yaml
 #
 # Review team:
 #   - Security Reviewer: Focuses on vulnerabilities and secure coding

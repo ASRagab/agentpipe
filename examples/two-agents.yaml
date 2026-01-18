@@ -1,4 +1,4 @@
-# AgentPipe v2 - Two Agents Configuration
+# AgentPipe - Two Agents Configuration
 # =============================================
 # A simple configuration with two agents for side-by-side comparison.
 # Both agents receive the same prompt and respond in parallel,
@@ -9,7 +9,7 @@
 #
 # Usage:
 #   export OPENROUTER_API_KEY=your-key-here
-#   agentpipe run --v2 -c examples/v2/two-agents.yaml
+#   agentpipe run -c examples/two-agents.yaml
 #
 # This configuration pairs:
 #   - Claude Sonnet (balanced, thoughtful responses)

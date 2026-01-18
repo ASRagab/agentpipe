@@ -35,7 +35,7 @@ Welcome to the AgentPipe v2 documentation. This directory contains comprehensive
 
 ## Example Configurations
 
-Ready-to-use configurations for common use cases (in `examples/v2/`):
+Ready-to-use configurations for common use cases (in `examples/`):
 
 | Example | Description |
 |---------|-------------|
@@ -48,13 +48,13 @@ Ready-to-use configurations for common use cases (in `examples/v2/`):
 
 ## Code Examples
 
-Working Go code examples for extending and integrating AgentPipe v2 (in `examples/v2/code/`):
+Working Go code examples for extending and integrating AgentPipe (in `examples/code/`):
 
 | Example | Description |
 |---------|-------------|
-| [custom-adapter/](../../examples/v2/code/custom-adapter/) | Implement a custom `AgentAdapter` for any AI provider |
-| [programmatic/](../../examples/v2/code/programmatic/) | Use v2 as a library: conversations, streaming, persistence |
-| [webhook/](../../examples/v2/code/webhook/) | Forward events to webhooks for analytics and integration |
+| [custom-adapter/](../../examples/code/custom-adapter/) | Implement a custom `AgentAdapter` for any AI provider |
+| [programmatic/](../../examples/code/programmatic/) | Use as a library: conversations, streaming, persistence |
+| [webhook/](../../examples/code/webhook/) | Forward events to webhooks for analytics and integration |
 
 Each example includes:
 
@@ -87,10 +87,9 @@ docs/v2/
 ├── adapters.md        ← AI provider adapters
 ├── tui.md             ← Terminal UI guide
 ├── troubleshooting.md ← Common issues and fixes
-├── architecture.md    ← Technical internals
-└── migration.md       ← v1 → v2 migration
+└── architecture.md    ← Technical internals
 
-examples/v2/code/
+examples/code/
 ├── custom-adapter/    ← Create custom AI adapters
 ├── programmatic/      ← Library usage patterns
 └── webhook/           ← External integrations

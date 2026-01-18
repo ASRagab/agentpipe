@@ -1,4 +1,4 @@
-# AgentPipe v2 - Research Configuration
+# AgentPipe - Research Configuration
 # =========================================
 # Optimized configuration for research and fact-finding tasks.
 # Uses lower temperatures for accuracy and specialized agents
@@ -9,7 +9,7 @@
 #
 # Usage:
 #   export OPENROUTER_API_KEY=your-key-here
-#   agentpipe run --v2 -c examples/v2/research.yaml
+#   agentpipe run -c examples/research.yaml
 #
 # Research team:
 #   - Investigator: Deep-dives into topics with thorough analysis

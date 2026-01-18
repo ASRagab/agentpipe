@@ -1,4 +1,4 @@
-# AgentPipe v2 - Multi-Model Comparison
+# AgentPipe - Multi-Model Comparison
 # ==========================================
 # Compare multiple models from the same provider (OpenRouter).
 # This configuration includes models across different capability tiers
@@ -9,7 +9,7 @@
 #
 # Usage:
 #   export OPENROUTER_API_KEY=your-key-here
-#   agentpipe run --v2 -c examples/v2/multi-model.yaml
+#   agentpipe run -c examples/multi-model.yaml
 #
 # Models included (price tiers):
 #   - Claude 3 Haiku: Fast and cheap ($0.25/$1.25 per 1M tokens)

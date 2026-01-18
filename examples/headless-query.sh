@@ -1,5 +1,5 @@
 #!/bin/bash
-# headless-query.sh - Single question, piped output using v2 engine
+# headless-query.sh - Single question, piped output using engine
 #
 # This script demonstrates the v2 headless mode where a question is piped
 # to the agents and the response is output to stdout.
@@ -62,11 +62,10 @@ echo "---" >&2
 # - No TUI (headless)
 # - Auto-save disabled for quick queries
 # - Response goes to stdout
-echo "$QUERY" | agentpipe run --v2 \
+echo "$QUERY" | agentpipe run \
     --config "$CONFIG" \
     --auto-save=false \
-    --v2-timeout 90
+    --timeout 90
 
 # Note: The exit code reflects whether the command succeeded
 # You can check $? after running this script
-

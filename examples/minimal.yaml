@@ -1,4 +1,4 @@
-# AgentPipe v2 - Minimal Configuration
+# AgentPipe - Minimal Configuration
 # ===========================================
 # The simplest working v2 config with a single agent.
 # Perfect for testing your setup or quick single-agent queries.
@@ -8,7 +8,7 @@
 #
 # Usage:
 #   export OPENROUTER_API_KEY=your-key-here
-#   agentpipe run --v2 -c examples/v2/minimal.yaml
+#   agentpipe run -c examples/minimal.yaml
 #
 # Alternatively, use Claude API:
 #   export ANTHROPIC_API_KEY=your-key-here

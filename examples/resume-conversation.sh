@@ -92,7 +92,7 @@ start_conversation() {
     echo ""
 
     # Start with auto-save enabled
-    agentpipe run --v2 \
+    agentpipe run \
         --config "$CONFIG" \
         --auto-save \
         --save-dir "$SAVE_DIR" \
@@ -106,7 +106,7 @@ resume_conversation() {
     echo "Save Dir: $SAVE_DIR"
     echo ""
 
-    agentpipe run --v2 \
+    agentpipe run \
         --config "$CONFIG" \
         --resume "$resume_id" \
         --save-dir "$SAVE_DIR" \
@@ -128,7 +128,7 @@ export_conversation() {
     echo "Exporting conversation $conv_id to $output_file..."
 
     # Use v2 export feature
-    agentpipe run --v2 \
+    agentpipe run \
         --config "$CONFIG" \
         --resume "$conv_id" \
         --save-dir "$SAVE_DIR" \
@@ -168,4 +168,3 @@ case "${1:-help}" in
         exit 1
         ;;
 esac
-

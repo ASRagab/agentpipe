@@ -197,10 +197,51 @@ The pkg/log package is NOT v1-specific. It is shared logging infrastructure used
 
   **Build & Tests:** All passing
 
-- [ ] Remove v1 example configurations:
+- [x] Remove v1 example configurations:
   - Remove examples/ that use v1 format
   - Keep examples/v2/ configurations
   - Update any example references in docs
+
+  **Completed 2026-01-18**: Consolidated examples directory by removing v1-format examples and promoting v2 examples to root.
+
+  **V1 Files Removed (18 YAML files):**
+  - examples/brainstorm.yaml (v1) - replaced by v2 version
+  - examples/simple-conversation.yaml - replaced by two-agents.yaml
+  - examples/debate.yaml - removed
+  - examples/cursor-brainstorm.yaml, cursor-solo.yaml - removed
+  - examples/codex-brainstorm.yaml - removed
+  - examples/aider-coding.yaml, aider-team-coding.yaml - removed
+  - examples/amp-coding.yaml - removed (v1 CLI adapters)
+  - examples/claude-coding.yaml - removed
+  - examples/qoder-coding.yaml - removed
+  - examples/copilot-dev.yaml - removed
+  - examples/continue-coding.yaml, continue-team-coding.yaml - removed
+  - examples/openrouter-conversation.yaml, openrouter-solo.yaml - replaced by multi-model.yaml, minimal.yaml
+  - examples/middleware.yaml - removed (references deleted pkg/middleware)
+  - examples/prometheus-metrics.yaml - removed (references deleted pkg/metrics)
+
+  **Files Moved from examples/v2/ to examples/ (8 YAML + 4 shell scripts + code/ dir):**
+  - brainstorm.yaml, code-review.yaml, demo-config.yaml, legacy-config.yaml
+  - minimal.yaml, multi-model.yaml, research.yaml, two-agents.yaml
+  - basic-conversation.sh, headless-query.sh, multi-model-comparison.sh, resume-conversation.sh
+  - code/ directory with custom-adapter/, programmatic/, webhook/ subdirs
+
+  **Files Kept (3 test/demo configs):**
+  - artifact-test.yaml - Artifact testing configuration
+  - collaborative-planning-test.yaml - Multi-agent planning test
+  - config-hot-reload-demo.yaml - Hot reload demonstration
+
+  **Updated References (removed --v2 flags and updated paths):**
+  - All moved YAML files: Updated usage comments from `examples/v2/` to `examples/`
+  - All moved shell scripts: Removed `--v2` and `--v2-timeout` flags
+  - examples/code/webhook/README.md: Updated paths
+  - docs/v2/README.md: Updated example paths from `examples/v2/` to `examples/`
+  - docs/contributing.md: Updated example path reference
+  - README.md: Updated example references to use v2 example names
+
+  **examples/v2/ Directory:** Removed (empty after moving all contents)
+
+  **Build & Tests:** All passing
 
 - [ ] Clean up test files:
   - Remove v1 test files (pkg/*/..._test.go for v1 packages)
