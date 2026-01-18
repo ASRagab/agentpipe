@@ -18,11 +18,13 @@ This guide helps diagnose and resolve common issues with AgentPipe.
 ### Issue: `go: version 1.25 required`
 
 **Symptoms:**
+
 ```
 go: version 1.25 required
 ```
 
 **Solution:**
+
 ```bash
 # Check Go version
 go version
@@ -40,6 +42,7 @@ go version  # Should show 1.25 or higher
  Issue: `command not found: agentpipe`
 
 **Symptoms:**
+
 ```
 bash: agentpipe: command not found
 ```
@@ -47,18 +50,20 @@ bash: agentpipe: command not found
 **Solutions:**
 
 1. **If installed via Homebrew:**
+
 ```bash
 # Check if installed
 brew list agentpipe
 
 # If not installed
-brew install kevinelliott/tap/agentpipe
+brew install ASRagab/tap/agentpipe
 
 # Check PATH
 echo $PATH | grep -o '/usr/local/bin'
 ```
 
-2. **If built from source:**
+1. **If built from source:**
+
 ```bash
 # Build and install
 go install github.com/ASRagab/agentpipe@latest
@@ -73,11 +78,13 @@ echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.bashrc
 ### Issue: Permission denied when running
 
 **Symptoms:**
+
 ```
 permission denied: ./agentpipe
 ```
 
 **Solution:**
+
 ```bash
 # Make executable
 chmod +x agentpipe
@@ -91,6 +98,7 @@ go run . <command>
 ### Issue: `configuration validation failed`
 
 **Symptoms:**
+
 ```
 Error: configuration validation failed: no agents configured
 ```
@@ -98,6 +106,7 @@ Error: configuration validation failed: no agents configured
 **Solutions:**
 
 1. **Check YAML syntax:**
+
 ```bash
 # Validate YAML
 cat agentpipe.yaml | python -c 'import yaml, sys; yaml.safe_load(sys.stdin)'
@@ -106,7 +115,8 @@ cat agentpipe.yaml | python -c 'import yaml, sys; yaml.safe_load(sys.stdin)'
 yq eval agentpipe.yaml
 ```
 
-2. **Verify required fields:**
+1. **Verify required fields:**
+
 ```yaml
 version: "1.0"  # Required
 
@@ -120,7 +130,8 @@ orchestrator:
   mode: round-robin  # Required (round-robin, reactive, or free-form)
 ```
 
-3. **Check for duplicate agent IDs:**
+1. **Check for duplicate agent IDs:**
+
 ```yaml
 # BAD: Duplicate IDs
 agents:
@@ -140,11 +151,13 @@ agents:
 ### Issue: `invalid mode`
 
 **Symptoms:**
+
 ```
 Error: unknown conversation mode: round-robbin
 ```
 
 **Solution:**
+
 ```yaml
 # Valid modes are:
 orchestrator:
@@ -158,11 +171,13 @@ orchestrator:
 ### Issue: `failed to parse duration`
 
 **Symptoms:**
+
 ```
 Error: time: invalid duration "30"
 ```
 
 **Solution:**
+
 ```yaml
 # BAD: Missing unit
 orchestrator:
@@ -180,6 +195,7 @@ orchestrator:
 ### Issue: Agent CLI not found
 
 **Symptoms:**
+
 ```
 Error: agent claude is not available: claude CLI not found
 ```
@@ -187,6 +203,7 @@ Error: agent claude is not available: claude CLI not found
 **Solutions:**
 
 1. **Check if CLI is installed:**
+
 ```bash
 # For Claude
 which claude
@@ -201,7 +218,8 @@ gh copilot --help
 which cursor-agent
 ```
 
-2. **Install missing CLI:**
+1. **Install missing CLI:**
+
 ```bash
 # Claude
 brew install anthropics/claude/claude
@@ -212,7 +230,8 @@ gh extension install github/gh-copilot
 # Others: See agent-specific documentation
 ```
 
-3. **Run doctor command:**
+1. **Run doctor command:**
+
 ```bash
 agentpipe doctor
 
@@ -224,6 +243,7 @@ agentpipe doctor
 ### Issue: Agent health check timeout
 
 **Symptoms:**
+
 ```
 Error: health check failed for agent claude: context deadline exceeded
 ```
@@ -231,17 +251,20 @@ Error: health check failed for agent claude: context deadline exceeded
 **Solutions:**
 
 1. **Increase health check timeout:**
+
 ```bash
 # Default is 5 seconds
 agentpipe doctor --health-check-timeout 10
 ```
 
-2. **Skip health check:**
+1. **Skip health check:**
+
 ```bash
 agentpipe run --skip-health-check -c config.yaml
 ```
 
-3. **Check agent CLI manually:**
+1. **Check agent CLI manually:**
+
 ```bash
 # Test Claude CLI
 echo "Hello" | claude
@@ -253,6 +276,7 @@ claude --version
 ### Issue: Agent timeout during conversation
 
 **Symptoms:**
+
 ```
 [Error] Agent claude failed: context deadline exceeded
 [Info] Continuing conversation with remaining agents...
@@ -261,12 +285,14 @@ claude --version
 **Solutions:**
 
 1. **Increase turn timeout:**
+
 ```yaml
 orchestrator:
   turn_timeout: 60s  # Increase from default 30s
 ```
 
-2. **Enable retries:**
+1. **Enable retries:**
+
 ```yaml
 orchestrator:
   max_retries: 3
@@ -275,7 +301,8 @@ orchestrator:
   retry_multiplier: 2.0
 ```
 
-3. **Check network connectivity:**
+1. **Check network connectivity:**
+
 ```bash
 # Test internet connection
 ping anthropic.com
@@ -287,6 +314,7 @@ sudo lsof -i -P | grep claude
 ### Issue: Rate limiting errors
 
 **Symptoms:**
+
 ```
 Error: rate limit wait failed: context deadline exceeded
 ```
@@ -294,6 +322,7 @@ Error: rate limit wait failed: context deadline exceeded
 **Solutions:**
 
 1. **Adjust rate limits:**
+
 ```yaml
 agents:
   - id: claude-1
@@ -302,7 +331,8 @@ agents:
     rate_limit_burst: 2  # Reduce burst
 ```
 
-2. **Disable rate limiting:**
+1. **Disable rate limiting:**
+
 ```yaml
 agents:
   - id: claude-1
@@ -310,7 +340,8 @@ agents:
     rate_limit: 0  # Unlimited
 ```
 
-3. **Increase turn timeout:**
+1. **Increase turn timeout:**
+
 ```yaml
 orchestrator:
   turn_timeout: 120s  # Allow more time for rate limiting
@@ -323,25 +354,29 @@ orchestrator:
 **Solutions:**
 
 1. **Reduce response delay:**
+
 ```yaml
 orchestrator:
   response_delay: 500ms  # Reduce from default 1s
 ```
 
-2. **Disable logging:**
+1. **Disable logging:**
+
 ```yaml
 logging:
   enabled: false
 ```
 
-3. **Use lightweight agents:**
+1. **Use lightweight agents:**
+
 ```yaml
 agents:
   - type: claude
     model: claude-3-5-haiku-20241022  # Faster than opus/sonnet
 ```
 
-4. **Check system resources:**
+1. **Check system resources:**
+
 ```bash
 # CPU usage
 top -o cpu
@@ -358,12 +393,14 @@ iostat -d 1
 **Solutions:**
 
 1. **Limit conversation length:**
+
 ```yaml
 orchestrator:
   max_turns: 10  # Limit turn count
 ```
 
-2. **Monitor memory:**
+1. **Monitor memory:**
+
 ```bash
 # Run with profiling
 go run -memprofile=mem.out . run -c config.yaml
@@ -372,7 +409,8 @@ go run -memprofile=mem.out . run -c config.yaml
 go tool pprof mem.out
 ```
 
-3. **Check for memory leaks:**
+1. **Check for memory leaks:**
+
 ```bash
 # Run with race detector
 go run -race . run -c config.yaml
@@ -383,6 +421,7 @@ go run -race . run -c config.yaml
 ### Issue: TUI not rendering correctly
 
 **Symptoms:**
+
 - Garbled text
 - Missing characters
 - Incorrect colors
@@ -390,6 +429,7 @@ go run -race . run -c config.yaml
 **Solutions:**
 
 1. **Check terminal compatibility:**
+
 ```bash
 # Test terminal type
 echo $TERM
@@ -398,13 +438,15 @@ echo $TERM
 export TERM=xterm-256color
 ```
 
-2. **Use non-TUI mode:**
+1. **Use non-TUI mode:**
+
 ```bash
 # Run without TUI
 agentpipe run -c config.yaml  # Without -t flag
 ```
 
-3. **Update terminal:**
+1. **Update terminal:**
+
 ```bash
 # macOS: Update Terminal.app or use iTerm2
 brew install iterm2
@@ -418,6 +460,7 @@ sudo apt install terminator
 **Solutions:**
 
 1. **Check for blocking operations:**
+
 ```bash
 # Send interrupt signal
 Ctrl+C
@@ -426,13 +469,15 @@ Ctrl+C
 kill -9 $(pgrep agentpipe)
 ```
 
-2. **Increase timeouts:**
+1. **Increase timeouts:**
+
 ```yaml
 orchestrator:
   turn_timeout: 60s
 ```
 
-3. **Run with debug output:**
+1. **Run with debug output:**
+
 ```bash
 # Enable verbose logging
 agentpipe run -c config.yaml 2>&1 | tee debug.log
@@ -441,6 +486,7 @@ agentpipe run -c config.yaml 2>&1 | tee debug.log
 ### Issue: Cannot scroll in TUI
 
 **Solution:**
+
 - Use mouse wheel to scroll in conversation panel
 - Use arrow keys to navigate between panels
 - Press `q` to quit TUI
@@ -450,6 +496,7 @@ agentpipe run -c config.yaml 2>&1 | tee debug.log
 ### Issue: No log files created
 
 **Symptoms:**
+
 ```
 Expected log file in ~/.agentpipe/chats/ but directory is empty
 ```
@@ -457,13 +504,15 @@ Expected log file in ~/.agentpipe/chats/ but directory is empty
 **Solutions:**
 
 1. **Check logging config:**
+
 ```yaml
 logging:
   enabled: true  # Must be true
   chat_log_dir: ~/.agentpipe/chats  # Check path
 ```
 
-2. **Verify directory permissions:**
+1. **Verify directory permissions:**
+
 ```bash
 # Check directory exists and is writable
 ls -la ~/.agentpipe/chats/
@@ -473,7 +522,8 @@ mkdir -p ~/.agentpipe/chats
 chmod 755 ~/.agentpipe/chats
 ```
 
-3. **Check disk space:**
+1. **Check disk space:**
+
 ```bash
 df -h
 ```
@@ -483,18 +533,21 @@ df -h
 **Solutions:**
 
 1. **Limit conversation length:**
+
 ```yaml
 orchestrator:
   max_turns: 20
 ```
 
-2. **Use JSON format (more compact):**
+1. **Use JSON format (more compact):**
+
 ```yaml
 logging:
   log_format: json  # Instead of text
 ```
 
-3. **Rotate logs manually:**
+1. **Rotate logs manually:**
+
 ```bash
 # Move old logs
 mv ~/.agentpipe/chats/*.txt ~/.agentpipe/chats/archive/
@@ -506,11 +559,13 @@ find ~/.agentpipe/chats/ -name "*.txt" -mtime +30 -delete
 ### Issue: Cannot read log files
 
 **Symptoms:**
+
 ```
 Error: permission denied reading log file
 ```
 
 **Solution:**
+
 ```bash
 # Fix permissions
 chmod 644 ~/.agentpipe/chats/*.txt
@@ -526,23 +581,27 @@ sudo chown $USER ~/.agentpipe/chats/*.txt
 **Solutions:**
 
 1. **Clean test cache:**
+
 ```bash
 go clean -testcache
 go test ./...
 ```
 
-2. **Check Go version:**
+1. **Check Go version:**
+
 ```bash
 go version  # Must be 1.25+
 ```
 
-3. **Update dependencies:**
+1. **Update dependencies:**
+
 ```bash
 go mod tidy
 go mod download
 ```
 
-4. **Run specific test:**
+1. **Run specific test:**
+
 ```bash
 go test -v -run TestName ./pkg/package/
 ```
@@ -552,16 +611,19 @@ go test -v -run TestName ./pkg/package/
 **Solutions:**
 
 1. **Run linter:**
+
 ```bash
 golangci-lint run --timeout=5m
 ```
 
-2. **Auto-fix issues:**
+1. **Auto-fix issues:**
+
 ```bash
 golangci-lint run --fix
 ```
 
-3. **Format code:**
+1. **Format code:**
+
 ```bash
 gofmt -w .
 goimports -local github.com/ASRagab/agentpipe -w .
@@ -572,16 +634,19 @@ goimports -local github.com/ASRagab/agentpipe -w .
 **Solutions:**
 
 1. **Verify go.mod:**
+
 ```bash
 go mod verify
 ```
 
-2. **Download dependencies:**
+1. **Download dependencies:**
+
 ```bash
 go mod download
 ```
 
-3. **Clean and rebuild:**
+1. **Clean and rebuild:**
+
 ```bash
 go clean -modcache
 go mod tidy
@@ -644,6 +709,7 @@ agentpipe run -c config.yaml 2>&1 | tee diagnostics.log
 ### Creating an Issue
 
 Include:
+
 - AgentPipe version: `agentpipe version`
 - Go version: `go version`
 - Operating system: `uname -a`
@@ -660,38 +726,48 @@ Include:
 
 ### Security Issues
 
-For security vulnerabilities, email security@example.com instead of creating a public issue.
+For security vulnerabilities, email <security@example.com> instead of creating a public issue.
 
 ## Common Error Messages
 
 ### `no agents configured`
+
 → Add at least one agent to your configuration
 
 ### `agent not available`
+
 → Install the agent's CLI tool
 
 ### `context deadline exceeded`
+
 → Increase timeout or enable retries
 
 ### `rate limit wait failed`
+
 → Adjust rate limits or increase timeout
 
 ### `failed to load config`
+
 → Check YAML syntax and file path
 
 ### `duplicate agent ID`
+
 → Ensure all agent IDs are unique
 
 ### `invalid mode`
+
 → Use: round-robin, reactive, or free-form
 
 ### `health check failed`
+
 → Increase timeout or skip health check
 
 ### `permission denied`
+
 → Check file permissions and ownership
 
 ### `command not found`
+
 → Ensure AgentPipe is in PATH
 
 ## Still Having Issues?

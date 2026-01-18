@@ -23,7 +23,7 @@ jobs:
           - goos: darwin
             goarch: arm64
             name: darwin_arm64
-          
+
           # Linux
           - goos: linux
             goarch: amd64
@@ -34,7 +34,7 @@ jobs:
           - goos: linux
             goarch: "386"
             name: linux_386
-          
+
           # Windows
           - goos: windows
             goarch: amd64
@@ -97,7 +97,7 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -132,39 +132,39 @@ jobs:
         run: |
           cat > release_notes.md << EOF
           # AgentPipe ${{ steps.get_version.outputs.VERSION }}
-          
+
           ## Installation
-          
+
           ### Homebrew (macOS/Linux)
           \`\`\`bash
-          brew tap kevinelliott/tap
+          brew tap ASRagab/tap
           brew install agentpipe
           \`\`\`
-          
+
           ### Direct Download
           Download the appropriate archive for your platform from the assets below.
-          
+
           ### Using Go
           \`\`\`bash
           go install github.com/ASRagab/agentpipe@${{ steps.get_version.outputs.VERSION }}
           \`\`\`
-          
+
           ## What's Changed
           See the [full changelog](https://github.com/ASRagab/agentpipe/compare/$(git describe --tags --abbrev=0 HEAD^)...${{ steps.get_version.outputs.VERSION }})
-          
+
           ## Checksums
           \`\`\`
           $(cat dist/checksums.txt)
           \`\`\`
-          
+
           ## Quick Start
           \`\`\`bash
           # Check available agents
           agentpipe doctor
-          
+
           # Start a conversation
           agentpipe run -a claude:Alice -a gemini:Bob -p "Hello!"
-          
+
           # Use enhanced TUI
           agentpipe run --tui -c examples/brainstorm.yaml
           \`\`\`
@@ -189,13 +189,13 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     if: "!contains(github.ref, '-')"  # Skip for pre-releases
-    
+
     steps:
       - name: Checkout tap repository
         uses: actions/checkout@v6
         continue-on-error: true
         with:
-          repository: kevinelliott/homebrew-tap
+          repository: ASRagab/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: homebrew-tap
 
@@ -214,13 +214,13 @@ jobs:
       - name: Update formula
         run: |
           cd homebrew-tap
-          
+
           # Extract SHA256 values
           DARWIN_ARM64_SHA=$(grep "agentpipe_darwin_arm64.tar.gz" ../checksums.txt | cut -d' ' -f1)
           DARWIN_AMD64_SHA=$(grep "agentpipe_darwin_amd64.tar.gz" ../checksums.txt | cut -d' ' -f1)
           LINUX_ARM64_SHA=$(grep "agentpipe_linux_arm64.tar.gz" ../checksums.txt | cut -d' ' -f1)
           LINUX_AMD64_SHA=$(grep "agentpipe_linux_amd64.tar.gz" ../checksums.txt | cut -d' ' -f1)
-          
+
           # Update formula
           cat > Formula/agentpipe.rb << EOF
           class Agentpipe < Formula
@@ -228,7 +228,7 @@ jobs:
             homepage "https://github.com/ASRagab/agentpipe"
             version "${{ steps.get_version.outputs.VERSION_WITHOUT_V }}"
             license "MIT"
-          
+
             if OS.mac?
               if Hardware::CPU.arm?
                 url "https://github.com/ASRagab/agentpipe/releases/download/${{ steps.get_version.outputs.VERSION }}/agentpipe_darwin_arm64.tar.gz"
@@ -246,10 +246,10 @@ jobs:
                 sha256 "${LINUX_AMD64_SHA}"
               end
             end
-          
+
             head "https://github.com/ASRagab/agentpipe.git", branch: "main"
             depends_on "go" => :build if build.head?
-          
+
             def install
               if build.head?
                 system "go", "build", *std_go_args(ldflags: "-s -w")
@@ -258,7 +258,7 @@ jobs:
                 bin.install Dir["agentpipe_*"].first => "agentpipe"
               end
             end
-          
+
             test do
               output = shell_output("#{bin}/agentpipe doctor 2>&1")
               assert_match "AgentPipe Doctor", output

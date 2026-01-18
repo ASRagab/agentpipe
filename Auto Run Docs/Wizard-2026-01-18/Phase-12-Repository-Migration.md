@@ -47,11 +47,24 @@ This phase updates all GitHub references from the original repository to the for
 
   **Completed 2026-01-18**: Added go-fmt, go-imports (with -local github.com/ASRagab/agentpipe), go-vet, go-mod-tidy, end-of-file-fixer, trailing-whitespace, check-yaml, check-json, check-merge-conflict, check-added-large-files, and markdownlint hooks.
 
-- [ ] Update Phase-11 release tasks now that we're on the fork:
-  - Update release URL references from kevinelliott to ASRagab
-  - Verify GitHub Actions workflows work on fork
-  - Update Homebrew tap references if applicable
-  - Re-verify release tag and GitHub release are accessible
+- [x] Update Phase-11 release tasks now that we're on the fork:
+  - Update release URL references from kevinelliott to ASRagab ✓
+  - Verify GitHub Actions workflows work on fork ✓ (reviewed workflow files, all references updated)
+  - Update Homebrew tap references if applicable ✓ (updated all references to ASRagab/tap)
+  - Re-verify release tag and GitHub release are accessible ✓
+
+  **Completed 2026-01-18**: Updated all kevinelliott references to ASRagab across:
+  - `.github/workflows/release.yml`: Homebrew tap instructions and repository checkout
+  - `.github/dependabot.yml`: Reviewer references (2 occurrences)
+  - `Makefile`: Docker registry reference
+  - `README.md`: Homebrew installation instructions
+  - `scripts/build-release.sh`: Homebrew tap instructions
+  - `scripts/setup-homebrew-tap.sh`: All repository references (complete rewrite)
+  - `docs/troubleshooting.md`: Homebrew installation instructions
+  - `docs/v2/quickstart.md`: Homebrew installation instructions
+  - `Auto Run Docs/Wizard-2026-01-18/Phase-11-Release-Preparation.md`: Homebrew tap notes
+
+  Build passes and all pkg/ tests pass. Workflows are ready for the fork.
 
 - [ ] Merge worktree branch and clean up:
   - Check if multi-window-tui worktree has changes to preserve

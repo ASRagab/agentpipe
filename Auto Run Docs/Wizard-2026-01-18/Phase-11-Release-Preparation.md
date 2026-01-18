@@ -90,11 +90,12 @@ This phase prepares AgentPipe v2.0.0-mvp for release. All code is finalized, tes
 
 - [x] Update Homebrew formula:
   - ✅ Formula is auto-updated by `.github/workflows/release.yml` during release
-  - ✅ Formula lives in external repository: `kevinelliott/homebrew-tap`
+  - ✅ Formula lives in external repository: `ASRagab/homebrew-tap` (updated from kevinelliott/homebrew-tap in Phase-12)
   - ✅ Version, URL, SHA256 are calculated from release checksums automatically
   - ⚠️ SKIPPED for v2.0.0-mvp: Pre-releases (versions with `-`) skip Homebrew updates per workflow logic: `if: "!contains(github.ref, '-')"`
   - **Note**: Homebrew formula will be auto-updated when a stable release (e.g., v2.0.0 without suffix) is published
   - **Verification**: Reviewed release.yml workflow - `update-homebrew` job correctly generates formula from checksums
+  - **Updated 2026-01-18**: All Homebrew tap references migrated from `kevinelliott/tap` to `ASRagab/tap` (Phase-12 migration)
 
 - [x] Create release notes:
   - ✅ Write user-friendly summary of v2 features

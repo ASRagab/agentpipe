@@ -29,7 +29,7 @@ Get started with AgentPipe v2 in 5 minutes. This guide walks you through install
 ### Option 1: Homebrew (macOS)
 
 ```bash
-brew install kevinelliott/tap/agentpipe
+brew install ASRagab/tap/agentpipe
 ```
 
 ### Option 2: Go Install

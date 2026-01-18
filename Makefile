@@ -7,7 +7,7 @@ COMMIT?=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE?=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 DOCKER_IMAGE=agentpipe
 DOCKER_TAG?=latest
-DOCKER_REGISTRY?=docker.io/kevinelliott
+DOCKER_REGISTRY?=docker.io/asragab
 
 # Installation paths
 PREFIX?=/usr/local
