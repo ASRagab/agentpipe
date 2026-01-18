@@ -97,6 +97,7 @@ func (m Model) Init() tea.Cmd {
 		m.subscribeToEvents(),
 		m.startRenderTicker(),
 		m.startCursorBlink(),
+		m.startTypingAnimTicker(),
 	)
 }
 
@@ -104,6 +105,13 @@ func (m Model) Init() tea.Cmd {
 func (m Model) startCursorBlink() tea.Cmd {
 	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
 		return cursorBlinkMsg{}
+	})
+}
+
+// startTypingAnimTicker starts the typing animation ticker (every 200ms for dots cycling).
+func (m Model) startTypingAnimTicker() tea.Cmd {
+	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
+		return typingAnimTickMsg{}
 	})
 }
 
@@ -134,6 +142,9 @@ type tickMsg struct {
 
 // cursorBlinkMsg is sent to toggle cursor visibility.
 type cursorBlinkMsg struct{}
+
+// typingAnimTickMsg is sent to advance the typing animation.
+type typingAnimTickMsg struct{}
 
 // eventMsg wraps an event for the Update loop.
 type eventMsg struct {
@@ -214,6 +225,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Continue blinking
 		cmds = append(cmds, tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
 			return cursorBlinkMsg{}
+		}))
+
+	case typingAnimTickMsg:
+		// Advance typing animation frame for agent list (cycles ., .., ...)
+		m.agentList.AdvanceAnimationFrame()
+		// Continue ticking
+		cmds = append(cmds, tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
+			return typingAnimTickMsg{}
 		}))
 
 	case eventMsg:
@@ -321,6 +340,7 @@ func (m *Model) handleEvent(event core.Event) {
 	case core.EventAgentError:
 		if data, ok := event.Data.(core.AgentErrorData); ok {
 			m.agentList.UpdateStatus(data.AgentID, components.AgentStatusError)
+			m.agentList.UpdateError(data.AgentID, data.Error)
 			m.lastError = fmt.Sprintf("%s: %s", data.AgentName, data.Error)
 		}
 	}

@@ -169,3 +169,11 @@ func HelpDescStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Foreground(lipgloss.Color("252"))
 }
+
+// TypingIndicatorStyle returns the style for typing indicators.
+func TypingIndicatorStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("226")). // Yellow for visibility
+		Italic(true).
+		PaddingLeft(1)
+}

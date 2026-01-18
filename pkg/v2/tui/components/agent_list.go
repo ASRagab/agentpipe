@@ -29,32 +29,46 @@ type AgentMetrics struct {
 	Cost     float64
 }
 
+// AgentErrorInfo contains error information for display.
+type AgentErrorInfo struct {
+	Error     string
+	Timestamp time.Time
+}
+
 // AgentListModel manages the agent list panel.
 type AgentListModel struct {
-	agents        []core.Agent
-	statusMap     map[string]AgentStatus
-	metricsMap    map[string]AgentMetrics
-	selectedIndex int
-	width         int
-	height        int
-	focused       bool
+	agents         []core.Agent
+	statusMap      map[string]AgentStatus
+	metricsMap     map[string]AgentMetrics
+	typingStartMap map[string]time.Time  // When each agent started typing
+	errorMap       map[string]AgentErrorInfo // Error info for each agent
+	animFrame      int                   // Current frame for typing animation (0-2)
+	selectedIndex  int
+	width          int
+	height         int
+	focused        bool
 }
 
 // NewAgentListModel creates a new agent list model.
 func NewAgentListModel(agents []core.Agent) AgentListModel {
 	statusMap := make(map[string]AgentStatus)
 	metricsMap := make(map[string]AgentMetrics)
+	typingStartMap := make(map[string]time.Time)
+	errorMap := make(map[string]AgentErrorInfo)
 
 	for _, agent := range agents {
 		statusMap[agent.ID] = AgentStatusReady
 	}
 
 	return AgentListModel{
-		agents:        agents,
-		statusMap:     statusMap,
-		metricsMap:    metricsMap,
-		selectedIndex: 0,
-		focused:       false,
+		agents:         agents,
+		statusMap:      statusMap,
+		metricsMap:     metricsMap,
+		typingStartMap: typingStartMap,
+		errorMap:       errorMap,
+		selectedIndex:  0,
+		focused:        false,
+		animFrame:      0,
 	}
 }
 
@@ -139,8 +153,21 @@ func (m AgentListModel) View() string {
 		b.WriteString(modelStyle.Render(modelLine))
 		b.WriteString("\n")
 
-		// Show metrics if available
-		if metrics, ok := m.metricsMap[agent.ID]; ok {
+		// Show typing indicator with animation and elapsed time
+		if status == AgentStatusTyping {
+			typingLine := m.renderTypingIndicator(agent.ID)
+			b.WriteString(typingLine)
+			b.WriteString("\n")
+		} else if status == AgentStatusError {
+			// Show error info if available
+			if errInfo, ok := m.errorMap[agent.ID]; ok {
+				errorStyle := styles.ErrorStyle()
+				errorLine := fmt.Sprintf("  ⚠ %s", truncateString(errInfo.Error, m.width-8))
+				b.WriteString(errorStyle.Render(errorLine))
+				b.WriteString("\n")
+			}
+		} else if metrics, ok := m.metricsMap[agent.ID]; ok {
+			// Show metrics if available (only when not typing/error)
 			metricsStyle := styles.MetricsStyle()
 			metricsLine := fmt.Sprintf("  %dms | %d tok", metrics.Duration.Milliseconds(), metrics.Tokens)
 			b.WriteString(metricsStyle.Render(metricsLine))
@@ -184,7 +211,21 @@ func (m *AgentListModel) IsFocused() bool {
 
 // UpdateStatus updates the status for a specific agent.
 func (m *AgentListModel) UpdateStatus(agentID string, status AgentStatus) {
+	previousStatus := m.statusMap[agentID]
 	m.statusMap[agentID] = status
+
+	// Track typing start time when transitioning to typing
+	if status == AgentStatusTyping && previousStatus != AgentStatusTyping {
+		m.typingStartMap[agentID] = time.Now()
+	} else if status != AgentStatusTyping {
+		// Clear typing start time when no longer typing
+		delete(m.typingStartMap, agentID)
+	}
+
+	// Clear error when status changes to ready
+	if status == AgentStatusReady {
+		delete(m.errorMap, agentID)
+	}
 }
 
 // UpdateMetrics updates the metrics for a specific agent.
@@ -226,4 +267,79 @@ func (m *AgentListModel) SetAgents(agents []core.Agent) {
 // AgentCount returns the number of agents.
 func (m *AgentListModel) AgentCount() int {
 	return len(m.agents)
+}
+
+// UpdateError updates the error info for a specific agent.
+func (m *AgentListModel) UpdateError(agentID string, errorMsg string) {
+	m.errorMap[agentID] = AgentErrorInfo{
+		Error:     errorMsg,
+		Timestamp: time.Now(),
+	}
+}
+
+// GetError returns the error info for a specific agent.
+func (m *AgentListModel) GetError(agentID string) (AgentErrorInfo, bool) {
+	info, ok := m.errorMap[agentID]
+	return info, ok
+}
+
+// AdvanceAnimationFrame advances the typing animation frame.
+// Should be called on each frame tick (every 200ms) to create cycling dots animation.
+func (m *AgentListModel) AdvanceAnimationFrame() {
+	m.animFrame = (m.animFrame + 1) % 3
+}
+
+// GetAnimationFrame returns the current animation frame.
+func (m *AgentListModel) GetAnimationFrame() int {
+	return m.animFrame
+}
+
+// HasTypingAgents returns true if any agent is currently typing.
+func (m *AgentListModel) HasTypingAgents() bool {
+	for _, status := range m.statusMap {
+		if status == AgentStatusTyping {
+			return true
+		}
+	}
+	return false
+}
+
+// GetTypingElapsed returns the elapsed time since an agent started typing.
+func (m *AgentListModel) GetTypingElapsed(agentID string) time.Duration {
+	if startTime, ok := m.typingStartMap[agentID]; ok {
+		return time.Since(startTime)
+	}
+	return 0
+}
+
+// renderTypingIndicator renders the animated typing indicator with elapsed time.
+func (m AgentListModel) renderTypingIndicator(agentID string) string {
+	// Cycling dots animation based on animation frame
+	dots := []string{".", "..", "..."}
+	indicator := dots[m.animFrame]
+
+	// Calculate elapsed time
+	elapsed := m.GetTypingElapsed(agentID)
+	var elapsedStr string
+	if elapsed < time.Second {
+		elapsedStr = fmt.Sprintf("%dms", elapsed.Milliseconds())
+	} else if elapsed < time.Minute {
+		elapsedStr = fmt.Sprintf("%.1fs", elapsed.Seconds())
+	} else {
+		elapsedStr = fmt.Sprintf("%.1fm", elapsed.Minutes())
+	}
+
+	typingLine := fmt.Sprintf("  typing%s %s", indicator, elapsedStr)
+	return styles.TypingIndicatorStyle().Render(typingLine)
+}
+
+// truncateString truncates a string to the specified length, adding "..." if truncated.
+func truncateString(s string, maxLen int) string {
+	if maxLen <= 3 {
+		return s
+	}
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
 }
