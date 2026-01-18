@@ -96,7 +96,15 @@ func (m Model) Init() tea.Cmd {
 		m.input.Init(),
 		m.subscribeToEvents(),
 		m.startRenderTicker(),
+		m.startCursorBlink(),
 	)
+}
+
+// startCursorBlink starts the cursor blinking animation for streaming messages.
+func (m Model) startCursorBlink() tea.Cmd {
+	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+		return cursorBlinkMsg{}
+	})
 }
 
 // subscribeToEvents sets up event bus subscriptions.
@@ -123,6 +131,9 @@ func (m Model) startRenderTicker() tea.Cmd {
 type tickMsg struct {
 	time time.Time
 }
+
+// cursorBlinkMsg is sent to toggle cursor visibility.
+type cursorBlinkMsg struct{}
 
 // eventMsg wraps an event for the Update loop.
 type eventMsg struct {
@@ -195,6 +206,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Continue ticking
 		cmds = append(cmds, tea.Tick(time.Second/60, func(t time.Time) tea.Msg {
 			return tickMsg{time: t}
+		}))
+
+	case cursorBlinkMsg:
+		// Toggle cursor visibility for streaming messages
+		m.conversation.ToggleCursor()
+		// Continue blinking
+		cmds = append(cmds, tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+			return cursorBlinkMsg{}
 		}))
 
 	case eventMsg:
@@ -274,6 +293,12 @@ func (m *Model) handleEvent(event core.Event) {
 			m.conversation.AddMessage(msg)
 		}
 
+	case core.EventMessageChunk:
+		if chunk, ok := event.Data.(core.MessageChunk); ok {
+			// Append chunk to streaming message
+			m.conversation.AppendChunk(chunk)
+		}
+
 	case core.EventAgentTyping:
 		if data, ok := event.Data.(core.AgentTypingData); ok {
 			m.agentList.UpdateStatus(data.AgentID, components.AgentStatusTyping)
@@ -282,6 +307,8 @@ func (m *Model) handleEvent(event core.Event) {
 	case core.EventAgentDone:
 		if data, ok := event.Data.(core.AgentDoneData); ok {
 			m.agentList.UpdateStatus(data.AgentID, components.AgentStatusReady)
+			// Complete streaming for this message if it was being streamed
+			m.conversation.CompleteStreaming(data.Message.ID, data.Message)
 			if data.Message.Metrics != nil {
 				m.agentList.UpdateMetrics(data.AgentID, components.AgentMetrics{
 					Duration: data.Message.Metrics.Duration,

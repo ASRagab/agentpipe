@@ -2,7 +2,9 @@ package components
 
 import (
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,22 +14,48 @@ import (
 	"github.com/kevinelliott/agentpipe/pkg/v2/tui/styles"
 )
 
+// StreamingMessage represents a message currently being streamed.
+type StreamingMessage struct {
+	// MessageID uniquely identifies this streaming message.
+	MessageID string
+	// AgentID is the ID of the agent streaming this message.
+	AgentID string
+	// AgentName is the name of the agent streaming this message.
+	AgentName string
+	// Content is the accumulated content from all chunks.
+	Content string
+	// StartTime is when the streaming started.
+	StartTime time.Time
+	// LastChunkTime is when the last chunk was received.
+	LastChunkTime time.Time
+	// ChunkCount is the number of chunks received.
+	ChunkCount int
+}
+
 // ConversationModel manages the conversation view panel.
 type ConversationModel struct {
-	messages   []core.Message
-	viewport   viewport.Model
-	width      int
-	height     int
-	focused    bool
-	ready      bool
-	agentIndex map[string]int // Maps agent ID to color index
+	messages          []core.Message
+	streamingMessages map[string]*StreamingMessage // keyed by MessageID
+	viewport          viewport.Model
+	width             int
+	height            int
+	focused           bool
+	ready             bool
+	agentIndex        map[string]int // Maps agent ID to color index
+	cursorVisible     bool           // For blinking cursor animation
+	autoScroll        bool           // Whether to auto-scroll on new messages
+	userScrolledUp    bool           // Whether user has scrolled up from bottom
 }
 
 // NewConversationModel creates a new conversation model.
 func NewConversationModel() ConversationModel {
 	return ConversationModel{
-		messages:   make([]core.Message, 0),
-		agentIndex: make(map[string]int),
+		messages:          make([]core.Message, 0),
+		streamingMessages: make(map[string]*StreamingMessage),
+		agentIndex:        make(map[string]int),
+		cursorVisible:     true,
+		autoScroll:        true,
+		userScrolledUp:    false,
 	}
 }
 
@@ -107,20 +135,76 @@ func (m ConversationModel) View() string {
 		Render(header + m.viewport.View())
 }
 
-// renderMessages renders all messages to a string.
+// renderMessages renders all messages to a string including streaming messages.
 func (m ConversationModel) renderMessages() string {
-	if len(m.messages) == 0 {
+	// Count total messages including streaming
+	if len(m.messages) == 0 && len(m.streamingMessages) == 0 {
 		return styles.PlaceholderStyle().Render("No messages yet. Start typing to begin the conversation.")
 	}
 
 	var b strings.Builder
 
+	// Render completed messages
 	for _, msg := range m.messages {
 		m.renderMessage(&b, msg)
 		b.WriteString("\n")
 	}
 
+	// Render streaming messages (sorted by start time for consistent ordering)
+	streamingSlice := m.getSortedStreamingMessages()
+	for _, sm := range streamingSlice {
+		m.renderStreamingMessage(&b, sm)
+		b.WriteString("\n")
+	}
+
 	return b.String()
+}
+
+// getSortedStreamingMessages returns streaming messages sorted by start time.
+func (m ConversationModel) getSortedStreamingMessages() []*StreamingMessage {
+	result := make([]*StreamingMessage, 0, len(m.streamingMessages))
+	for _, sm := range m.streamingMessages {
+		result = append(result, sm)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].StartTime.Before(result[j].StartTime)
+	})
+	return result
+}
+
+// renderStreamingMessage renders a message that is currently being streamed.
+func (m ConversationModel) renderStreamingMessage(b *strings.Builder, sm *StreamingMessage) {
+	timestamp := sm.StartTime.Format("15:04:05")
+
+	// Agent messages with color-coded name
+	colorIndex := m.getAgentColorIndex(sm.AgentID)
+	color := styles.AgentColorForIndex(colorIndex)
+
+	header := fmt.Sprintf("[%s] %s:", timestamp, sm.AgentName)
+	headerStyle := styles.AgentNameStyle(color)
+	b.WriteString(headerStyle.Render(header))
+
+	// Show streaming indicator with elapsed time
+	elapsed := time.Since(sm.StartTime)
+	var elapsedStr string
+	if elapsed < time.Second {
+		elapsedStr = fmt.Sprintf("%dms", elapsed.Milliseconds())
+	} else {
+		elapsedStr = fmt.Sprintf("%.1fs", elapsed.Seconds())
+	}
+	streamingIndicator := fmt.Sprintf(" [streaming... %s]", elapsedStr)
+	b.WriteString(styles.MetricsStyle().Render(streamingIndicator))
+
+	b.WriteString("\n")
+
+	// Render the content with blinking cursor
+	content := sm.Content
+	if m.cursorVisible {
+		content += "▌"
+	}
+	b.WriteString(styles.AgentMessageStyle(color).Render(content))
+
+	b.WriteString("\n")
 }
 
 // renderMessage renders a single message.
@@ -275,4 +359,108 @@ func (m *ConversationModel) InitViewport(width, height int) {
 // SetAgentIndex sets the agent color index mapping.
 func (m *ConversationModel) SetAgentIndex(index map[string]int) {
 	m.agentIndex = index
+}
+
+// StartStreaming begins tracking a new streaming message.
+func (m *ConversationModel) StartStreaming(messageID, agentID, agentName string) {
+	now := time.Now()
+	m.streamingMessages[messageID] = &StreamingMessage{
+		MessageID:     messageID,
+		AgentID:       agentID,
+		AgentName:     agentName,
+		Content:       "",
+		StartTime:     now,
+		LastChunkTime: now,
+		ChunkCount:    0,
+	}
+	m.refreshContent()
+}
+
+// AppendChunk appends a chunk to a streaming message.
+func (m *ConversationModel) AppendChunk(chunk core.MessageChunk) {
+	sm, ok := m.streamingMessages[chunk.MessageID]
+	if !ok {
+		// Auto-start streaming if not already started
+		m.StartStreaming(chunk.MessageID, chunk.AgentID, chunk.AgentName)
+		sm = m.streamingMessages[chunk.MessageID]
+	}
+
+	sm.Content += chunk.Content
+	sm.LastChunkTime = time.Now()
+	sm.ChunkCount++
+
+	m.refreshContent()
+}
+
+// CompleteStreaming finishes streaming and converts to a completed message.
+func (m *ConversationModel) CompleteStreaming(messageID string, finalMsg core.Message) {
+	delete(m.streamingMessages, messageID)
+	m.messages = append(m.messages, finalMsg)
+	m.refreshContent()
+}
+
+// CancelStreaming cancels a streaming message without completing it.
+func (m *ConversationModel) CancelStreaming(messageID string) {
+	delete(m.streamingMessages, messageID)
+	m.refreshContent()
+}
+
+// ToggleCursor toggles the cursor visibility for animation.
+func (m *ConversationModel) ToggleCursor() {
+	m.cursorVisible = !m.cursorVisible
+	if len(m.streamingMessages) > 0 {
+		m.refreshContent()
+	}
+}
+
+// HasStreamingMessages returns true if there are active streaming messages.
+func (m *ConversationModel) HasStreamingMessages() bool {
+	return len(m.streamingMessages) > 0
+}
+
+// GetStreamingMessageCount returns the number of active streaming messages.
+func (m *ConversationModel) GetStreamingMessageCount() int {
+	return len(m.streamingMessages)
+}
+
+// refreshContent updates the viewport content and handles auto-scrolling.
+func (m *ConversationModel) refreshContent() {
+	if !m.ready {
+		return
+	}
+
+	// Check if we're at the bottom before updating
+	atBottom := m.isAtBottom()
+
+	content := m.renderMessages()
+	m.viewport.SetContent(content)
+
+	// Auto-scroll only if we were at the bottom and user hasn't scrolled up
+	if atBottom && !m.userScrolledUp {
+		m.viewport.GotoBottom()
+	}
+}
+
+// isAtBottom checks if the viewport is scrolled to the bottom.
+func (m *ConversationModel) isAtBottom() bool {
+	if !m.ready {
+		return true
+	}
+	// Consider "at bottom" if within 1 line of the actual bottom
+	return m.viewport.AtBottom()
+}
+
+// SetUserScrolledUp marks that the user has scrolled up.
+func (m *ConversationModel) SetUserScrolledUp(scrolled bool) {
+	m.userScrolledUp = scrolled
+}
+
+// IsUserScrolledUp returns whether the user has scrolled up from bottom.
+func (m *ConversationModel) IsUserScrolledUp() bool {
+	return m.userScrolledUp
+}
+
+// TotalMessageCount returns the total count of completed and streaming messages.
+func (m *ConversationModel) TotalMessageCount() int {
+	return len(m.messages) + len(m.streamingMessages)
 }
