@@ -651,6 +651,25 @@ func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activePanel == conversationPanel {
 				m.conversation.HalfPageDown()
 			}
+
+		case "left", "h":
+			// Previous agent tab (when not in input panel)
+			if m.activePanel != inputPanel && len(m.agentOrder) > 0 {
+				m.selectedAgentIndex--
+				if m.selectedAgentIndex < 0 {
+					m.selectedAgentIndex = len(m.agentOrder) - 1
+				}
+			}
+
+		case "right", "l":
+			// Next agent tab (when not in input panel)
+			if m.activePanel != inputPanel && len(m.agentOrder) > 0 {
+				m.selectedAgentIndex = (m.selectedAgentIndex + 1) % len(m.agentOrder)
+			}
+
+		case "f":
+			// Toggle auto-follow
+			m.autoFollow = !m.autoFollow
 		}
 
 	case tea.WindowSizeMsg:

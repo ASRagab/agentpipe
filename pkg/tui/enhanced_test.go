@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -898,6 +899,113 @@ func TestMessageWriter_BufferHandling(t *testing.T) {
 	msg := <-msgChan
 	if !strings.Contains(msg.Content, "Incomplete message") {
 		t.Errorf("Expected complete message, got: %s", msg.Content)
+	}
+}
+
+func TestEnhancedModel_TabNavigation(t *testing.T) {
+	cfg := &config.Config{
+		Orchestrator: config.OrchestratorConfig{
+			Mode:     "round-robin",
+			MaxTurns: 10,
+		},
+	}
+
+	m := createTestEnhancedModel(cfg, conversationPanel, false)
+	m.agentOrder = []string{"Agent1", "Agent2", "Agent3"}
+	m.selectedAgentIndex = 0
+	m.agentMessages = make(map[string][]agent.Message)
+	m.agentViewports = make(map[string]viewport.Model)
+
+	// Initialize with window size
+	sizeMsg := tea.WindowSizeMsg{Width: 100, Height: 40}
+	updatedModel, _ := m.Update(sizeMsg)
+	m = updatedModel.(EnhancedModel)
+
+	// Test right arrow navigation
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	updated := newModel.(EnhancedModel)
+	if updated.selectedAgentIndex != 1 {
+		t.Errorf("Expected selectedAgentIndex=1, got %d", updated.selectedAgentIndex)
+	}
+
+	// Test left arrow navigation
+	newModel, _ = updated.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	updated = newModel.(EnhancedModel)
+	if updated.selectedAgentIndex != 0 {
+		t.Errorf("Expected selectedAgentIndex=0, got %d", updated.selectedAgentIndex)
+	}
+
+	// Test wrap-around right
+	m.selectedAgentIndex = 2
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	updated = newModel.(EnhancedModel)
+	if updated.selectedAgentIndex != 0 {
+		t.Errorf("Expected wrap to 0, got %d", updated.selectedAgentIndex)
+	}
+
+	// Test wrap-around left
+	m.selectedAgentIndex = 0
+	newModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	updated = newModel.(EnhancedModel)
+	if updated.selectedAgentIndex != 2 {
+		t.Errorf("Expected wrap to 2, got %d", updated.selectedAgentIndex)
+	}
+}
+
+func TestEnhancedModel_TabNavigationNotInInputPanel(t *testing.T) {
+	cfg := &config.Config{
+		Orchestrator: config.OrchestratorConfig{
+			Mode: "round-robin",
+		},
+	}
+
+	// Create model with input panel active
+	m := createTestEnhancedModel(cfg, inputPanel, false)
+	m.agentOrder = []string{"Agent1", "Agent2", "Agent3"}
+	m.selectedAgentIndex = 1
+	m.agentMessages = make(map[string][]agent.Message)
+	m.agentViewports = make(map[string]viewport.Model)
+
+	// Initialize with window size
+	sizeMsg := tea.WindowSizeMsg{Width: 100, Height: 40}
+	updatedModel, _ := m.Update(sizeMsg)
+	m = updatedModel.(EnhancedModel)
+
+	// Arrow keys should NOT change selectedAgentIndex when in input panel
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	updated := newModel.(EnhancedModel)
+	if updated.selectedAgentIndex != 1 {
+		t.Errorf("Expected selectedAgentIndex to remain 1 in input panel, got %d", updated.selectedAgentIndex)
+	}
+}
+
+func TestEnhancedModel_AutoFollowToggle(t *testing.T) {
+	cfg := &config.Config{
+		Orchestrator: config.OrchestratorConfig{
+			Mode: "round-robin",
+		},
+	}
+
+	m := createTestEnhancedModel(cfg, conversationPanel, false)
+	m.autoFollow = true
+
+	// Initialize with window size
+	sizeMsg := tea.WindowSizeMsg{Width: 100, Height: 40}
+	updatedModel, _ := m.Update(sizeMsg)
+	m = updatedModel.(EnhancedModel)
+
+	// Press 'f' to toggle
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	updated := newModel.(EnhancedModel)
+	if updated.autoFollow != false {
+		t.Error("Expected autoFollow to be toggled off")
+	}
+
+	// Press 'f' again to toggle back
+	newModel, _ = updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+	updated = newModel.(EnhancedModel)
+	if updated.autoFollow != true {
+		t.Error("Expected autoFollow to be toggled on")
 	}
 }
 
