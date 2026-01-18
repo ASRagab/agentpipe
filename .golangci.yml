@@ -115,26 +115,6 @@ linters:
           - dupl
         path: internal/registry/
       - linters:
-          - gocognit
-          - gocyclo
-        path: pkg/orchestrator/
-      - linters:
-          - gocognit
-          - gocyclo
-        path: pkg/middleware/
-      - linters:
-          - gocognit
-          - gocyclo
-        path: test/integration/
-      - linters:
-          - gosec
-        path: pkg/orchestrator/
-        text: 'G404:'
-      - linters:
-          - gosec
-        path: cmd/init.go
-        text: 'G306:'
-      - linters:
           - errcheck
           - gosec
         path: internal/version/version.go
@@ -150,19 +130,11 @@ linters:
         text: resp.Body.Close
       - linters:
           - errcheck
-        path: pkg/logger/logger.go
-        text: logFile.Close
-      - linters:
-          - errcheck
         text: fmt.Fprint
       - linters:
           - gosec
         path: pkg/config/config.go
         text: G304
-      - linters:
-          - gosec
-        path: pkg/logger/
-        text: (G304|G301)
       - linters:
           - staticcheck
         text: QF1003

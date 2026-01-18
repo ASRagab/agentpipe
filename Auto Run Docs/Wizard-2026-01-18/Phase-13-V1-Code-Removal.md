@@ -359,10 +359,27 @@ The pkg/log package is NOT v1-specific. It is shared logging infrastructure used
   - `go mod tidy` - No changes needed
   - Package structure verified: 16 directories under pkg/ (adapters, artifact, config, core, e2e, errors, events, log, manager, metrics, persistence, pool, ratelimit, tui, utils)
 
-- [ ] Update CLAUDE.md:
+- [x] Update CLAUDE.md:
   - Remove any v1/v2 distinction language
   - Update package paths in documentation
   - Simplify architecture documentation
+
+  **Completed 2026-01-18**: Updated CLAUDE.md and .golangci.yml to reflect current package structure.
+
+  **CLAUDE.md Changes:**
+  - Updated linting exclusions from `pkg/tui/, pkg/adapters/, pkg/orchestrator/` to `pkg/tui/, pkg/adapters/, pkg/config/, pkg/persistence/`
+  - Removed stale reference to pkg/orchestrator/ (no longer exists)
+  - Added pkg/config/ and pkg/persistence/ (current exclusions in .golangci.yml)
+  - Note: v1/v2 references in CLAUDE.md are about golangci-lint versions, not AgentPipe architecture
+
+  **.golangci.yml Cleanup (stale path references removed):**
+  - pkg/orchestrator/ (2 exclusion rules) - directory removed in earlier task
+  - pkg/middleware/ (1 exclusion rule) - directory removed in earlier task
+  - test/integration/ (1 exclusion rule) - directory removed in earlier task
+  - cmd/init.go (1 exclusion rule) - file removed in earlier task
+  - pkg/logger/ (2 exclusion rules) - directory removed in earlier task
+
+  **Build & Tests:** All passing
 
 - [ ] Final cleanup:
   - Remove any orphaned files

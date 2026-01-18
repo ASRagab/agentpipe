@@ -39,7 +39,7 @@ AgentPipe is a CLI and TUI application that orchestrates conversations between m
   - Or: `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`
 - Configuration structure: `linters-settings:` for linter config, `issues.exclude-rules:` for exclusions
 - Cognitive complexity threshold: 30
-- Excluded from complexity checks: pkg/tui/, pkg/adapters/, pkg/orchestrator/
+- Excluded from complexity checks: pkg/tui/, pkg/adapters/, pkg/config/, pkg/persistence/
 
 #### Testing
 
