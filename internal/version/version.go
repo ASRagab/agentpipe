@@ -18,6 +18,20 @@ var (
 
 	// BuildDate is the build date
 	BuildDate = "unknown"
+
+	// V2EngineVersion is the version of the v2 parallel execution engine
+	V2EngineVersion = "2.0.0"
+
+	// V2EngineFeatures lists the capabilities of the v2 engine
+	V2EngineFeatures = []string{
+		"parallel-execution",
+		"graceful-degradation",
+		"circuit-breaker",
+		"health-monitoring",
+		"persistence",
+		"conversation-resume",
+		"markdown-export",
+	}
 )
 
 // GitHubRelease represents a GitHub release
@@ -180,4 +194,14 @@ func GetVersionString() string {
 // GetShortVersion returns just the version number
 func GetShortVersion() string {
 	return Version
+}
+
+// GetV2EngineInfo returns v2 engine version and features
+func GetV2EngineInfo() (string, []string) {
+	return V2EngineVersion, V2EngineFeatures
+}
+
+// GetV2VersionString returns a formatted v2 engine version string
+func GetV2VersionString() string {
+	return fmt.Sprintf("v2 Engine: %s", V2EngineVersion)
 }
