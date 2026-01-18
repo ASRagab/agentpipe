@@ -92,6 +92,16 @@ func init() {
 }
 
 func runConversation(cobraCmd *cobra.Command, args []string) {
+	// Check if v2 engine should be used
+	if shouldUseV2() {
+		log.Debug("using v2 engine")
+		if err := runV2Conversation(cobraCmd, configPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	var cfg *config.Config
 	var err error
 	var stdoutEmitter *bridge.StdoutEmitter
