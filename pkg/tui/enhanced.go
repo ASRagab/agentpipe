@@ -82,6 +82,14 @@ type EnhancedModel struct {
 
 	// Styles
 	agentColors map[string]lipgloss.Color
+
+	// Multi-window state
+	agentMessages      map[string][]agent.Message // Per-agent message buffers
+	agentViewports     map[string]viewport.Model  // Per-agent viewports
+	agentOrder         []string                   // Ordered list of agent names
+	selectedAgentIndex int                        // Which agent is in main view
+	autoFollow         bool                       // Toggle for following active agent
+	previewLines       int                        // Lines to show in previews (default: 3)
 }
 
 // Styles
@@ -291,6 +299,12 @@ func RunEnhanced(ctx context.Context, cfg *config.Config, agents []agent.Agent, 
 		agents = []agent.Agent{}
 	}
 
+	// Build agent order for multi-window navigation
+	agentOrderList := make([]string, 0, len(agents))
+	for _, a := range agents {
+		agentOrderList = append(agentOrderList, a.GetName())
+	}
+
 	// Create the agent list
 	agentList := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	agentList.Title = "Agents"
@@ -397,6 +411,13 @@ func RunEnhanced(ctx context.Context, cfg *config.Config, agents []agent.Agent, 
 		healthCheckTimeout: healthCheckTimeout,
 		chatLogger:         chatLogger,
 		configPath:         configPath,
+		// Multi-window state
+		agentMessages:      make(map[string][]agent.Message),
+		agentViewports:     make(map[string]viewport.Model),
+		agentOrder:         agentOrderList,
+		selectedAgentIndex: 0,
+		autoFollow:         true, // Default to auto-follow enabled
+		previewLines:       3,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
@@ -630,6 +651,25 @@ func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activePanel == conversationPanel {
 				m.conversation.HalfPageDown()
 			}
+
+		case "left", "h":
+			// Previous agent tab (when not in input panel)
+			if m.activePanel != inputPanel && len(m.agentOrder) > 0 {
+				m.selectedAgentIndex--
+				if m.selectedAgentIndex < 0 {
+					m.selectedAgentIndex = len(m.agentOrder) - 1
+				}
+			}
+
+		case "right", "l":
+			// Next agent tab (when not in input panel)
+			if m.activePanel != inputPanel && len(m.agentOrder) > 0 {
+				m.selectedAgentIndex = (m.selectedAgentIndex + 1) % len(m.agentOrder)
+			}
+
+		case "f":
+			// Toggle auto-follow
+			m.autoFollow = !m.autoFollow
 		}
 
 	case tea.WindowSizeMsg:
@@ -683,6 +723,24 @@ func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.userInput.SetWidth(leftWidth - 4)
 		}
 
+		// Initialize or update per-agent viewports
+		if m.agentViewports == nil {
+			m.agentViewports = make(map[string]viewport.Model)
+		}
+		for _, agentName := range m.agentOrder {
+			if _, exists := m.agentViewports[agentName]; !exists {
+				vp := viewport.New(leftWidth-2, convHeight)
+				vp.SetContent(m.renderAgentMessages(agentName))
+				m.agentViewports[agentName] = vp
+			} else {
+				vp := m.agentViewports[agentName]
+				vp.Width = leftWidth - 2
+				vp.Height = convHeight
+				vp.SetContent(m.renderAgentMessages(agentName))
+				m.agentViewports[agentName] = vp
+			}
+		}
+
 	case agentInitMsg:
 		// Add initialization message to chat
 		initMsg := agent.Message{
@@ -728,6 +786,22 @@ func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.agentList.SetItems(items)
 
+		// Set up agent order for multi-window navigation
+		m.agentOrder = make([]string, len(m.agents))
+		for i, a := range m.agents {
+			m.agentOrder[i] = a.GetName()
+		}
+
+		// Initialize per-agent message buffers
+		if m.agentMessages == nil {
+			m.agentMessages = make(map[string][]agent.Message)
+		}
+		for _, name := range m.agentOrder {
+			if _, exists := m.agentMessages[name]; !exists {
+				m.agentMessages[name] = make([]agent.Message, 0)
+			}
+		}
+
 		successMsg := agent.Message{
 			AgentID:   "info",
 			AgentName: "System",
@@ -753,8 +827,30 @@ func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.message.Role == "active" {
 			// This is just an indicator that an agent is actively typing
 			m.activeAgent = msg.message.AgentName
+
+			// Auto-follow if enabled
+			if m.autoFollow {
+				for i, name := range m.agentOrder {
+					if name == msg.message.AgentName {
+						m.selectedAgentIndex = i
+						break
+					}
+				}
+			}
 		} else {
-			// Regular message
+			// Route message to per-agent buffer
+			agentName := msg.message.AgentName
+			if agentName == "" {
+				agentName = "System"
+			}
+
+			// Initialize buffer if needed
+			if m.agentMessages == nil {
+				m.agentMessages = make(map[string][]agent.Message)
+			}
+			m.agentMessages[agentName] = append(m.agentMessages[agentName], msg.message)
+
+			// Also keep in legacy messages array for compatibility
 			m.messages = append(m.messages, msg.message)
 
 			// Log the message if logging is enabled
@@ -896,6 +992,138 @@ func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// renderTabIndicator renders the tab navigation bar
+func (m *EnhancedModel) renderTabIndicator() string {
+	if len(m.agentOrder) == 0 {
+		return ""
+	}
+
+	currentAgent := "(none)"
+	if m.selectedAgentIndex < len(m.agentOrder) {
+		currentAgent = m.agentOrder[m.selectedAgentIndex]
+	}
+
+	color := m.agentColors[currentAgent]
+	if color == "" {
+		color = lipgloss.Color("99")
+	}
+
+	// Build indicator
+	leftArrow := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("< ")
+	rightArrow := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(" >")
+	agentName := lipgloss.NewStyle().Foreground(color).Bold(true).Render(currentAgent)
+
+	// Position indicator
+	position := fmt.Sprintf(" (%d/%d)", m.selectedAgentIndex+1, len(m.agentOrder))
+	posStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
+	// Auto-follow indicator
+	followIndicator := ""
+	if m.autoFollow {
+		followIndicator = lipgloss.NewStyle().Foreground(lipgloss.Color("82")).Render(" [auto-follow]")
+	}
+
+	return leftArrow + agentName + rightArrow + posStyle.Render(position) + followIndicator
+}
+
+// renderMultiWindowStatusBar renders the status bar for multi-window layout
+func (m *EnhancedModel) renderMultiWindowStatusBar() string {
+	help := []string{
+		helpKeyStyle.Render("<>") + helpDescStyle.Render(" Switch agent"),
+		helpKeyStyle.Render("Up/Dn") + helpDescStyle.Render(" Scroll"),
+		helpKeyStyle.Render("f") + helpDescStyle.Render(" Auto-follow"),
+		helpKeyStyle.Render("Tab") + helpDescStyle.Render(" Focus input"),
+		helpKeyStyle.Render("Enter") + helpDescStyle.Render(" Send"),
+		helpKeyStyle.Render("Q") + helpDescStyle.Render(" Quit"),
+	}
+
+	return statusBarStyle.
+		Width(m.width).
+		Render(strings.Join(help, " | "))
+}
+
+// renderMultiWindowLayout renders the main multi-window layout
+func (m *EnhancedModel) renderMultiWindowLayout() string {
+	// Calculate panel dimensions
+	sidebarWidth := 35                       // Preview sidebar
+	mainWidth := m.width - sidebarWidth - 10 // Main agent window
+
+	// Render logo panel
+	logoView := m.renderLogo()
+
+	// Get selected agent name
+	selectedAgent := ""
+	if m.selectedAgentIndex < len(m.agentOrder) {
+		selectedAgent = m.agentOrder[m.selectedAgentIndex]
+	}
+
+	// Render main agent window content
+	mainContent := ""
+	if selectedAgent != "" {
+		if vp, exists := m.agentViewports[selectedAgent]; exists {
+			mainContent = vp.View()
+		} else {
+			mainContent = m.renderAgentMessages(selectedAgent)
+		}
+	} else {
+		mainContent = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("244")).
+			Render("No agent selected. Waiting for agents to initialize...")
+	}
+
+	// Calculate main window height
+	mainHeight := m.height - 22 // Account for logo, tab bar, status, input
+
+	mainPanelStyle := activePanelStyle
+	mainWindow := mainPanelStyle.
+		Width(mainWidth).
+		Height(mainHeight).
+		Render(mainContent)
+
+	// Render preview sidebar
+	previewSidebar := renderPreviewSidebar(m, sidebarWidth, mainHeight)
+
+	// Render tab indicator
+	tabIndicator := m.renderTabIndicator()
+	tabBar := lipgloss.NewStyle().
+		Width(m.width-8).
+		Align(lipgloss.Center).
+		Padding(0, 1).
+		Render(tabIndicator)
+
+	// Render input panel
+	inputPanelStyle := inactiveInputPanelStyle
+	if m.activePanel == inputPanel {
+		inputPanelStyle = activeInputPanelStyle
+	}
+	inputContent := m.userInput.View()
+	if strings.TrimSpace(inputContent) == "" || inputContent == "> " {
+		inputContent = "> \n"
+	}
+	inputView := inputPanelStyle.
+		Width(m.width - 8).
+		Height(2).
+		Render(inputContent)
+
+	// Render status bar with updated help
+	statusBar := m.renderMultiWindowStatusBar()
+
+	// Combine layout
+	mainRow := lipgloss.JoinHorizontal(lipgloss.Top, mainWindow, previewSidebar)
+
+	return lipgloss.NewStyle().
+		MaxWidth(m.width - 6).
+		MaxHeight(m.height - 1).
+		PaddingLeft(1).
+		Render(lipgloss.JoinVertical(lipgloss.Top,
+			logoView,
+			mainRow,
+			tabBar,
+			inputView,
+			statusBar,
+		))
+}
+
 func (m EnhancedModel) View() string {
 	if !m.ready {
 		return "Initializing AgentPipe TUI..."
@@ -906,141 +1134,8 @@ func (m EnhancedModel) View() string {
 		return m.renderModal()
 	}
 
-	// Calculate panel dimensions with room for borders (swapped: chat on left, agents on right)
-	rightWidth := 33                       // Fixed width for agents/stats panels (reduced)
-	leftWidth := m.width - rightWidth - 11 // Chat/input takes remaining width (increased by 1)
-
-	// Render topic panel (new panel above conversation)
-	topicView := ""
-	topicHeight := 0
-	if m.config.Orchestrator.InitialPrompt != "" {
-		topicHeight = 3 // Fixed height for topic panel (reduced by 2)
-		topicPanelStyle := inactivePanelStyle
-
-		// Format topic content - limit to 2 lines
-		topicTitle := lipgloss.NewStyle().Bold(true).Render("📝 Topic")
-
-		// Truncate topic to fit in 2 lines (accounting for width)
-		maxWidth := leftWidth - 4 // Account for padding
-		prompt := m.config.Orchestrator.InitialPrompt
-		lines := wrapText(prompt, maxWidth)
-		lineArray := strings.Split(lines, "\n")
-		if len(lineArray) > 2 {
-			// Take first 2 lines and add ellipsis
-			prompt = lineArray[0] + "\n" + lineArray[1] + "..."
-		} else {
-			prompt = lines
-		}
-
-		topicContent := fmt.Sprintf("%s\n%s", topicTitle, prompt)
-
-		topicView = topicPanelStyle.
-			Width(leftWidth).
-			Height(topicHeight).
-			Render(topicContent)
-	}
-
-	// Render conversation panel (now on left, below topic)
-	convPanelStyle := inactivePanelStyle
-	if m.activePanel == conversationPanel {
-		convPanelStyle = activePanelStyle
-	}
-
-	// Log panel height (fixed at 5 lines)
-	logHeight := 5
-
-	convView := convPanelStyle.
-		Width(leftWidth).
-		Height(m.height - 20 - topicHeight - logHeight - 3). // Account for log panel
-		Render(m.conversation.View())
-
-	// Render log panel (between conversation and input)
-	logView := logPanelStyle.
-		Width(leftWidth).
-		Height(logHeight).
-		Render(m.logPanel.View())
-
-	// Render input panel (now on left)
-	inputPanelStyle := inactiveInputPanelStyle
-	if m.activePanel == inputPanel {
-		inputPanelStyle = activeInputPanelStyle
-	}
-
-	// Render input with proper formatting
-	inputContent := m.userInput.View()
-	// Ensure we show > prompts on empty lines
-	if strings.TrimSpace(inputContent) == "" || inputContent == "> " {
-		inputContent = "> \n"
-	}
-
-	inputView := inputPanelStyle.
-		Width(leftWidth).
-		Height(2).
-		Render(inputContent)
-
-	// Render agent list panel (now on right)
-	agentsPanelStyle := inactivePanelStyle
-	if m.activePanel == agentsPanel {
-		agentsPanelStyle = activePanelStyle
-	}
-
-	// Calculate heights for 3 panels on the right
-	// Make stats panel smaller
-	totalRightHeight := m.height - 15
-	agentsPanelHeight := totalRightHeight / 3
-	configPanelHeight := totalRightHeight / 3
-	statsPanelHeight := totalRightHeight - agentsPanelHeight - configPanelHeight - 4 // Reduced by 3 more
-
-	agentsView := agentsPanelStyle.
-		Width(rightWidth).
-		Height(agentsPanelHeight).
-		Render(m.renderAgentList())
-
-	// Render config panel (middle right)
-	configView := inactivePanelStyle.
-		Width(rightWidth).
-		Height(configPanelHeight).
-		Render(m.renderConfig())
-
-	// Render stats panel (bottom right, smaller)
-	statsView := inactivePanelStyle.
-		Width(rightWidth).
-		Height(statsPanelHeight).
-		Render(m.renderStats())
-
-	// Render status bar
-	statusBar := m.renderStatusBar()
-
-	// Combine all panels (swapped: chat/log/input on left, agents/stats on right)
-	leftPanels := []string{}
-	if topicView != "" {
-		leftPanels = append(leftPanels, topicView)
-	}
-	leftPanels = append(leftPanels, convView, logView, inputView)
-
-	left := lipgloss.JoinVertical(lipgloss.Top, leftPanels...)
-
-	right := lipgloss.JoinVertical(lipgloss.Top,
-		agentsView,
-		configView,
-		statsView,
-	)
-
-	main := lipgloss.JoinHorizontal(lipgloss.Left, left, right)
-
-	// Render logo panel at the top
-	logoView := m.renderLogo()
-
-	// Ensure the final output fits within terminal bounds and add left margin
-	return lipgloss.NewStyle().
-		MaxWidth(m.width - 6).
-		MaxHeight(m.height - 1).
-		PaddingLeft(1).
-		Render(lipgloss.JoinVertical(lipgloss.Top,
-			logoView,
-			main,
-			statusBar,
-		))
+	// Use the new multi-window layout
+	return m.renderMultiWindowLayout()
 }
 
 func (m *EnhancedModel) renderAgentList() string {
@@ -1358,6 +1453,62 @@ func (m *EnhancedModel) renderConversation() string {
 		// The spacing for different speakers is handled by the header
 		if i < len(m.messages)-1 {
 			b.WriteString("\n")
+		}
+	}
+
+	return b.String()
+}
+
+// renderAgentMessages renders messages for a specific agent
+func (m *EnhancedModel) renderAgentMessages(agentName string) string {
+	var b strings.Builder
+
+	messages, exists := m.agentMessages[agentName]
+	if !exists || len(messages) == 0 {
+		return lipgloss.NewStyle().
+			Foreground(lipgloss.Color("244")).
+			Render("(no messages yet)")
+	}
+
+	// Get viewport width for text wrapping
+	textWidth := 80
+	if m.ready {
+		textWidth = m.width - 50 // Account for sidebar
+		if textWidth < 40 {
+			textWidth = 40
+		}
+	}
+
+	for i, msg := range messages {
+		timestamp := time.Unix(msg.Timestamp, 0).Format("15:04:05")
+
+		// Get color for this agent
+		color := m.agentColors[agentName]
+		if color == "" {
+			color = lipgloss.Color("244")
+		}
+
+		// Header with timestamp
+		headerStyle := lipgloss.NewStyle().Foreground(color).Bold(true)
+		b.WriteString(fmt.Sprintf("[%s] ", timestamp))
+		b.WriteString(headerStyle.Render(agentName))
+
+		// Add metrics if available
+		if m.config.Logging.ShowMetrics && msg.Metrics != nil {
+			metricsStr := fmt.Sprintf(" (%.1fs, %d tokens, $%.4f)",
+				msg.Metrics.Duration.Seconds(),
+				msg.Metrics.TotalTokens,
+				msg.Metrics.Cost)
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(metricsStr))
+		}
+		b.WriteString("\n")
+
+		// Message content
+		wrappedContent := wrapText(msg.Content, textWidth)
+		b.WriteString(wrappedContent)
+
+		if i < len(messages)-1 {
+			b.WriteString("\n\n")
 		}
 	}
 
