@@ -89,7 +89,7 @@ This phase implements comprehensive error handling, retry logic, and resilience 
     - Integration test with httptest server
   - All tests pass (100%)
 
-- [ ] Implement circuit breaker in `pkg/v2/adapters/circuit_breaker.go`:
+- [x] Implement circuit breaker in `pkg/v2/adapters/circuit_breaker.go`:
   - CircuitBreaker struct with state (closed, open, half-open), failureCount, lastFailure
   - Open circuit after N consecutive failures (default: 5)
   - Half-open after cooldown period (default: 30s)
@@ -97,6 +97,32 @@ This phase implements comprehensive error handling, retry logic, and resilience 
   - AllowRequest() checking if request should proceed
   - RecordSuccess() and RecordFailure() updating state
   - Per-adapter circuit breakers
+
+  **Completed**: Created comprehensive circuit breaker implementation with:
+  - `CircuitState` enum with `CircuitClosed`, `CircuitOpen`, `CircuitHalfOpen` states with String() method
+  - `CircuitBreakerConfig` struct with FailureThreshold (default: 5), CooldownPeriod (default: 30s), SuccessThreshold (default: 1)
+  - `CircuitBreaker` struct with thread-safe state management (sync.RWMutex)
+  - `AllowRequest()` checks state and transitions open→half-open after cooldown
+  - `RecordSuccess()` resets failure count (closed) or closes circuit after SuccessThreshold (half-open)
+  - `RecordFailure()` opens circuit after FailureThreshold, re-opens immediately in half-open
+  - `Reset()` for manual circuit reset to closed state
+  - `TimeUntilRetry()` returns remaining cooldown time for open circuit
+  - `OnStateChange()` callback for state transition notifications
+  - `CircuitBreakerAdapter` wrapper implementing full AgentAdapter interface
+  - `IsCircuitOpenError()` helper to detect circuit open errors
+  - Comprehensive logging with structured fields for all state transitions
+  - 21 tests covering all functionality:
+    - TestCircuitBreakerState, TestDefaultCircuitBreakerConfig, TestCircuitBreakerInitialState
+    - TestCircuitBreakerOpensAfterFailures, TestCircuitBreakerSuccessResets
+    - TestCircuitBreakerHalfOpenAfterCooldown, TestCircuitBreakerClosesAfterSuccessInHalfOpen
+    - TestCircuitBreakerReopensOnFailureInHalfOpen, TestCircuitBreakerReset
+    - TestCircuitBreakerTimeUntilRetry, TestCircuitBreakerStateChangeCallback
+    - TestCircuitBreakerConcurrency (thread safety), TestCircuitBreakerAdapterSendMessage
+    - TestCircuitBreakerAdapterOpens, TestCircuitBreakerAdapterRecovery
+    - TestCircuitBreakerAdapterStreamMessage, TestCircuitBreakerAdapterIsAvailable
+    - TestCircuitBreakerAdapterGetModel, TestCircuitBreakerAdapterHealthCheck
+    - TestCircuitBreakerAdapterInitialize, TestIsCircuitOpenError
+  - All tests pass (100%) with race detection enabled
 
 - [ ] Add circuit breaker to AgentPool:
   - Track circuit breaker per agent
