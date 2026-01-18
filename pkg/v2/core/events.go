@@ -30,6 +30,12 @@ const (
 	EventConversationCompleted EventType = "conversation.completed"
 	// EventConversationError is emitted when a conversation ends due to an error.
 	EventConversationError EventType = "conversation.error"
+	// EventAgentHealthy is emitted when an agent passes a health check.
+	EventAgentHealthy EventType = "agent.healthy"
+	// EventAgentUnhealthy is emitted when an agent fails a health check.
+	EventAgentUnhealthy EventType = "agent.unhealthy"
+	// EventPreflightCompleted is emitted when preflight health checks complete.
+	EventPreflightCompleted EventType = "preflight.completed"
 )
 
 // Event represents a system event that can be published and subscribed to.
@@ -222,5 +228,68 @@ func NewConversationErrorEvent(conversationID, errMsg string) Event {
 	return NewEvent(EventConversationError, ConversationErrorData{
 		ConversationID: conversationID,
 		Error:          errMsg,
+	})
+}
+
+// AgentHealthyData contains information about an agent passing a health check.
+type AgentHealthyData struct {
+	// AgentID is the ID of the agent.
+	AgentID string `json:"agent_id"`
+	// AgentName is the name of the agent.
+	AgentName string `json:"agent_name"`
+	// ResponseTime is how long the health check took.
+	ResponseTime time.Duration `json:"response_time"`
+}
+
+// AgentUnhealthyData contains information about an agent failing a health check.
+type AgentUnhealthyData struct {
+	// AgentID is the ID of the agent.
+	AgentID string `json:"agent_id"`
+	// AgentName is the name of the agent.
+	AgentName string `json:"agent_name"`
+	// Error is the health check error message.
+	Error string `json:"error"`
+}
+
+// PreflightCompletedData contains information about preflight health checks.
+type PreflightCompletedData struct {
+	// AllHealthy is true if all agents passed health checks.
+	AllHealthy bool `json:"all_healthy"`
+	// HealthyCount is the number of healthy agents.
+	HealthyCount int `json:"healthy_count"`
+	// UnhealthyCount is the number of unhealthy agents.
+	UnhealthyCount int `json:"unhealthy_count"`
+	// Duration is how long the preflight check took.
+	Duration time.Duration `json:"duration"`
+	// Warnings contains any warning messages.
+	Warnings []string `json:"warnings,omitempty"`
+}
+
+// NewAgentHealthyEvent creates an event for an agent passing a health check.
+func NewAgentHealthyEvent(agentID, agentName string, responseTime time.Duration) Event {
+	return NewEvent(EventAgentHealthy, AgentHealthyData{
+		AgentID:      agentID,
+		AgentName:    agentName,
+		ResponseTime: responseTime,
+	})
+}
+
+// NewAgentUnhealthyEvent creates an event for an agent failing a health check.
+func NewAgentUnhealthyEvent(agentID, agentName, errMsg string) Event {
+	return NewEvent(EventAgentUnhealthy, AgentUnhealthyData{
+		AgentID:   agentID,
+		AgentName: agentName,
+		Error:     errMsg,
+	})
+}
+
+// NewPreflightCompletedEvent creates an event for preflight checks completing.
+func NewPreflightCompletedEvent(allHealthy bool, healthyCount, unhealthyCount int, duration time.Duration, warnings []string) Event {
+	return NewEvent(EventPreflightCompleted, PreflightCompletedData{
+		AllHealthy:     allHealthy,
+		HealthyCount:   healthyCount,
+		UnhealthyCount: unhealthyCount,
+		Duration:       duration,
+		Warnings:       warnings,
 	})
 }

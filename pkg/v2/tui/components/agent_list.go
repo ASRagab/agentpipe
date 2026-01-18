@@ -39,14 +39,39 @@ type AgentErrorInfo struct {
 	RetryHint   string        // Actionable hint for the user
 }
 
+// HealthStatus represents the health state of an agent in the TUI.
+type HealthStatus string
+
+const (
+	// HealthStatusUnknown means health has not been checked yet.
+	HealthStatusUnknown HealthStatus = "unknown"
+	// HealthStatusHealthy means the agent is responding normally.
+	HealthStatusHealthy HealthStatus = "healthy"
+	// HealthStatusUnhealthy means the agent has failed recent health checks.
+	HealthStatusUnhealthy HealthStatus = "unhealthy"
+	// HealthStatusDegraded means the agent is slow but responding.
+	HealthStatusDegraded HealthStatus = "degraded"
+	// HealthStatusChecking means a health check is in progress.
+	HealthStatusChecking HealthStatus = "checking"
+)
+
+// AgentHealthInfo contains health information for display.
+type AgentHealthInfo struct {
+	Status       HealthStatus
+	LastCheck    time.Time
+	ResponseTime time.Duration
+	Error        string
+}
+
 // AgentListModel manages the agent list panel.
 type AgentListModel struct {
 	agents         []core.Agent
 	statusMap      map[string]AgentStatus
 	metricsMap     map[string]AgentMetrics
-	typingStartMap map[string]time.Time  // When each agent started typing
+	typingStartMap map[string]time.Time     // When each agent started typing
 	errorMap       map[string]AgentErrorInfo // Error info for each agent
-	animFrame      int                   // Current frame for typing animation (0-2)
+	healthMap      map[string]AgentHealthInfo // Health info for each agent
+	animFrame      int                       // Current frame for typing animation (0-2)
 	selectedIndex  int
 	width          int
 	height         int
@@ -59,9 +84,11 @@ func NewAgentListModel(agents []core.Agent) AgentListModel {
 	metricsMap := make(map[string]AgentMetrics)
 	typingStartMap := make(map[string]time.Time)
 	errorMap := make(map[string]AgentErrorInfo)
+	healthMap := make(map[string]AgentHealthInfo)
 
 	for _, agent := range agents {
 		statusMap[agent.ID] = AgentStatusReady
+		healthMap[agent.ID] = AgentHealthInfo{Status: HealthStatusUnknown}
 	}
 
 	return AgentListModel{
@@ -70,6 +97,7 @@ func NewAgentListModel(agents []core.Agent) AgentListModel {
 		metricsMap:     metricsMap,
 		typingStartMap: typingStartMap,
 		errorMap:       errorMap,
+		healthMap:      healthMap,
 		selectedIndex:  0,
 		focused:        false,
 		animFrame:      0,
@@ -132,6 +160,7 @@ func (m AgentListModel) View() string {
 
 		// Status indicator
 		status := m.statusMap[agent.ID]
+		healthInfo := m.healthMap[agent.ID]
 		var indicator styles.StatusIndicator
 		switch status {
 		case AgentStatusTyping:
@@ -139,7 +168,12 @@ func (m AgentListModel) View() string {
 		case AgentStatusError:
 			indicator = styles.StatusError
 		default:
-			indicator = styles.StatusReady
+			// If ready but unhealthy, show warning indicator
+			if healthInfo.Status == HealthStatusUnhealthy {
+				indicator = styles.StatusError // Reuse error indicator for unhealthy
+			} else {
+				indicator = styles.StatusReady
+			}
 		}
 
 		// Agent name line
@@ -182,6 +216,13 @@ func (m AgentListModel) View() string {
 					b.WriteString(styles.RetryHintStyle().Render(hintLine))
 					b.WriteString("\n")
 				}
+			}
+		} else if healthInfo.Status == HealthStatusUnhealthy {
+			// Show unhealthy agent warning
+			healthLine := m.renderHealthStatus(agent.ID)
+			if healthLine != "" {
+				b.WriteString(healthLine)
+				b.WriteString("\n")
 			}
 		} else if metrics, ok := m.metricsMap[agent.ID]; ok {
 			// Show metrics if available (only when not typing/error)
@@ -551,4 +592,178 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// renderHealthStatus renders the health status for an agent.
+func (m AgentListModel) renderHealthStatus(agentID string) string {
+	healthInfo, ok := m.healthMap[agentID]
+	if !ok {
+		return ""
+	}
+
+	var healthLine string
+	switch healthInfo.Status {
+	case HealthStatusUnhealthy:
+		if healthInfo.Error != "" {
+			healthLine = fmt.Sprintf("  ⚠ Unhealthy: %s", truncateString(healthInfo.Error, m.width-16))
+		} else {
+			healthLine = "  ⚠ Unhealthy"
+		}
+		return styles.ErrorStyle().Render(healthLine)
+	case HealthStatusDegraded:
+		healthLine = fmt.Sprintf("  ⚡ Slow (%dms)", healthInfo.ResponseTime.Milliseconds())
+		return styles.RetryHintStyle().Render(healthLine)
+	case HealthStatusChecking:
+		healthLine = "  ↻ Checking health..."
+		return styles.MetricsStyle().Render(healthLine)
+	default:
+		return ""
+	}
+}
+
+// UpdateHealth updates the health status for a specific agent.
+func (m *AgentListModel) UpdateHealth(agentID string, status HealthStatus, responseTime time.Duration, errMsg string) {
+	m.healthMap[agentID] = AgentHealthInfo{
+		Status:       status,
+		LastCheck:    time.Now(),
+		ResponseTime: responseTime,
+		Error:        errMsg,
+	}
+}
+
+// UpdateHealthInfo updates the full health info for a specific agent.
+func (m *AgentListModel) UpdateHealthInfo(agentID string, info AgentHealthInfo) {
+	if info.LastCheck.IsZero() {
+		info.LastCheck = time.Now()
+	}
+	m.healthMap[agentID] = info
+}
+
+// GetHealth returns the health info for a specific agent.
+func (m *AgentListModel) GetHealth(agentID string) (AgentHealthInfo, bool) {
+	info, ok := m.healthMap[agentID]
+	return info, ok
+}
+
+// GetUnhealthyAgents returns a list of agent IDs that are currently unhealthy.
+func (m *AgentListModel) GetUnhealthyAgents() []string {
+	result := make([]string, 0)
+	for agentID, info := range m.healthMap {
+		if info.Status == HealthStatusUnhealthy {
+			result = append(result, agentID)
+		}
+	}
+	return result
+}
+
+// GetHealthyAgents returns a list of agent IDs that are currently healthy.
+func (m *AgentListModel) GetHealthyAgents() []string {
+	result := make([]string, 0)
+	for agentID, info := range m.healthMap {
+		if info.Status == HealthStatusHealthy || info.Status == HealthStatusUnknown {
+			result = append(result, agentID)
+		}
+	}
+	return result
+}
+
+// HasUnhealthyAgents returns true if any agent is unhealthy.
+func (m *AgentListModel) HasUnhealthyAgents() bool {
+	for _, info := range m.healthMap {
+		if info.Status == HealthStatusUnhealthy {
+			return true
+		}
+	}
+	return false
+}
+
+// ResetHealth resets the health status for a specific agent to unknown.
+func (m *AgentListModel) ResetHealth(agentID string) {
+	if _, ok := m.healthMap[agentID]; ok {
+		m.healthMap[agentID] = AgentHealthInfo{Status: HealthStatusUnknown}
+	}
+}
+
+// GetSelectedAgentHealth returns the health info for the currently selected agent.
+func (m *AgentListModel) GetSelectedAgentHealth() (AgentHealthInfo, bool) {
+	agent := m.GetSelectedAgent()
+	if agent == nil {
+		return AgentHealthInfo{}, false
+	}
+	return m.GetHealth(agent.ID)
+}
+
+// RenderHealthDetailsTooltip renders a health details tooltip for the selected agent.
+func (m *AgentListModel) RenderHealthDetailsTooltip(width int) string {
+	agent := m.GetSelectedAgent()
+	if agent == nil {
+		return ""
+	}
+
+	healthInfo, ok := m.healthMap[agent.ID]
+	if !ok {
+		return ""
+	}
+
+	var b strings.Builder
+
+	// Status header
+	var statusStr string
+	var statusColor string
+	switch healthInfo.Status {
+	case HealthStatusHealthy:
+		statusStr = "✓ Healthy"
+		statusColor = "34" // Green
+	case HealthStatusUnhealthy:
+		statusStr = "✗ Unhealthy"
+		statusColor = "196" // Red
+	case HealthStatusDegraded:
+		statusStr = "⚡ Degraded"
+		statusColor = "220" // Yellow
+	case HealthStatusChecking:
+		statusStr = "↻ Checking"
+		statusColor = "245" // Gray
+	default:
+		statusStr = "? Unknown"
+		statusColor = "245" // Gray
+	}
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(statusColor))
+	b.WriteString(headerStyle.Render(statusStr))
+	b.WriteString("\n")
+
+	// Last check time
+	if !healthInfo.LastCheck.IsZero() {
+		checkStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("245")).
+			Italic(true)
+		b.WriteString("Last check: ")
+		b.WriteString(checkStyle.Render(healthInfo.LastCheck.Format("15:04:05")))
+		b.WriteString("\n")
+	}
+
+	// Response time
+	if healthInfo.ResponseTime > 0 {
+		b.WriteString(fmt.Sprintf("Response: %dms\n", healthInfo.ResponseTime.Milliseconds()))
+	}
+
+	// Error message
+	if healthInfo.Error != "" {
+		errorStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196"))
+		b.WriteString("Error: ")
+		b.WriteString(errorStyle.Render(truncateString(healthInfo.Error, width-10)))
+		b.WriteString("\n")
+	}
+
+	// Apply tooltip style
+	tooltipStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(0, 1).
+		Width(width - 4)
+
+	return tooltipStyle.Render(b.String())
 }

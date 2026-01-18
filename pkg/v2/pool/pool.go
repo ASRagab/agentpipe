@@ -50,6 +50,8 @@ type Pool struct {
 	timeoutHandler       *TimeoutHandler
 	timeoutStats         *TimeoutStats
 	cancellation         *CancellationManager
+	healthMonitor        *HealthMonitor
+	healthConfig         HealthConfig
 	mu                   sync.RWMutex
 }
 
@@ -61,6 +63,7 @@ func NewPool(eventBus *events.Bus, timeout time.Duration) *Pool {
 
 	timeoutConfig := DefaultTimeoutConfig()
 	timeoutConfig.DefaultAgentTimeout = timeout
+	healthConfig := DefaultHealthConfig()
 
 	return &Pool{
 		agents:               make([]AgentEntry, 0),
@@ -70,6 +73,8 @@ func NewPool(eventBus *events.Bus, timeout time.Duration) *Pool {
 		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
 		timeoutStats:         NewTimeoutStats(),
 		cancellation:         NewCancellationManager(eventBus),
+		healthMonitor:        NewHealthMonitor(healthConfig, eventBus),
+		healthConfig:         healthConfig,
 	}
 }
 
@@ -81,6 +86,7 @@ func NewPoolWithCircuitBreaker(eventBus *events.Bus, timeout time.Duration, cbCo
 
 	timeoutConfig := DefaultTimeoutConfig()
 	timeoutConfig.DefaultAgentTimeout = timeout
+	healthConfig := DefaultHealthConfig()
 
 	return &Pool{
 		agents:               make([]AgentEntry, 0),
@@ -90,11 +96,14 @@ func NewPoolWithCircuitBreaker(eventBus *events.Bus, timeout time.Duration, cbCo
 		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
 		timeoutStats:         NewTimeoutStats(),
 		cancellation:         NewCancellationManager(eventBus),
+		healthMonitor:        NewHealthMonitor(healthConfig, eventBus),
+		healthConfig:         healthConfig,
 	}
 }
 
 // NewPoolWithTimeoutConfig creates a new agent pool with custom timeout configuration.
 func NewPoolWithTimeoutConfig(eventBus *events.Bus, timeoutConfig TimeoutConfig) *Pool {
+	healthConfig := DefaultHealthConfig()
 	return &Pool{
 		agents:               make([]AgentEntry, 0),
 		eventBus:             eventBus,
@@ -103,11 +112,14 @@ func NewPoolWithTimeoutConfig(eventBus *events.Bus, timeoutConfig TimeoutConfig)
 		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
 		timeoutStats:         NewTimeoutStats(),
 		cancellation:         NewCancellationManager(eventBus),
+		healthMonitor:        NewHealthMonitor(healthConfig, eventBus),
+		healthConfig:         healthConfig,
 	}
 }
 
 // NewPoolWithFullConfig creates a new agent pool with both circuit breaker and timeout configuration.
 func NewPoolWithFullConfig(eventBus *events.Bus, cbConfig adapters.CircuitBreakerConfig, timeoutConfig TimeoutConfig) *Pool {
+	healthConfig := DefaultHealthConfig()
 	return &Pool{
 		agents:               make([]AgentEntry, 0),
 		eventBus:             eventBus,
@@ -116,6 +128,30 @@ func NewPoolWithFullConfig(eventBus *events.Bus, cbConfig adapters.CircuitBreake
 		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
 		timeoutStats:         NewTimeoutStats(),
 		cancellation:         NewCancellationManager(eventBus),
+		healthMonitor:        NewHealthMonitor(healthConfig, eventBus),
+		healthConfig:         healthConfig,
+	}
+}
+
+// NewPoolWithHealthConfig creates a new agent pool with custom health monitoring configuration.
+func NewPoolWithHealthConfig(eventBus *events.Bus, timeout time.Duration, healthConfig HealthConfig) *Pool {
+	if timeout == 0 {
+		timeout = 60 * time.Second
+	}
+
+	timeoutConfig := DefaultTimeoutConfig()
+	timeoutConfig.DefaultAgentTimeout = timeout
+
+	return &Pool{
+		agents:               make([]AgentEntry, 0),
+		eventBus:             eventBus,
+		timeout:              timeout,
+		circuitBreakerConfig: adapters.DefaultCircuitBreakerConfig(),
+		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
+		timeoutStats:         NewTimeoutStats(),
+		cancellation:         NewCancellationManager(eventBus),
+		healthMonitor:        NewHealthMonitor(healthConfig, eventBus),
+		healthConfig:         healthConfig,
 	}
 }
 
@@ -152,6 +188,11 @@ func (p *Pool) AddAgent(agent core.Agent, adapter adapters.AgentAdapter) {
 		State:          &state,
 		CircuitBreaker: cb,
 	})
+
+	// Register with health monitor
+	if p.healthMonitor != nil {
+		p.healthMonitor.RegisterAgent(agent, adapter)
+	}
 }
 
 // GetAgents returns all agents in the pool.
@@ -582,4 +623,131 @@ func (p *Pool) IsAgentCancelled(agentID string) bool {
 		return false
 	}
 	return p.cancellation.IsCancelled(agentID)
+}
+
+// StartHealthMonitoring starts periodic health monitoring of agents.
+func (p *Pool) StartHealthMonitoring() {
+	if p.healthMonitor != nil {
+		p.healthMonitor.Start()
+	}
+}
+
+// StopHealthMonitoring stops periodic health monitoring.
+func (p *Pool) StopHealthMonitoring() {
+	if p.healthMonitor != nil {
+		p.healthMonitor.Stop()
+	}
+}
+
+// IsHealthMonitoringRunning returns true if health monitoring is active.
+func (p *Pool) IsHealthMonitoringRunning() bool {
+	if p.healthMonitor == nil {
+		return false
+	}
+	return p.healthMonitor.IsRunning()
+}
+
+// PreflightCheck performs health checks on all agents before starting a conversation.
+// Returns the preflight result with health status and warnings.
+func (p *Pool) PreflightCheck(ctx context.Context) PreflightResult {
+	if p.healthMonitor == nil {
+		return PreflightResult{AllHealthy: true}
+	}
+	result := p.healthMonitor.PreflightCheck(ctx)
+
+	// Emit preflight completed event
+	if p.eventBus != nil {
+		p.eventBus.Publish(core.NewPreflightCompletedEvent(
+			result.AllHealthy,
+			result.HealthyCount,
+			result.UnhealthyCount,
+			result.Duration,
+			result.Warnings,
+		))
+	}
+
+	return result
+}
+
+// CheckAgentHealth performs a health check on a specific agent.
+func (p *Pool) CheckAgentHealth(ctx context.Context, agentID string) HealthCheckResult {
+	if p.healthMonitor == nil {
+		return HealthCheckResult{
+			AgentID: agentID,
+			Success: true,
+		}
+	}
+	return p.healthMonitor.CheckAgentHealthSync(ctx, agentID)
+}
+
+// GetAgentHealthStatus returns the health status for a specific agent.
+func (p *Pool) GetAgentHealthStatus(agentID string) (AgentHealthInfo, bool) {
+	if p.healthMonitor == nil {
+		return AgentHealthInfo{}, false
+	}
+	return p.healthMonitor.GetHealthStatus(agentID)
+}
+
+// GetAllAgentHealthStatus returns health status for all agents.
+func (p *Pool) GetAllAgentHealthStatus() []AgentHealthInfo {
+	if p.healthMonitor == nil {
+		return nil
+	}
+	return p.healthMonitor.GetAllHealthStatus()
+}
+
+// GetHealthyAgentCount returns the count of healthy agents.
+func (p *Pool) GetHealthyAgentCount() int {
+	if p.healthMonitor == nil {
+		return p.AgentCount()
+	}
+	return p.healthMonitor.GetHealthyAgentCount()
+}
+
+// GetUnhealthyAgentCount returns the count of unhealthy agents.
+func (p *Pool) GetUnhealthyAgentCount() int {
+	if p.healthMonitor == nil {
+		return 0
+	}
+	return p.healthMonitor.GetUnhealthyAgentCount()
+}
+
+// IsAgentHealthy returns true if the specified agent is healthy.
+func (p *Pool) IsAgentHealthy(agentID string) bool {
+	if p.healthMonitor == nil {
+		return true
+	}
+	return p.healthMonitor.IsAgentHealthy(agentID)
+}
+
+// ShouldWarnBeforeMessage returns true if user should be warned about unhealthy agents.
+func (p *Pool) ShouldWarnBeforeMessage() (bool, []string) {
+	if p.healthMonitor == nil {
+		return false, nil
+	}
+	return p.healthMonitor.ShouldWarnBeforeMessage()
+}
+
+// RecordAgentActivity records activity for an agent (resets idle timer for health checks).
+func (p *Pool) RecordAgentActivity(agentID string) {
+	if p.healthMonitor != nil {
+		p.healthMonitor.RecordActivity(agentID)
+	}
+}
+
+// ResetAgentHealth resets the health status for an agent to unknown.
+func (p *Pool) ResetAgentHealth(agentID string) {
+	if p.healthMonitor != nil {
+		p.healthMonitor.ResetAgent(agentID)
+	}
+}
+
+// GetHealthMonitor returns the health monitor for advanced configuration.
+func (p *Pool) GetHealthMonitor() *HealthMonitor {
+	return p.healthMonitor
+}
+
+// GetHealthConfig returns the health configuration.
+func (p *Pool) GetHealthConfig() HealthConfig {
+	return p.healthConfig
 }

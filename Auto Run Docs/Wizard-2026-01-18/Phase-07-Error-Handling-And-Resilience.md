@@ -415,8 +415,83 @@ This phase implements comprehensive error handling, retry logic, and resilience 
     - TestRenderRetryCountdown, TestRenderErrorDetailsModal, TestRenderViewWithRetryCountdown
   - All tests pass (100%) with race detection enabled
 
-- [ ] Add health monitoring:
+- [x] Add health monitoring:
   - Periodic health checks on idle agents (every 60s)
   - Pre-flight health check before starting conversation
   - Warn user if agent unhealthy before sending message
   - Health status in agent list tooltip
+
+  **Completed**: Implemented comprehensive health monitoring with:
+  - Created `pkg/v2/pool/health.go` with `HealthMonitor` and configuration:
+    - `HealthConfig` with PeriodicCheckInterval (60s), PreflightCheckTimeout (5s), HealthCheckTimeout (5s), UnhealthyThreshold (2), IdleThreshold (30s), WarnOnUnhealthy (true)
+    - `DefaultHealthConfig()` factory with sensible defaults
+    - `AgentHealthStatus` enum: `HealthStatusUnknown`, `HealthStatusHealthy`, `HealthStatusUnhealthy`, `HealthStatusDegraded`, `HealthStatusChecking`
+    - `IsHealthy()` method returns true for unknown/healthy/degraded states
+    - `AgentHealthInfo` struct tracking LastCheck, LastSuccess, LastError, ConsecutiveFailures, ResponseTime, CheckCount, LastActivity
+    - `HealthCheckResult` and `PreflightResult` structs for check results
+  - `HealthMonitor` with full lifecycle management:
+    - `RegisterAgent()` and `UnregisterAgent()` for agent tracking
+    - `Start()` and `Stop()` for periodic health check loop
+    - `IsRunning()` status check
+    - `checkIdleAgents()` runs periodically, checks agents idle > IdleThreshold
+    - `checkAgentHealth()` performs individual health check with timeout
+    - `CheckAgentHealthSync()` for synchronous single-agent check
+    - `CheckAllHealthSync()` for parallel checks on all agents
+    - `PreflightCheck()` runs health checks before conversation start
+    - `GetHealthStatus()` and `GetAllHealthStatus()` for status queries
+    - `GetHealthyAgentCount()` and `GetUnhealthyAgentCount()` counters
+    - `IsAgentHealthy()` individual agent health check
+    - `RecordActivity()` resets idle timer on agent activity
+    - `ResetAgent()` resets health status to unknown
+    - `ShouldWarnBeforeMessage()` returns warning about unhealthy agents
+    - `UpdateConfig()` for runtime configuration updates
+  - Health status determination:
+    - Marks `degraded` if response time > HealthCheckTimeout/2
+    - Marks `unhealthy` after ConsecutiveFailures >= UnhealthyThreshold
+    - Resets failures to 0 on successful check
+  - Updated `pkg/v2/core/events.go` with health events:
+    - `EventAgentHealthy` - Emitted when agent passes health check
+    - `EventAgentUnhealthy` - Emitted when agent fails health check
+    - `EventPreflightCompleted` - Emitted when preflight checks complete
+    - `AgentHealthyData` with AgentID, AgentName, ResponseTime
+    - `AgentUnhealthyData` with AgentID, AgentName, Error
+    - `PreflightCompletedData` with AllHealthy, HealthyCount, UnhealthyCount, Duration, Warnings
+    - Constructor functions: `NewAgentHealthyEvent()`, `NewAgentUnhealthyEvent()`, `NewPreflightCompletedEvent()`
+  - Updated `pkg/v2/pool/pool.go` with health integration:
+    - Added `healthMonitor` and `healthConfig` fields to Pool struct
+    - All constructors initialize HealthMonitor with default config
+    - `NewPoolWithHealthConfig()` for custom health configuration
+    - `AddAgent()` registers agent with health monitor
+    - `StartHealthMonitoring()` and `StopHealthMonitoring()` for lifecycle
+    - `PreflightCheck()` performs pre-conversation health checks
+    - `CheckAgentHealth()` for on-demand health check
+    - `GetAgentHealthStatus()` and `GetAllHealthStatus()` for queries
+    - `IsAgentHealthy()` individual agent check
+    - `GetHealthyAgentCount()` and `GetUnhealthyAgentCount()` counters
+    - `RecordAgentActivity()` resets idle timer
+    - `ShouldWarnBeforeMessage()` returns unhealthy agent warning
+    - `GetHealthMonitor()` for direct access
+  - Updated `pkg/v2/tui/components/agent_list.go` with health display:
+    - `HealthStatus` enum: `HealthStatusUnknown`, `HealthStatusHealthy`, `HealthStatusUnhealthy`, `HealthStatusDegraded`, `HealthStatusChecking`
+    - `AgentHealthInfo` struct with Status, LastCheck, LastError, ResponseTime, ConsecutiveFailures
+    - Added `healthMap` field to `AgentListModel`
+    - `UpdateHealth()` and `UpdateHealthInfo()` for setting health status
+    - `GetHealth()` and `GetSelectedAgentHealth()` for queries
+    - `GetUnhealthyAgents()`, `GetHealthyAgents()`, `HasUnhealthyAgents()` for filtering
+    - `ResetHealth()` clears health status
+    - `RenderHealthDetailsTooltip()` renders tooltip with health details
+    - `renderHealthStatus()` returns styled health indicator
+    - View shows health indicator for unhealthy agents (⚠ prefix)
+  - Created `pkg/v2/pool/health_test.go` with 24 comprehensive tests:
+    - TestDefaultHealthConfig, TestAgentHealthStatus_IsHealthy (5 subtests)
+    - TestHealthMonitor_RegisterAgent, TestHealthMonitor_UnregisterAgent
+    - TestHealthMonitor_CheckAgentHealthSync_Success, TestHealthMonitor_CheckAgentHealthSync_Failure
+    - TestHealthMonitor_CheckAgentHealthSync_Timeout, TestHealthMonitor_CheckAllHealthSync
+    - TestHealthMonitor_PreflightCheck, TestHealthMonitor_PreflightCheck_WithUnhealthy
+    - TestHealthMonitor_StartAndStop, TestHealthMonitor_RecordActivity, TestHealthMonitor_ResetAgent
+    - TestHealthMonitor_ShouldWarnBeforeMessage, TestHealthMonitor_ShouldWarnBeforeMessage_Disabled
+    - TestHealthMonitor_GetHealthyAgentCount, TestHealthMonitor_Events
+    - TestHealthMonitor_DegradedStatus, TestHealthMonitor_ConsecutiveFailures
+    - TestHealthMonitor_ConsecutiveFailuresReset, TestPool_HealthMonitorIntegration
+    - TestPool_StartStopHealthMonitoring
+  - All pool package tests pass (100%) with race detection enabled
