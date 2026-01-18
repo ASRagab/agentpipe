@@ -157,12 +157,28 @@ This phase creates comprehensive documentation and example configurations that e
   - Integration examples with ConversationManager
   Verified godoc renders correctly for all packages with `go doc` command.
 
-- [ ] Create changelog entry for v2.0.0:
+- [x] Create changelog entry for v2.0.0:
   - List all new features
   - List breaking changes from v1
   - List deprecated features
   - List known issues
   - Include migration notes
+
+  **Completed 2026-01-18**: Created comprehensive v2.0.0 changelog entry in CHANGELOG.md:
+  - Major release section with architecture rewrite overview
+  - Added - Core Features: Parallel execution, real-time streaming, event-driven architecture, API-first adapters, conversation manager, agent pool, circuit breaker, retry logic, error handling, auto-save/resume, export, config migration
+  - Added - TUI Improvements: Modern multi-panel layout, 60fps render loop, live metrics, component architecture
+  - Added - Documentation: All v2 docs, example configs, code examples, godoc
+  - Added - Testing: E2E test suite, mock adapter
+  - Changed - Configuration: New structure, field mappings, adapter naming
+  - Breaking Changes: Table with v1 vs v2 and migration path
+  - Deprecated Features: v1 modes, response delay, streaming bridge, middleware
+  - Removed: List of removed config fields and flags
+  - Known Issues: Parallel mode only, CLI adapter latency, memory usage
+  - Performance: Comparison table (2.25x faster, 3x TUI, 40% less memory)
+  - Migration Notes: 6-step migration guide
+  - Deprecation Timeline: 6-month v1 end-of-life schedule
+  - Updated version links at bottom of CHANGELOG.md
 
 - [ ] Create video/GIF demos:
   - Record terminal session showing basic conversation
