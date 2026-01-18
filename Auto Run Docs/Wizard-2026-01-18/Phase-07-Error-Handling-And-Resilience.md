@@ -124,12 +124,41 @@ This phase implements comprehensive error handling, retry logic, and resilience 
     - TestCircuitBreakerAdapterInitialize, TestIsCircuitOpenError
   - All tests pass (100%) with race detection enabled
 
-- [ ] Add circuit breaker to AgentPool:
+- [x] Add circuit breaker to AgentPool:
   - Track circuit breaker per agent
   - Skip agents with open circuits in ExecuteParallel()
   - Emit EventAgentError with "circuit open" message
   - Periodically attempt half-open requests
   - Log circuit state transitions
+
+  **Completed**: Integrated circuit breaker pattern into AgentPool with:
+  - `AgentEntry` now includes a `CircuitBreaker` field for per-agent tracking
+  - `Pool` struct has `circuitBreakerConfig` field with default configuration
+  - `NewPool()` initializes with `DefaultCircuitBreakerConfig()` (5 failures, 30s cooldown, 1 success to close)
+  - `NewPoolWithCircuitBreaker()` constructor for custom configuration
+  - `AddAgent()` creates circuit breaker with state change callback for logging
+  - `ExecuteParallel()` checks `AllowRequest()` before executing - skips agents with open circuits
+  - Emits `EventAgentError` with "circuit breaker open" message when:
+    - Circuit transitions to open state (via OnStateChange callback)
+    - Agent is skipped due to open circuit (includes retry-in duration)
+  - `executeAgent()` calls `RecordFailure()` on error and `RecordSuccess()` on success
+  - Circuit transitions open→half-open after cooldown, then closed on successful probe
+  - New helper methods:
+    - `CircuitBreakerInfo` struct with AgentID, State, FailureCount, TimeUntilRetry, LastFailure
+    - `GetCircuitBreakerStatus(agentID)` returns status for specific agent
+    - `GetAllCircuitBreakerStatus()` returns status for all agents
+    - `ResetCircuitBreaker(agentID)` manually resets a specific circuit
+    - `ResetAllCircuitBreakers()` resets all circuits
+    - `GetAvailableAgentCount()` returns count of agents with circuits allowing requests
+  - Comprehensive logging with structured fields for all state transitions
+  - 17 new tests covering all circuit breaker integration scenarios:
+    - TestCircuitBreakerInitialization, TestCircuitBreakerCustomConfig
+    - TestCircuitBreakerOpensAfterConsecutiveFailures, TestCircuitBreakerSkipsOpenCircuit
+    - TestCircuitBreakerEmitsErrorEventOnOpen, TestCircuitBreakerSuccessResetsFailureCount
+    - TestGetAllCircuitBreakerStatus, TestResetCircuitBreaker, TestResetCircuitBreakerNotFound
+    - TestResetAllCircuitBreakers, TestGetAvailableAgentCount
+    - TestMixedAgentsContinueWithOpenCircuit, TestCircuitBreakerHalfOpenRecovery
+  - All tests pass (100%) with race detection enabled
 
 - [ ] Implement graceful degradation in ConversationManager:
   - Continue conversation even if some agents fail

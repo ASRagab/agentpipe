@@ -3,6 +3,7 @@ package pool
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -32,19 +33,21 @@ type AgentPool interface {
 	GetStatus() map[string]core.AgentStatus
 }
 
-// AgentEntry pairs an agent with its adapter.
+// AgentEntry pairs an agent with its adapter and circuit breaker.
 type AgentEntry struct {
-	Agent   core.Agent
-	Adapter adapters.AgentAdapter
-	State   *core.AgentState
+	Agent          core.Agent
+	Adapter        adapters.AgentAdapter
+	State          *core.AgentState
+	CircuitBreaker *adapters.CircuitBreaker
 }
 
 // Pool is the default implementation of AgentPool.
 type Pool struct {
-	agents   []AgentEntry
-	eventBus *events.Bus
-	timeout  time.Duration
-	mu       sync.RWMutex
+	agents              []AgentEntry
+	eventBus            *events.Bus
+	timeout             time.Duration
+	circuitBreakerConfig adapters.CircuitBreakerConfig
+	mu                  sync.RWMutex
 }
 
 // NewPool creates a new agent pool.
@@ -53,22 +56,58 @@ func NewPool(eventBus *events.Bus, timeout time.Duration) *Pool {
 		timeout = 60 * time.Second
 	}
 	return &Pool{
-		agents:   make([]AgentEntry, 0),
-		eventBus: eventBus,
-		timeout:  timeout,
+		agents:               make([]AgentEntry, 0),
+		eventBus:             eventBus,
+		timeout:              timeout,
+		circuitBreakerConfig: adapters.DefaultCircuitBreakerConfig(),
 	}
 }
 
-// AddAgent adds an agent to the pool.
+// NewPoolWithCircuitBreaker creates a new agent pool with custom circuit breaker config.
+func NewPoolWithCircuitBreaker(eventBus *events.Bus, timeout time.Duration, cbConfig adapters.CircuitBreakerConfig) *Pool {
+	if timeout == 0 {
+		timeout = 60 * time.Second
+	}
+	return &Pool{
+		agents:               make([]AgentEntry, 0),
+		eventBus:             eventBus,
+		timeout:              timeout,
+		circuitBreakerConfig: cbConfig,
+	}
+}
+
+// AddAgent adds an agent to the pool with automatic circuit breaker setup.
 func (p *Pool) AddAgent(agent core.Agent, adapter adapters.AgentAdapter) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	state := core.NewAgentState(agent)
+	cb := adapters.NewCircuitBreaker(p.circuitBreakerConfig, agent.ID, agent.Name)
+
+	// Set up state change callback for logging
+	cb.OnStateChange(func(oldState, newState adapters.CircuitState) {
+		log.WithFields(map[string]interface{}{
+			"agent_id":   agent.ID,
+			"agent_name": agent.Name,
+			"old_state":  oldState.String(),
+			"new_state":  newState.String(),
+		}).Info("Agent circuit breaker state changed")
+
+		// Emit error event when circuit opens
+		if newState == adapters.CircuitOpen && p.eventBus != nil {
+			p.eventBus.Publish(core.NewAgentErrorEvent(
+				agent.ID,
+				agent.Name,
+				fmt.Sprintf("circuit breaker opened after %d consecutive failures", p.circuitBreakerConfig.FailureThreshold),
+			))
+		}
+	})
+
 	p.agents = append(p.agents, AgentEntry{
-		Agent:   agent,
-		Adapter: adapter,
-		State:   &state,
+		Agent:          agent,
+		Adapter:        adapter,
+		State:          &state,
+		CircuitBreaker: cb,
 	})
 }
 
@@ -85,6 +124,7 @@ func (p *Pool) GetAgents() []core.Agent {
 }
 
 // ExecuteParallel sends messages to all agents in parallel.
+// Agents with open circuit breakers are skipped with an error response.
 func (p *Pool) ExecuteParallel(ctx context.Context, messages []core.Message) []Response {
 	p.mu.RLock()
 	agentsCopy := make([]AgentEntry, len(p.agents))
@@ -98,6 +138,35 @@ func (p *Pool) ExecuteParallel(ctx context.Context, messages []core.Message) []R
 		wg.Add(1)
 		go func(e AgentEntry) {
 			defer wg.Done()
+
+			// Check circuit breaker before executing
+			if e.CircuitBreaker != nil && !e.CircuitBreaker.AllowRequest() {
+				timeUntil := e.CircuitBreaker.TimeUntilRetry()
+
+				log.WithFields(map[string]interface{}{
+					"agent_id":       e.Agent.ID,
+					"agent_name":     e.Agent.Name,
+					"circuit_state":  e.CircuitBreaker.State().String(),
+					"retry_in":       timeUntil.String(),
+				}).Warn("Skipping agent due to open circuit breaker")
+
+				// Emit error event for circuit open
+				if p.eventBus != nil {
+					p.eventBus.Publish(core.NewAgentErrorEvent(
+						e.Agent.ID,
+						e.Agent.Name,
+						fmt.Sprintf("circuit breaker open, retry in %s", timeUntil.Round(time.Second)),
+					))
+				}
+
+				responseChan <- Response{
+					AgentID:   e.Agent.ID,
+					AgentName: e.Agent.Name,
+					Error:     fmt.Errorf("circuit breaker open for %s, retry in %s", e.Agent.Name, timeUntil.Round(time.Second)),
+				}
+				return
+			}
+
 			resp := p.executeAgent(ctx, e, messages)
 			responseChan <- resp
 		}(entry)
@@ -147,6 +216,11 @@ func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []co
 	if err != nil {
 		entry.State.SetError(err.Error())
 
+		// Record failure in circuit breaker
+		if entry.CircuitBreaker != nil {
+			entry.CircuitBreaker.RecordFailure()
+		}
+
 		// Emit error event
 		if p.eventBus != nil {
 			p.eventBus.Publish(core.NewAgentErrorEvent(agent.ID, agent.Name, err.Error()))
@@ -163,6 +237,11 @@ func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []co
 			AgentName: agent.Name,
 			Error:     err,
 		}
+	}
+
+	// Record success in circuit breaker
+	if entry.CircuitBreaker != nil {
+		entry.CircuitBreaker.RecordSuccess()
 	}
 
 	// Ensure metrics has duration
@@ -228,4 +307,101 @@ func (p *Pool) GetAgentState(agentID string) (*core.AgentState, bool) {
 		}
 	}
 	return nil, false
+}
+
+// CircuitBreakerInfo contains circuit breaker status for an agent.
+type CircuitBreakerInfo struct {
+	AgentID       string
+	AgentName     string
+	State         adapters.CircuitState
+	FailureCount  int
+	TimeUntilRetry time.Duration
+	LastFailure   time.Time
+}
+
+// GetCircuitBreakerStatus returns the circuit breaker status for a specific agent.
+func (p *Pool) GetCircuitBreakerStatus(agentID string) (*CircuitBreakerInfo, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for _, entry := range p.agents {
+		if entry.Agent.ID == agentID && entry.CircuitBreaker != nil {
+			return &CircuitBreakerInfo{
+				AgentID:        entry.Agent.ID,
+				AgentName:      entry.Agent.Name,
+				State:          entry.CircuitBreaker.State(),
+				FailureCount:   entry.CircuitBreaker.FailureCount(),
+				TimeUntilRetry: entry.CircuitBreaker.TimeUntilRetry(),
+				LastFailure:    entry.CircuitBreaker.LastFailure(),
+			}, true
+		}
+	}
+	return nil, false
+}
+
+// GetAllCircuitBreakerStatus returns the circuit breaker status for all agents.
+func (p *Pool) GetAllCircuitBreakerStatus() []CircuitBreakerInfo {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	infos := make([]CircuitBreakerInfo, 0, len(p.agents))
+	for _, entry := range p.agents {
+		if entry.CircuitBreaker != nil {
+			infos = append(infos, CircuitBreakerInfo{
+				AgentID:        entry.Agent.ID,
+				AgentName:      entry.Agent.Name,
+				State:          entry.CircuitBreaker.State(),
+				FailureCount:   entry.CircuitBreaker.FailureCount(),
+				TimeUntilRetry: entry.CircuitBreaker.TimeUntilRetry(),
+				LastFailure:    entry.CircuitBreaker.LastFailure(),
+			})
+		}
+	}
+	return infos
+}
+
+// ResetCircuitBreaker resets the circuit breaker for a specific agent.
+func (p *Pool) ResetCircuitBreaker(agentID string) bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for _, entry := range p.agents {
+		if entry.Agent.ID == agentID && entry.CircuitBreaker != nil {
+			entry.CircuitBreaker.Reset()
+			log.WithFields(map[string]interface{}{
+				"agent_id":   entry.Agent.ID,
+				"agent_name": entry.Agent.Name,
+			}).Info("Circuit breaker manually reset")
+			return true
+		}
+	}
+	return false
+}
+
+// ResetAllCircuitBreakers resets all circuit breakers in the pool.
+func (p *Pool) ResetAllCircuitBreakers() {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	for _, entry := range p.agents {
+		if entry.CircuitBreaker != nil {
+			entry.CircuitBreaker.Reset()
+		}
+	}
+
+	log.Info("All circuit breakers reset")
+}
+
+// GetAvailableAgentCount returns the count of agents whose circuits allow requests.
+func (p *Pool) GetAvailableAgentCount() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	count := 0
+	for _, entry := range p.agents {
+		if entry.CircuitBreaker == nil || entry.CircuitBreaker.AllowRequest() {
+			count++
+		}
+	}
+	return count
 }

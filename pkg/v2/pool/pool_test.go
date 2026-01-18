@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
 	"github.com/kevinelliott/agentpipe/pkg/v2/adapters/mock"
 	"github.com/kevinelliott/agentpipe/pkg/v2/core"
 	"github.com/kevinelliott/agentpipe/pkg/v2/events"
@@ -532,4 +533,470 @@ func TestMetricsPopulatedInResponse(t *testing.T) {
 	if resp.Message.Metrics.Duration < 50*time.Millisecond {
 		t.Errorf("expected Duration >= 50ms, got %v", resp.Message.Metrics.Duration)
 	}
+}
+
+// Circuit Breaker Integration Tests
+
+func TestCircuitBreakerInitialization(t *testing.T) {
+	pool := NewPool(nil, 10*time.Second)
+
+	agent := core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock")
+	adapter := mock.NewMockAdapter()
+
+	pool.AddAgent(agent, adapter)
+
+	// Circuit breaker should be initialized for the agent
+	cbInfo, found := pool.GetCircuitBreakerStatus("agent-1")
+	if !found {
+		t.Fatal("circuit breaker should be found for agent-1")
+	}
+
+	if cbInfo.State != adapters.CircuitClosed {
+		t.Errorf("expected initial state Closed, got %s", cbInfo.State)
+	}
+	if cbInfo.FailureCount != 0 {
+		t.Errorf("expected initial failure count 0, got %d", cbInfo.FailureCount)
+	}
+}
+
+func TestCircuitBreakerCustomConfig(t *testing.T) {
+	customConfig := adapters.CircuitBreakerConfig{
+		FailureThreshold: 3,
+		CooldownPeriod:   10 * time.Second,
+		SuccessThreshold: 2,
+	}
+
+	pool := NewPoolWithCircuitBreaker(nil, 10*time.Second, customConfig)
+
+	agent := core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock")
+	adapter := mock.NewMockAdapter()
+	adapter.Error = errors.New("simulated failure")
+
+	pool.AddAgent(agent, adapter)
+
+	ctx := context.Background()
+	messages := []core.Message{core.NewUserMessage("Hello")}
+
+	// Execute 3 times to trip circuit (custom threshold)
+	for i := 0; i < 3; i++ {
+		_ = pool.ExecuteParallel(ctx, messages)
+	}
+
+	cbInfo, _ := pool.GetCircuitBreakerStatus("agent-1")
+	if cbInfo.State != adapters.CircuitOpen {
+		t.Errorf("expected circuit to be open after 3 failures, got %s", cbInfo.State)
+	}
+}
+
+func TestCircuitBreakerOpensAfterConsecutiveFailures(t *testing.T) {
+	pool := NewPool(nil, 10*time.Second)
+
+	agent := core.NewAgent("fail-agent", "mock", "Fail Agent", "model", "mock")
+	adapter := mock.NewMockAdapter()
+	adapter.Error = errors.New("simulated failure")
+
+	pool.AddAgent(agent, adapter)
+
+	ctx := context.Background()
+	messages := []core.Message{core.NewUserMessage("Hello")}
+
+	// Default threshold is 5, so we need 5 failures
+	for i := 0; i < 5; i++ {
+		responses := pool.ExecuteParallel(ctx, messages)
+		if len(responses) != 1 {
+			t.Fatalf("expected 1 response, got %d", len(responses))
+		}
+		if responses[0].Error == nil {
+			t.Fatal("expected error on each attempt")
+		}
+	}
+
+	// Circuit should now be open
+	cbInfo, _ := pool.GetCircuitBreakerStatus("fail-agent")
+	if cbInfo.State != adapters.CircuitOpen {
+		t.Errorf("expected circuit to be open after 5 failures, got %s", cbInfo.State)
+	}
+	if cbInfo.FailureCount != 5 {
+		t.Errorf("expected failure count 5, got %d", cbInfo.FailureCount)
+	}
+}
+
+func TestCircuitBreakerSkipsOpenCircuit(t *testing.T) {
+	bus := events.NewBus()
+	defer bus.Close()
+
+	pool := NewPool(bus, 10*time.Second)
+
+	agent := core.NewAgent("fail-agent", "mock", "Fail Agent", "model", "mock")
+	adapter := mock.NewMockAdapter()
+	adapter.Error = errors.New("simulated failure")
+
+	pool.AddAgent(agent, adapter)
+
+	ctx := context.Background()
+	messages := []core.Message{core.NewUserMessage("Hello")}
+
+	// Trip the circuit breaker (5 failures)
+	for i := 0; i < 5; i++ {
+		_ = pool.ExecuteParallel(ctx, messages)
+	}
+
+	// Circuit is now open - next call should be skipped with circuit open error
+	responses := pool.ExecuteParallel(ctx, messages)
+	if len(responses) != 1 {
+		t.Fatalf("expected 1 response, got %d", len(responses))
+	}
+
+	resp := responses[0]
+	if resp.Error == nil {
+		t.Fatal("expected error for open circuit")
+	}
+
+	errStr := resp.Error.Error()
+	if !contains(errStr, "circuit breaker open") {
+		t.Errorf("expected 'circuit breaker open' error, got: %s", errStr)
+	}
+}
+
+func TestCircuitBreakerEmitsErrorEventOnOpen(t *testing.T) {
+	bus := events.NewBus()
+	defer bus.Close()
+
+	pool := NewPool(bus, 10*time.Second)
+
+	agent := core.NewAgent("fail-agent", "mock", "Fail Agent", "model", "mock")
+	adapter := mock.NewMockAdapter()
+	adapter.Error = errors.New("simulated failure")
+
+	pool.AddAgent(agent, adapter)
+
+	var circuitOpenEventReceived atomic.Bool
+	bus.Subscribe(core.EventAgentError, func(event core.Event) {
+		data, ok := event.Data.(core.AgentErrorData)
+		if ok && contains(data.Error, "circuit breaker opened") {
+			circuitOpenEventReceived.Store(true)
+		}
+	})
+
+	ctx := context.Background()
+	messages := []core.Message{core.NewUserMessage("Hello")}
+
+	// Trip the circuit breaker (5 failures)
+	for i := 0; i < 5; i++ {
+		_ = pool.ExecuteParallel(ctx, messages)
+	}
+
+	// Wait for async events
+	time.Sleep(100 * time.Millisecond)
+
+	if !circuitOpenEventReceived.Load() {
+		t.Error("expected EventAgentError for circuit breaker opening")
+	}
+}
+
+func TestCircuitBreakerSuccessResetsFailureCount(t *testing.T) {
+	pool := NewPool(nil, 10*time.Second)
+
+	agent := core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock")
+	adapter := mock.NewMockAdapter()
+	adapter.Delay = 20 * time.Millisecond
+
+	pool.AddAgent(agent, adapter)
+
+	ctx := context.Background()
+	messages := []core.Message{core.NewUserMessage("Hello")}
+
+	// Simulate 3 failures
+	adapter.Error = errors.New("temporary failure")
+	for i := 0; i < 3; i++ {
+		_ = pool.ExecuteParallel(ctx, messages)
+	}
+
+	cbInfo, _ := pool.GetCircuitBreakerStatus("agent-1")
+	if cbInfo.FailureCount != 3 {
+		t.Errorf("expected failure count 3, got %d", cbInfo.FailureCount)
+	}
+
+	// Now a success should reset the count
+	adapter.Error = nil
+	adapter.Response = "Success!"
+	_ = pool.ExecuteParallel(ctx, messages)
+
+	cbInfo, _ = pool.GetCircuitBreakerStatus("agent-1")
+	if cbInfo.FailureCount != 0 {
+		t.Errorf("expected failure count 0 after success, got %d", cbInfo.FailureCount)
+	}
+}
+
+func TestGetAllCircuitBreakerStatus(t *testing.T) {
+	pool := NewPool(nil, 10*time.Second)
+
+	agent1 := core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock")
+	agent2 := core.NewAgent("agent-2", "mock", "Agent 2", "model", "mock")
+
+	pool.AddAgent(agent1, mock.NewMockAdapter())
+	pool.AddAgent(agent2, mock.NewMockAdapter())
+
+	statuses := pool.GetAllCircuitBreakerStatus()
+	if len(statuses) != 2 {
+		t.Fatalf("expected 2 circuit breaker statuses, got %d", len(statuses))
+	}
+
+	// Check that both agents are represented
+	agentIDs := make(map[string]bool)
+	for _, s := range statuses {
+		agentIDs[s.AgentID] = true
+	}
+
+	if !agentIDs["agent-1"] || !agentIDs["agent-2"] {
+		t.Error("expected both agents in status list")
+	}
+}
+
+func TestResetCircuitBreaker(t *testing.T) {
+	pool := NewPool(nil, 10*time.Second)
+
+	agent := core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock")
+	adapter := mock.NewMockAdapter()
+	adapter.Error = errors.New("failure")
+
+	pool.AddAgent(agent, adapter)
+
+	ctx := context.Background()
+	messages := []core.Message{core.NewUserMessage("Hello")}
+
+	// Trip the circuit
+	for i := 0; i < 5; i++ {
+		_ = pool.ExecuteParallel(ctx, messages)
+	}
+
+	cbInfo, _ := pool.GetCircuitBreakerStatus("agent-1")
+	if cbInfo.State != adapters.CircuitOpen {
+		t.Fatalf("expected circuit to be open, got %s", cbInfo.State)
+	}
+
+	// Reset the circuit
+	reset := pool.ResetCircuitBreaker("agent-1")
+	if !reset {
+		t.Error("expected reset to return true")
+	}
+
+	cbInfo, _ = pool.GetCircuitBreakerStatus("agent-1")
+	if cbInfo.State != adapters.CircuitClosed {
+		t.Errorf("expected circuit to be closed after reset, got %s", cbInfo.State)
+	}
+	if cbInfo.FailureCount != 0 {
+		t.Errorf("expected failure count 0 after reset, got %d", cbInfo.FailureCount)
+	}
+}
+
+func TestResetCircuitBreakerNotFound(t *testing.T) {
+	pool := NewPool(nil, 10*time.Second)
+
+	reset := pool.ResetCircuitBreaker("nonexistent")
+	if reset {
+		t.Error("expected reset to return false for nonexistent agent")
+	}
+}
+
+func TestResetAllCircuitBreakers(t *testing.T) {
+	pool := NewPool(nil, 10*time.Second)
+
+	agent1 := core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock")
+	agent2 := core.NewAgent("agent-2", "mock", "Agent 2", "model", "mock")
+
+	adapter1 := mock.NewMockAdapter()
+	adapter1.Error = errors.New("failure")
+	adapter2 := mock.NewMockAdapter()
+	adapter2.Error = errors.New("failure")
+
+	pool.AddAgent(agent1, adapter1)
+	pool.AddAgent(agent2, adapter2)
+
+	ctx := context.Background()
+	messages := []core.Message{core.NewUserMessage("Hello")}
+
+	// Trip both circuits
+	for i := 0; i < 5; i++ {
+		_ = pool.ExecuteParallel(ctx, messages)
+	}
+
+	// Verify both are open
+	for _, agentID := range []string{"agent-1", "agent-2"} {
+		cbInfo, _ := pool.GetCircuitBreakerStatus(agentID)
+		if cbInfo.State != adapters.CircuitOpen {
+			t.Errorf("expected circuit %s to be open, got %s", agentID, cbInfo.State)
+		}
+	}
+
+	// Reset all
+	pool.ResetAllCircuitBreakers()
+
+	// Verify both are closed
+	for _, agentID := range []string{"agent-1", "agent-2"} {
+		cbInfo, _ := pool.GetCircuitBreakerStatus(agentID)
+		if cbInfo.State != adapters.CircuitClosed {
+			t.Errorf("expected circuit %s to be closed after reset, got %s", agentID, cbInfo.State)
+		}
+	}
+}
+
+func TestGetAvailableAgentCount(t *testing.T) {
+	pool := NewPool(nil, 10*time.Second)
+
+	agent1 := core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock")
+	agent2 := core.NewAgent("agent-2", "mock", "Agent 2", "model", "mock")
+
+	adapter1 := mock.NewMockAdapter()
+	adapter1.Response = "OK"
+	adapter1.Delay = 20 * time.Millisecond
+
+	adapter2 := mock.NewMockAdapter()
+	adapter2.Error = errors.New("failure")
+
+	pool.AddAgent(agent1, adapter1)
+	pool.AddAgent(agent2, adapter2)
+
+	// Initially both are available
+	if count := pool.GetAvailableAgentCount(); count != 2 {
+		t.Errorf("expected 2 available agents, got %d", count)
+	}
+
+	ctx := context.Background()
+	messages := []core.Message{core.NewUserMessage("Hello")}
+
+	// Trip agent-2's circuit
+	for i := 0; i < 5; i++ {
+		_ = pool.ExecuteParallel(ctx, messages)
+	}
+
+	// Now only agent-1 should be available
+	if count := pool.GetAvailableAgentCount(); count != 1 {
+		t.Errorf("expected 1 available agent after tripping circuit, got %d", count)
+	}
+}
+
+func TestMixedAgentsContinueWithOpenCircuit(t *testing.T) {
+	pool := NewPool(nil, 10*time.Second)
+
+	// Healthy agent
+	agent1 := core.NewAgent("healthy", "mock", "Healthy Agent", "model", "mock")
+	adapter1 := mock.NewMockAdapter()
+	adapter1.Response = "I'm healthy!"
+	adapter1.Delay = 20 * time.Millisecond
+
+	// Failing agent
+	agent2 := core.NewAgent("failing", "mock", "Failing Agent", "model", "mock")
+	adapter2 := mock.NewMockAdapter()
+	adapter2.Error = errors.New("always fails")
+
+	pool.AddAgent(agent1, adapter1)
+	pool.AddAgent(agent2, adapter2)
+
+	ctx := context.Background()
+	messages := []core.Message{core.NewUserMessage("Hello")}
+
+	// Trip the failing agent's circuit (5 failures)
+	for i := 0; i < 5; i++ {
+		_ = pool.ExecuteParallel(ctx, messages)
+	}
+
+	// Now execute again - healthy agent should still work
+	responses := pool.ExecuteParallel(ctx, messages)
+	if len(responses) != 2 {
+		t.Fatalf("expected 2 responses, got %d", len(responses))
+	}
+
+	// Check responses
+	var healthyResponse, failingResponse *Response
+	for i := range responses {
+		if responses[i].AgentID == "healthy" {
+			healthyResponse = &responses[i]
+		} else {
+			failingResponse = &responses[i]
+		}
+	}
+
+	if healthyResponse == nil || healthyResponse.Error != nil {
+		t.Error("expected healthy agent to succeed")
+	}
+	if healthyResponse.Message == nil || healthyResponse.Message.Content != "I'm healthy!" {
+		t.Error("expected healthy agent response content")
+	}
+
+	if failingResponse == nil || failingResponse.Error == nil {
+		t.Error("expected failing agent to have circuit open error")
+	}
+	if !contains(failingResponse.Error.Error(), "circuit breaker open") {
+		t.Errorf("expected circuit breaker open error, got: %s", failingResponse.Error)
+	}
+}
+
+func TestCircuitBreakerHalfOpenRecovery(t *testing.T) {
+	// Use a short cooldown for testing
+	config := adapters.CircuitBreakerConfig{
+		FailureThreshold: 2,
+		CooldownPeriod:   100 * time.Millisecond, // Very short for testing
+		SuccessThreshold: 1,
+	}
+
+	pool := NewPoolWithCircuitBreaker(nil, 10*time.Second, config)
+
+	agent := core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock")
+	adapter := mock.NewMockAdapter()
+	adapter.Error = errors.New("temporary failure")
+
+	pool.AddAgent(agent, adapter)
+
+	ctx := context.Background()
+	messages := []core.Message{core.NewUserMessage("Hello")}
+
+	// Trip the circuit (2 failures with custom threshold)
+	for i := 0; i < 2; i++ {
+		_ = pool.ExecuteParallel(ctx, messages)
+	}
+
+	cbInfo, _ := pool.GetCircuitBreakerStatus("agent-1")
+	if cbInfo.State != adapters.CircuitOpen {
+		t.Fatalf("expected circuit to be open, got %s", cbInfo.State)
+	}
+
+	// Wait for cooldown
+	time.Sleep(150 * time.Millisecond)
+
+	// Fix the adapter
+	adapter.Error = nil
+	adapter.Response = "Recovered!"
+	adapter.Delay = 20 * time.Millisecond
+
+	// Execute - should transition to half-open and then close on success
+	responses := pool.ExecuteParallel(ctx, messages)
+	if len(responses) != 1 {
+		t.Fatalf("expected 1 response, got %d", len(responses))
+	}
+
+	resp := responses[0]
+	if resp.Error != nil {
+		t.Fatalf("expected success after recovery, got error: %v", resp.Error)
+	}
+
+	// Circuit should now be closed
+	cbInfo, _ = pool.GetCircuitBreakerStatus("agent-1")
+	if cbInfo.State != adapters.CircuitClosed {
+		t.Errorf("expected circuit to be closed after successful probe, got %s", cbInfo.State)
+	}
+}
+
+// Helper function for tests
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsImpl(s, substr))
+}
+
+func containsImpl(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
