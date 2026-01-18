@@ -204,7 +204,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 	memoryPerMessage := memoryUsed / uint64(totalMessages)
 
 	b.ReportMetric(float64(memoryPerMessage), "bytes/msg")
-	b.ReportMetric(float64(memoryUsed)/1024, "KB total")
+	b.ReportMetric(float64(memoryUsed)/1024, "KB-total")
 
 	if memoryPerMessage > targetMemoryPerMessage {
 		b.Logf("WARNING: Memory per message %d bytes exceeds target %d", memoryPerMessage, targetMemoryPerMessage)
