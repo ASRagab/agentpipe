@@ -96,12 +96,24 @@ This phase prepares AgentPipe v2.0.0-mvp for release. All code is finalized, tes
   - **Note**: Homebrew formula will be auto-updated when a stable release (e.g., v2.0.0 without suffix) is published
   - **Verification**: Reviewed release.yml workflow - `update-homebrew` job correctly generates formula from checksums
 
-- [ ] Create release notes:
-  - Write user-friendly summary of v2 features
-  - Include quick start instructions
-  - List breaking changes prominently
-  - Include upgrade instructions
-  - Add known issues section
+- [x] Create release notes:
+  - ✅ Write user-friendly summary of v2 features
+  - ✅ Include quick start instructions
+  - ✅ List breaking changes prominently
+  - ✅ Include upgrade instructions
+  - ✅ Add known issues section
+  - **Created**: `RELEASE_NOTES_v2.0.0-mvp.md` in project root
+  - **Contents**:
+    - What's New section (parallel execution, streaming, event-driven architecture, API adapters, auto-save, circuit breaker)
+    - Quick Start with CLI examples
+    - Performance improvements table with benchmark results
+    - Breaking changes table with migration paths
+    - 6-step upgrade instructions
+    - New v2 CLI flags reference
+    - Known issues section
+    - Contributors acknowledgment
+    - Deprecation timeline
+    - Documentation links
 
 - [ ] Tag release:
   - Create git tag: `git tag -a v2.0.0-mvp -m "AgentPipe v2.0.0 MVP"`
