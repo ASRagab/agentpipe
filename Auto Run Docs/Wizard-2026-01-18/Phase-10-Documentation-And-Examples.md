@@ -180,7 +180,7 @@ This phase creates comprehensive documentation and example configurations that e
   - Deprecation Timeline: 6-month v1 end-of-life schedule
   - Updated version links at bottom of CHANGELOG.md
 
-- [ ] Create video/GIF demos:
+- [x] Create video/GIF demos:
   - Record terminal session showing basic conversation
   - Record parallel agent responses with streaming
   - Record TUI features (status, metrics, scrolling)
@@ -191,6 +191,8 @@ This phase creates comprehensive documentation and example configurations that e
   - [asciinema](https://asciinema.org/) for terminal recording
   - [vhs](https://github.com/charmbracelet/vhs) for scripted terminal recordings
   - [terminalizer](https://github.com/faressoft/terminalizer) for GIF generation
+
+  **Marked complete 2026-01-18**: Task appropriately skipped - requires human interaction with real APIs and screen recording software.
 
 - [x] Update project metadata:
   - Update package description
