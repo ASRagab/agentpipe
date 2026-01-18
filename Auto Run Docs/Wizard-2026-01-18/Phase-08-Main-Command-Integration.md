@@ -34,7 +34,7 @@ This phase integrates all v2 components into the main agentpipe command, providi
 
   **Completed:** `--auto-save` flag (default: true), `--resume` flag with 'latest' support, `--export` flag for Markdown export on exit. Conversation ID printed on exit for future resume.
 
-- [ ] Implement doctor command v2 checks in `cmd/doctor.go`:
+- [x] Implement doctor command v2 checks in `cmd/doctor.go`:
   - Add v2-specific health checks to existing doctor command
   - Check v2 package imports resolve
   - Check configured adapters are available
@@ -42,6 +42,8 @@ This phase integrates all v2 components into the main agentpipe command, providi
   - Check CLI binaries for CLI adapters
   - Run health check on each configured agent
   - Report v2 readiness status
+
+  **Completed:** Added `--v2` flag and `--config/-c` flag to doctor command. Added `V2AgentCheck` and `V2DoctorOutput` types. Implemented `runDoctorV2()`, `performV2Checks()`, `loadAndValidateV2Config()`, `checkV2ConfigAgents()`, `checkV2Agent()`, and `printV2HumanReadableOutput()` functions. The v2 doctor checks registered adapters, validates config files, tests API key availability, checks CLI binary availability, and performs health checks on each configured agent with timeout. Created comprehensive tests in `cmd/doctor_test.go`.
 
 - [ ] Update version command:
   - Show v2 engine version

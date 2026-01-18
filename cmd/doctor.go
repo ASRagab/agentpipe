@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,10 +9,14 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/kevinelliott/agentpipe/internal/registry"
+	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
+	"github.com/kevinelliott/agentpipe/pkg/v2/config"
+	"github.com/kevinelliott/agentpipe/pkg/v2/core"
 )
 
 type AgentCheck struct {
@@ -50,8 +55,37 @@ type DoctorSummary struct {
 	Ready          bool     `json:"ready"`
 }
 
+// V2AgentCheck represents a v2 agent health check result.
+type V2AgentCheck struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	Model         string `json:"model"`
+	Adapter       string `json:"adapter"`
+	Available     bool   `json:"available"`
+	Healthy       bool   `json:"healthy"`
+	APIKeySet     bool   `json:"api_key_set"`
+	CLIAvailable  bool   `json:"cli_available,omitempty"`
+	ResponseTime  string `json:"response_time,omitempty"`
+	Error         string `json:"error,omitempty"`
+}
+
+// V2DoctorOutput contains v2-specific doctor output.
+type V2DoctorOutput struct {
+	V2Ready           bool           `json:"v2_ready"`
+	RegisteredAdapters []string      `json:"registered_adapters"`
+	AgentChecks       []V2AgentCheck `json:"agent_checks,omitempty"`
+	ConfigFile        string         `json:"config_file,omitempty"`
+	ConfigValid       bool           `json:"config_valid"`
+	ConfigError       string         `json:"config_error,omitempty"`
+	HealthyAgents     int            `json:"healthy_agents"`
+	TotalAgents       int            `json:"total_agents"`
+}
+
 var (
-	doctorJSON bool
+	doctorJSON   bool
+	doctorV2     bool
+	doctorConfig string
 )
 
 var doctorCmd = &cobra.Command{
@@ -64,9 +98,17 @@ var doctorCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(doctorCmd)
 	doctorCmd.Flags().BoolVar(&doctorJSON, "json", false, "Output results in JSON format")
+	doctorCmd.Flags().BoolVar(&doctorV2, "v2", false, "Run v2 engine health checks")
+	doctorCmd.Flags().StringVarP(&doctorConfig, "config", "c", "", "v2 config file to validate and test agents")
 }
 
 func runDoctor(cmd *cobra.Command, args []string) {
+	// Check if v2 mode requested
+	if doctorV2 {
+		runDoctorV2(cmd, args)
+		return
+	}
+
 	// Get all agents from registry
 	registryAgents := registry.GetAll()
 
@@ -412,4 +454,255 @@ func checkAuthentication(command string) bool {
 		// Default: assume authenticated if command exists
 		return true
 	}
+}
+
+// runDoctorV2 runs v2-specific health checks.
+func runDoctorV2(cmd *cobra.Command, args []string) {
+	v2Output := performV2Checks()
+
+	if doctorJSON {
+		jsonOutput, err := json.MarshalIndent(v2Output, "", "  ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating JSON output: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(string(jsonOutput))
+	} else {
+		printV2HumanReadableOutput(v2Output)
+	}
+}
+
+// performV2Checks runs all v2-specific health checks.
+func performV2Checks() V2DoctorOutput {
+	output := V2DoctorOutput{
+		RegisteredAdapters: adapters.List(),
+		V2Ready:            true,
+	}
+
+	// Check registered adapters
+	if len(output.RegisteredAdapters) == 0 {
+		output.V2Ready = false
+	}
+
+	// If config file provided, validate and test agents
+	if doctorConfig != "" {
+		output.ConfigFile = doctorConfig
+		cfg, err := loadAndValidateV2Config(doctorConfig)
+		if err != nil {
+			output.ConfigValid = false
+			output.ConfigError = err.Error()
+			output.V2Ready = false
+		} else {
+			output.ConfigValid = true
+			// Test each agent in the config
+			agentChecks := checkV2ConfigAgents(cfg)
+			output.AgentChecks = agentChecks
+			output.TotalAgents = len(agentChecks)
+
+			healthyCount := 0
+			for _, check := range agentChecks {
+				if check.Healthy {
+					healthyCount++
+				}
+			}
+			output.HealthyAgents = healthyCount
+
+			// V2 is ready if at least one agent is healthy
+			output.V2Ready = healthyCount > 0
+		}
+	}
+
+	return output
+}
+
+// loadAndValidateV2Config loads and validates a v2 configuration file.
+func loadAndValidateV2Config(configPath string) (*config.Config, error) {
+	opts := config.LoadOptions{
+		SaveMigratedConfig: false,
+	}
+	return config.LoadConfigWithOptions(configPath, opts)
+}
+
+// checkV2ConfigAgents checks all agents defined in a v2 config file.
+func checkV2ConfigAgents(cfg *config.Config) []V2AgentCheck {
+	agents, err := cfg.InitializeAgents()
+	if err != nil {
+		return nil
+	}
+
+	checks := make([]V2AgentCheck, 0, len(agents))
+
+	for _, agent := range agents {
+		check := checkV2Agent(agent)
+		checks = append(checks, check)
+	}
+
+	return checks
+}
+
+// checkV2Agent performs a health check on a single v2 agent.
+func checkV2Agent(agent core.Agent) V2AgentCheck {
+	check := V2AgentCheck{
+		ID:      agent.ID,
+		Name:    agent.Name,
+		Type:    agent.Type,
+		Model:   agent.Model,
+		Adapter: agent.AdapterName,
+	}
+
+	// Get the adapter
+	adapter, err := adapters.Get(agent.AdapterName)
+	if err != nil {
+		check.Available = false
+		check.Error = fmt.Sprintf("adapter not found: %s", agent.AdapterName)
+		return check
+	}
+
+	check.Available = true
+
+	// Initialize the adapter
+	if err := adapter.Initialize(agent); err != nil {
+		check.Error = fmt.Sprintf("initialization failed: %v", err)
+		// Check if it's an API key issue
+		if strings.Contains(err.Error(), "environment variable") {
+			check.APIKeySet = false
+		}
+		return check
+	}
+
+	// Check if adapter is available (API key set for API adapters, CLI binary for CLI adapters)
+	if !adapter.IsAvailable() {
+		check.Error = "adapter not available (check API key or CLI binary)"
+		return check
+	}
+
+	check.APIKeySet = true
+
+	// Check if it's a CLI adapter (by checking type)
+	if agent.Type == "claude" || agent.Type == "gemini" || agent.Type == "qwen" ||
+		agent.Type == "ollama" || agent.Type == "codex" || agent.Type == "continue" {
+		// Check CLI availability
+		cliPath, cliErr := exec.LookPath(agent.Type)
+		check.CLIAvailable = cliErr == nil
+		if cliErr != nil {
+			check.Error = fmt.Sprintf("CLI binary not found: %s", agent.Type)
+			return check
+		}
+		_ = cliPath // Path found but not displayed in check
+	}
+
+	// Perform health check with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	startTime := time.Now()
+	healthErr := adapter.HealthCheck(ctx)
+	responseTime := time.Since(startTime)
+
+	if healthErr != nil {
+		check.Healthy = false
+		check.Error = healthErr.Error()
+		check.ResponseTime = responseTime.String()
+	} else {
+		check.Healthy = true
+		check.ResponseTime = responseTime.String()
+	}
+
+	return check
+}
+
+// printV2HumanReadableOutput prints v2 doctor output in human-readable format.
+func printV2HumanReadableOutput(output V2DoctorOutput) {
+	fmt.Println("\n🔍 AgentPipe Doctor - V2 Engine Health Check")
+	fmt.Println(strings.Repeat("=", 61))
+
+	// Registered adapters
+	fmt.Println("\n📦 REGISTERED ADAPTERS")
+	fmt.Println(strings.Repeat("-", 61))
+	if len(output.RegisteredAdapters) == 0 {
+		fmt.Println("  ⚠️  No adapters registered")
+	} else {
+		for _, adapter := range output.RegisteredAdapters {
+			fmt.Printf("  ✅ %s\n", adapter)
+		}
+	}
+
+	// Config validation
+	if output.ConfigFile != "" {
+		fmt.Println("\n📄 CONFIGURATION")
+		fmt.Println(strings.Repeat("-", 61))
+		fmt.Printf("  File: %s\n", output.ConfigFile)
+		if output.ConfigValid {
+			fmt.Println("  ✅ Configuration is valid")
+		} else {
+			fmt.Printf("  ❌ Configuration error: %s\n", output.ConfigError)
+		}
+	}
+
+	// Agent checks
+	if len(output.AgentChecks) > 0 {
+		fmt.Println("\n🤖 AGENT HEALTH CHECKS")
+		fmt.Println(strings.Repeat("-", 61))
+
+		for _, check := range output.AgentChecks {
+			statusIcon := "❌"
+			if check.Healthy {
+				statusIcon = "✅"
+			} else if check.Available {
+				statusIcon = "⚠️"
+			}
+
+			fmt.Printf("\n  %s %s (%s)\n", statusIcon, check.Name, check.ID)
+			fmt.Printf("     Type:     %s\n", check.Type)
+			fmt.Printf("     Model:    %s\n", check.Model)
+			fmt.Printf("     Adapter:  %s\n", check.Adapter)
+
+			if check.Available {
+				fmt.Println("     Status:   Adapter available")
+			} else {
+				fmt.Println("     Status:   Adapter not found")
+			}
+
+			if check.APIKeySet {
+				fmt.Println("     API Key:  ✅ Set")
+			} else if check.Error != "" && strings.Contains(check.Error, "API key") {
+				fmt.Println("     API Key:  ❌ Not set")
+			}
+
+			if check.ResponseTime != "" {
+				fmt.Printf("     Response: %s\n", check.ResponseTime)
+			}
+
+			if check.Healthy {
+				fmt.Println("     Health:   ✅ Healthy")
+			} else if check.Error != "" {
+				fmt.Printf("     Error:    %s\n", check.Error)
+			}
+		}
+	}
+
+	// Summary
+	fmt.Println("\n" + strings.Repeat("=", 61))
+	fmt.Println("📊 V2 SUMMARY")
+
+	if len(output.AgentChecks) > 0 {
+		fmt.Printf("   Healthy Agents: %d/%d\n", output.HealthyAgents, output.TotalAgents)
+	}
+	fmt.Printf("   Registered Adapters: %d\n", len(output.RegisteredAdapters))
+
+	if output.V2Ready {
+		fmt.Println("\n✨ V2 engine is ready!")
+		fmt.Println("   Run 'agentpipe run --v2 -c <config>' to start a v2 conversation.")
+	} else {
+		fmt.Println("\n⚠️  V2 engine is not ready.")
+		if output.ConfigFile == "" {
+			fmt.Println("   Provide a config file with --config/-c to check agent health.")
+		} else if !output.ConfigValid {
+			fmt.Println("   Fix the configuration errors above.")
+		} else if output.HealthyAgents == 0 {
+			fmt.Println("   No healthy agents found. Check API keys and network connectivity.")
+		}
+	}
+
+	fmt.Println()
 }
