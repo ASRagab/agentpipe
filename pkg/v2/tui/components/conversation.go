@@ -238,6 +238,71 @@ func (m ConversationModel) getSortedStreamingMessages() []*StreamingMessage {
 	return result
 }
 
+// ProgressBarConfig contains configuration for the progress bar rendering.
+type ProgressBarConfig struct {
+	// Width is the total width of the progress bar in characters.
+	Width int
+	// EstimatedDuration is the estimated total duration for completion.
+	// Used to calculate fill percentage. If zero, uses a default of 5 seconds.
+	EstimatedDuration time.Duration
+}
+
+// DefaultProgressBarConfig returns the default progress bar configuration.
+func DefaultProgressBarConfig() ProgressBarConfig {
+	return ProgressBarConfig{
+		Width:             20,
+		EstimatedDuration: 5 * time.Second,
+	}
+}
+
+// renderProgressBar renders a thin progress bar for streaming messages.
+// The bar fills based on elapsed time vs estimated completion time.
+// Color coding: Green (<1s), Yellow (1-3s), Red (>3s).
+func (m ConversationModel) renderProgressBar(elapsed time.Duration, config ProgressBarConfig) string {
+	// Use default if config values are zero
+	if config.Width <= 0 {
+		config.Width = 20
+	}
+	if config.EstimatedDuration <= 0 {
+		config.EstimatedDuration = 5 * time.Second
+	}
+
+	// Calculate fill percentage (cap at 100%)
+	fillPercent := float64(elapsed) / float64(config.EstimatedDuration)
+	if fillPercent > 1.0 {
+		fillPercent = 1.0
+	}
+
+	// Calculate fill and empty widths
+	fillWidth := int(float64(config.Width) * fillPercent)
+	emptyWidth := config.Width - fillWidth
+
+	// Get elapsed seconds for color coding
+	elapsedSecs := elapsed.Seconds()
+
+	// Build the progress bar
+	var b strings.Builder
+
+	// Filled portion (using thin block character)
+	if fillWidth > 0 {
+		fillChars := strings.Repeat("━", fillWidth)
+		b.WriteString(styles.ProgressBarFillStyle(elapsedSecs).Render(fillChars))
+	}
+
+	// Empty portion
+	if emptyWidth > 0 {
+		emptyChars := strings.Repeat("─", emptyWidth)
+		b.WriteString(styles.ProgressBarEmptyStyle().Render(emptyChars))
+	}
+
+	// Append duration text
+	durationStr := formatDuration(elapsed)
+	b.WriteString(" ")
+	b.WriteString(styles.ProgressBarDurationStyle(elapsedSecs).Render(durationStr))
+
+	return styles.ProgressBarContainerStyle().Render(b.String())
+}
+
 // renderStreamingMessage renders a message that is currently being streamed.
 func (m ConversationModel) renderStreamingMessage(b *strings.Builder, sm *StreamingMessage) {
 	timestamp := sm.StartTime.Format("15:04:05")
@@ -270,6 +335,11 @@ func (m ConversationModel) renderStreamingMessage(b *strings.Builder, sm *Stream
 	}
 	b.WriteString(styles.AgentMessageStyle(color).Render(content))
 
+	b.WriteString("\n")
+
+	// Render progress bar below the streaming message
+	progressBar := m.renderProgressBar(elapsed, DefaultProgressBarConfig())
+	b.WriteString(progressBar)
 	b.WriteString("\n")
 }
 

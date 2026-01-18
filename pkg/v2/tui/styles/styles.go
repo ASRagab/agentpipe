@@ -272,3 +272,47 @@ func ScrollIndicatorStyle() lipgloss.Style {
 		Foreground(lipgloss.Color("245")). // Subtle gray
 		Italic(true)
 }
+
+// ProgressBarContainerStyle returns the style for progress bar container.
+func ProgressBarContainerStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")). // Dark gray
+		PaddingLeft(2)
+}
+
+// ProgressBarFillStyle returns the style for filled portion of progress bar.
+// Color is determined by elapsed time: green (<1s), yellow (1-3s), red (>3s).
+func ProgressBarFillStyle(elapsedSeconds float64) lipgloss.Style {
+	var color lipgloss.Color
+	switch {
+	case elapsedSeconds < 1.0:
+		color = lipgloss.Color("34") // Green
+	case elapsedSeconds < 3.0:
+		color = lipgloss.Color("226") // Yellow
+	default:
+		color = lipgloss.Color("196") // Red
+	}
+	return lipgloss.NewStyle().Foreground(color)
+}
+
+// ProgressBarEmptyStyle returns the style for empty portion of progress bar.
+func ProgressBarEmptyStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("236")) // Very dark gray
+}
+
+// ProgressBarDurationStyle returns the style for the duration text in progress bar.
+func ProgressBarDurationStyle(elapsedSeconds float64) lipgloss.Style {
+	var color lipgloss.Color
+	switch {
+	case elapsedSeconds < 1.0:
+		color = lipgloss.Color("34") // Green
+	case elapsedSeconds < 3.0:
+		color = lipgloss.Color("226") // Yellow
+	default:
+		color = lipgloss.Color("196") // Red
+	}
+	return lipgloss.NewStyle().
+		Foreground(color).
+		Italic(true)
+}

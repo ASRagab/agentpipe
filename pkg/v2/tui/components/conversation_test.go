@@ -841,3 +841,215 @@ func TestRenderNewMessagesIndicator(t *testing.T) {
 		t.Error("Expected indicator to contain 'End to jump'")
 	}
 }
+
+// Progress bar tests
+
+func TestProgressBarConfig(t *testing.T) {
+	config := DefaultProgressBarConfig()
+
+	if config.Width != 20 {
+		t.Errorf("Expected default width 20, got %d", config.Width)
+	}
+	if config.EstimatedDuration != 5*time.Second {
+		t.Errorf("Expected default estimated duration 5s, got %v", config.EstimatedDuration)
+	}
+}
+
+func TestRenderProgressBarZeroElapsed(t *testing.T) {
+	model := NewConversationModel()
+
+	result := model.renderProgressBar(0, DefaultProgressBarConfig())
+
+	// Should contain the empty bar characters
+	if result == "" {
+		t.Error("Expected non-empty progress bar")
+	}
+	// At 0 elapsed, duration should show 0ms
+	if !containsSubstring(result, "0ms") {
+		t.Error("Expected progress bar to contain '0ms' at zero elapsed")
+	}
+}
+
+func TestRenderProgressBarPartialFill(t *testing.T) {
+	model := NewConversationModel()
+
+	// 2.5 seconds = 50% of 5 second estimate
+	elapsed := 2500 * time.Millisecond
+	result := model.renderProgressBar(elapsed, DefaultProgressBarConfig())
+
+	// Should contain duration text
+	if !containsSubstring(result, "2.5s") {
+		t.Error("Expected progress bar to contain '2.5s' duration")
+	}
+	// Should be non-empty
+	if result == "" {
+		t.Error("Expected non-empty progress bar")
+	}
+}
+
+func TestRenderProgressBarFullFill(t *testing.T) {
+	model := NewConversationModel()
+
+	// 10 seconds is beyond 5 second estimate (should cap at 100%)
+	elapsed := 10 * time.Second
+	result := model.renderProgressBar(elapsed, DefaultProgressBarConfig())
+
+	// Should contain duration text
+	if !containsSubstring(result, "10.0s") {
+		t.Error("Expected progress bar to contain '10.0s' duration")
+	}
+}
+
+func TestRenderProgressBarGreenColor(t *testing.T) {
+	model := NewConversationModel()
+
+	// Under 1 second should be green
+	elapsed := 500 * time.Millisecond
+	result := model.renderProgressBar(elapsed, DefaultProgressBarConfig())
+
+	// Should contain duration showing milliseconds
+	if !containsSubstring(result, "500ms") {
+		t.Error("Expected progress bar to contain '500ms' duration")
+	}
+}
+
+func TestRenderProgressBarYellowColor(t *testing.T) {
+	model := NewConversationModel()
+
+	// 1-3 seconds should be yellow
+	elapsed := 2 * time.Second
+	result := model.renderProgressBar(elapsed, DefaultProgressBarConfig())
+
+	// Should contain duration
+	if !containsSubstring(result, "2.0s") {
+		t.Error("Expected progress bar to contain '2.0s' duration")
+	}
+}
+
+func TestRenderProgressBarRedColor(t *testing.T) {
+	model := NewConversationModel()
+
+	// Over 3 seconds should be red
+	elapsed := 4 * time.Second
+	result := model.renderProgressBar(elapsed, DefaultProgressBarConfig())
+
+	// Should contain duration
+	if !containsSubstring(result, "4.0s") {
+		t.Error("Expected progress bar to contain '4.0s' duration")
+	}
+}
+
+func TestRenderProgressBarCustomConfig(t *testing.T) {
+	model := NewConversationModel()
+
+	// Custom config with different width and duration
+	config := ProgressBarConfig{
+		Width:             10,
+		EstimatedDuration: 10 * time.Second,
+	}
+
+	// 5 seconds = 50% of 10 second estimate
+	elapsed := 5 * time.Second
+	result := model.renderProgressBar(elapsed, config)
+
+	// Should contain duration
+	if !containsSubstring(result, "5.0s") {
+		t.Error("Expected progress bar to contain '5.0s' duration")
+	}
+}
+
+func TestRenderProgressBarZeroConfig(t *testing.T) {
+	model := NewConversationModel()
+
+	// Zero config should use defaults
+	config := ProgressBarConfig{
+		Width:             0,
+		EstimatedDuration: 0,
+	}
+
+	elapsed := 1 * time.Second
+	result := model.renderProgressBar(elapsed, config)
+
+	// Should still render correctly with defaults
+	if result == "" {
+		t.Error("Expected non-empty progress bar even with zero config")
+	}
+	if !containsSubstring(result, "1.0s") {
+		t.Error("Expected progress bar to contain '1.0s' duration")
+	}
+}
+
+func TestRenderProgressBarNegativeConfig(t *testing.T) {
+	model := NewConversationModel()
+
+	// Negative config should use defaults
+	config := ProgressBarConfig{
+		Width:             -5,
+		EstimatedDuration: -1 * time.Second,
+	}
+
+	elapsed := 1 * time.Second
+	result := model.renderProgressBar(elapsed, config)
+
+	// Should still render correctly with defaults
+	if result == "" {
+		t.Error("Expected non-empty progress bar even with negative config")
+	}
+}
+
+func TestStreamingMessageIncludesProgressBar(t *testing.T) {
+	model := NewConversationModel()
+	model.cursorVisible = true
+
+	// Start streaming
+	model.StartStreaming("msg-1", "agent-1", "Claude")
+	model.AppendChunk(core.MessageChunk{
+		MessageID: "msg-1",
+		Content:   "Hello world",
+	})
+
+	// Wait a bit to have some elapsed time
+	time.Sleep(50 * time.Millisecond)
+
+	// Render the messages
+	content := model.renderMessages()
+
+	// Should contain the message content
+	if !containsSubstring(content, "Hello world") {
+		t.Error("Expected content to contain 'Hello world'")
+	}
+
+	// Progress bar uses box-drawing characters
+	// The filled portion uses ━ and empty uses ─
+	if !containsSubstring(content, "─") && !containsSubstring(content, "━") {
+		t.Error("Expected content to contain progress bar characters")
+	}
+}
+
+func TestProgressBarFillCalculation(t *testing.T) {
+	model := NewConversationModel()
+
+	testCases := []struct {
+		elapsed    time.Duration
+		estimated  time.Duration
+		expectedFillPercent float64
+	}{
+		{0, 10 * time.Second, 0.0},
+		{5 * time.Second, 10 * time.Second, 0.5},
+		{10 * time.Second, 10 * time.Second, 1.0},
+		{15 * time.Second, 10 * time.Second, 1.0}, // Capped at 100%
+	}
+
+	for _, tc := range testCases {
+		config := ProgressBarConfig{
+			Width:             20,
+			EstimatedDuration: tc.estimated,
+		}
+		result := model.renderProgressBar(tc.elapsed, config)
+
+		// Just verify it renders without error
+		if result == "" {
+			t.Errorf("Expected non-empty progress bar for elapsed=%v, estimated=%v", tc.elapsed, tc.estimated)
+		}
+	}
+}

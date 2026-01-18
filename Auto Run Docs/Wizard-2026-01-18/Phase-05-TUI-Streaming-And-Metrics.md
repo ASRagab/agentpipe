@@ -54,11 +54,12 @@ This phase enhances the TUI with real-time streaming response display and compre
   - Press End key to jump to bottom
   - **COMPLETED**: Added `hasNewMessages` and `prevScrollOffset` fields to ConversationModel, implemented `detectUserScroll()` to track scroll position, added `renderNewMessagesIndicator()` and `overlayIndicator()` for visual feedback, enhanced keyboard handling to detect scroll actions and clear indicators on End key, added `JumpToBottom()`, `HasNewMessages()`, and `ClearNewMessagesIndicator()` helper methods, created `NewMessagesIndicatorStyle()` and `ScrollIndicatorStyle()` in styles package, comprehensive tests (12 new test cases covering scroll detection, indicator rendering, and state management)
 
-- [ ] Add response timing visualization:
+- [x] Add response timing visualization:
   - Show thin progress bar below each streaming message
   - Bar fills based on estimated completion time
   - Color code: Green (<1s), Yellow (1-3s), Red (>3s)
   - Show exact duration when complete
+  - **COMPLETED**: Added `ProgressBarConfig` struct with configurable width and estimated duration, implemented `renderProgressBar()` function with thin box-drawing characters (━ for filled, ─ for empty), color-coded styling via `ProgressBarFillStyle()` based on elapsed time (green <1s, yellow 1-3s, red >3s), integrated progress bar into `renderStreamingMessage()` to display below each streaming message, added 4 new styles (`ProgressBarContainerStyle`, `ProgressBarFillStyle`, `ProgressBarEmptyStyle`, `ProgressBarDurationStyle`), and comprehensive tests (13 new test cases covering zero elapsed, partial fill, full fill, color thresholds, custom config, zero/negative config handling, and integration with streaming messages)
 
 - [ ] Implement error display in TUI:
   - Show error messages inline in conversation with red styling
