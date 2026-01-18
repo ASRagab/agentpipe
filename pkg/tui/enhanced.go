@@ -299,6 +299,12 @@ func RunEnhanced(ctx context.Context, cfg *config.Config, agents []agent.Agent, 
 		agents = []agent.Agent{}
 	}
 
+	// Build agent order for multi-window navigation
+	agentOrderList := make([]string, 0, len(agents))
+	for _, a := range agents {
+		agentOrderList = append(agentOrderList, a.GetName())
+	}
+
 	// Create the agent list
 	agentList := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	agentList.Title = "Agents"
@@ -395,16 +401,23 @@ func RunEnhanced(ctx context.Context, cfg *config.Config, agents []agent.Agent, 
 		logMessages:        make([]string, 0),
 		activePanel:        conversationPanel,
 		agentColors:        agentColorMap,
-		msgChan:          msgChan,
-		msgSendChan:      msgChan, // Same channel, but as send-only for internal use
-		logChan:          logChan,
-		artifactChan:     artifactChan,
-		artifactSendChan: artifactChan, // Same channel, but as send-only for external use
+		msgChan:            msgChan,
+		msgSendChan:        msgChan, // Same channel, but as send-only for internal use
+		logChan:            logChan,
+		artifactChan:       artifactChan,
+		artifactSendChan:   artifactChan, // Same channel, but as send-only for external use
 		initialized:        len(agents) > 0,
 		skipHealthCheck:    skipHealthCheck,
 		healthCheckTimeout: healthCheckTimeout,
 		chatLogger:         chatLogger,
 		configPath:         configPath,
+		// Multi-window state
+		agentMessages:      make(map[string][]agent.Message),
+		agentViewports:     make(map[string]viewport.Model),
+		agentOrder:         agentOrderList,
+		selectedAgentIndex: 0,
+		autoFollow:         true, // Default to auto-follow enabled
+		previewLines:       3,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
