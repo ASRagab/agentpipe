@@ -45,3 +45,4 @@ agentpipe-artifacts/
 
 # Build artifacts
 dist/
+.worktrees/
