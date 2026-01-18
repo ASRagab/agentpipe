@@ -136,12 +136,26 @@ This phase creates comprehensive documentation and example configurations that e
     - `README.md` - Event payload documentation and patterns
   Updated docs/v2/README.md with new Code Examples section and Document Map.
 
-- [ ] Write API documentation (godoc):
+- [x] Write API documentation (godoc):
   - Document all exported types in pkg/v2/core
   - Document all interfaces with usage examples
   - Document all public functions
   - Include package-level documentation
   - Verify godoc renders correctly
+
+  **Completed 2026-01-18**: Created comprehensive godoc documentation for all v2 packages:
+  - `pkg/v2/core/doc.go`: Package overview, architecture, Agent/Message/Conversation/Event types with examples
+  - `pkg/v2/adapters/doc.go`: AgentAdapter interface, registry pattern, custom adapter implementation guide
+  - `pkg/v2/events/doc.go`: EventBus interface, subscription patterns, event types, thread safety
+  - `pkg/v2/manager/doc.go`: ConversationManager usage, configuration, graceful degradation, persistence
+  - `pkg/v2/config/doc.go`: Configuration file format, loading, v1 migration, validation, timeout config
+  - `pkg/v2/persistence/doc.go`: Save/load operations, listing, Markdown export, file format, security
+  All documentation includes:
+  - Comprehensive code examples with real-world usage patterns
+  - Cross-references to related packages and types
+  - Thread safety and error handling guidance
+  - Integration examples with ConversationManager
+  Verified godoc renders correctly for all packages with `go doc` command.
 
 - [ ] Create changelog entry for v2.0.0:
   - List all new features
