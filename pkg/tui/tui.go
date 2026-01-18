@@ -11,6 +11,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/ASRagab/agentpipe/internal/branding"
+	"github.com/ASRagab/agentpipe/internal/version"
 	"github.com/ASRagab/agentpipe/pkg/core"
 	"github.com/ASRagab/agentpipe/pkg/events"
 	"github.com/ASRagab/agentpipe/pkg/manager"
@@ -55,9 +57,9 @@ type Model struct {
 	// Error details modal
 	showErrorDetails bool
 
-	// Event handling
-	eventMu    sync.Mutex
-	eventQueue []core.Event
+	// Event handling (pointers so they're shared across value copies)
+	eventMu    *sync.Mutex
+	eventQueue *[]core.Event
 	lastRender time.Time
 
 	// Error handling
@@ -70,6 +72,7 @@ func New(mgr *manager.ConversationManager, eventBus *events.Bus) Model {
 
 	agents := mgr.GetAgents()
 
+	eventQueue := make([]core.Event, 0)
 	m := Model{
 		manager:      mgr,
 		eventBus:     eventBus,
@@ -80,7 +83,8 @@ func New(mgr *manager.ConversationManager, eventBus *events.Bus) Model {
 		conversation: components.NewConversationModel(),
 		input:        components.NewInputModel(),
 		focusedPanel: FocusInput, // Start with input focused
-		eventQueue:   make([]core.Event, 0),
+		eventMu:      &sync.Mutex{},
+		eventQueue:   &eventQueue,
 		lastRender:   time.Now(),
 	}
 
@@ -124,12 +128,16 @@ func (m Model) startTypingAnimTicker() tea.Cmd {
 
 // subscribeToEvents sets up event bus subscriptions.
 func (m Model) subscribeToEvents() tea.Cmd {
+	// Capture pointers to shared state
+	eventMu := m.eventMu
+	eventQueue := m.eventQueue
+
 	return func() tea.Msg {
 		// Subscribe to all event types
 		m.eventBus.SubscribeAll(func(event core.Event) {
-			m.eventMu.Lock()
-			m.eventQueue = append(m.eventQueue, event)
-			m.eventMu.Unlock()
+			eventMu.Lock()
+			*eventQueue = append(*eventQueue, event)
+			eventMu.Unlock()
 		})
 		return nil
 	}
@@ -366,8 +374,8 @@ func (m *Model) handleRetrySelectedAgent() tea.Cmd {
 // processEventQueue processes pending events.
 func (m *Model) processEventQueue() tea.Cmd {
 	m.eventMu.Lock()
-	events := m.eventQueue
-	m.eventQueue = make([]core.Event, 0)
+	events := *m.eventQueue
+	*m.eventQueue = make([]core.Event, 0)
 	m.eventMu.Unlock()
 
 	for _, event := range events {
@@ -382,9 +390,14 @@ func (m *Model) handleEvent(event core.Event) {
 	switch event.Type {
 	case core.EventMessageCreated:
 		if msg, ok := event.Data.(core.Message); ok {
-			m.conversation.AddMessage(msg)
-			// Update status bar with message count
-			m.statusBar.IncrementMessageCount()
+			// Only add user and system messages via this event
+			// Agent messages are added via EventAgentDone -> CompleteStreaming
+			// to avoid duplicate messages in the conversation panel
+			if msg.Role != core.RoleAgent {
+				m.conversation.AddMessage(msg)
+				// Update status bar with message count
+				m.statusBar.IncrementMessageCount()
+			}
 			// Count user messages as turns
 			if msg.Role == core.RoleUser {
 				m.statusBar.SetTurnCount(m.statusBar.GetTurnCount() + 1)
@@ -407,6 +420,8 @@ func (m *Model) handleEvent(event core.Event) {
 			m.agentList.UpdateStatus(data.AgentID, components.AgentStatusReady)
 			// Complete streaming for this message if it was being streamed
 			m.conversation.CompleteStreaming(data.Message.ID, data.Message)
+			// Increment message count for agent messages (skipped in EventMessageCreated to avoid duplicates)
+			m.statusBar.IncrementMessageCount()
 			if data.Message.Metrics != nil {
 				m.agentList.UpdateMetrics(data.AgentID, components.AgentMetrics{
 					Duration: data.Message.Metrics.Duration,
@@ -522,22 +537,63 @@ func (m Model) View() string {
 		return m.renderErrorDetailsOverlay()
 	}
 
+	// Calculate available height for main panels
+	// Total height minus: logo (6) + version (1) + status bar (1) + input (5 with border) + padding
+	mainHeight := m.height - LogoHeight - 1 - StatusBarHeight - InputHeight - BorderPadding
+
 	var b strings.Builder
 
-	// Status bar at top (using the new component)
+	// Logo at top (6 lines) - center by adding padding
+	// The logo is approximately 73 visible characters wide
+	logoWidth := 73
+	logoPadding := (m.width - logoWidth) / 2
+	if logoPadding < 0 {
+		logoPadding = 0
+	}
+	padStr := strings.Repeat(" ", logoPadding)
+
+	// Add padding to each line of the logo
+	logoLines := strings.Split(branding.ASCIILogo, "\n")
+	for i, line := range logoLines {
+		if line != "" {
+			b.WriteString(padStr)
+			b.WriteString(line)
+		}
+		if i < len(logoLines)-1 {
+			b.WriteString("\n")
+		}
+	}
+
+	// Version below logo (1 line), centered
+	versionStr := fmt.Sprintf("v%s", version.GetShortVersion())
+	versionStyle := lipgloss.NewStyle().
+		Width(m.width).
+		Align(lipgloss.Center).
+		Foreground(lipgloss.Color("246"))
+	b.WriteString(versionStyle.Render(versionStr))
+	b.WriteString("\n")
+
+	// Status bar (1 line)
 	b.WriteString(m.statusBar.View())
 	b.WriteString("\n")
 
-	// Main panels (agent list + conversation) side by side
+	// Get panel views
 	agentListView := m.agentList.View()
 	conversationView := m.conversation.View()
 
+	// Join panels horizontally
 	mainPanels := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		agentListView,
 		conversationView,
 	)
-	b.WriteString(mainPanels)
+
+	// Constrain panels to available height
+	constrainedPanels := lipgloss.NewStyle().
+		MaxHeight(mainHeight).
+		Render(mainPanels)
+
+	b.WriteString(constrainedPanels)
 	b.WriteString("\n")
 
 	// Input panel at bottom
