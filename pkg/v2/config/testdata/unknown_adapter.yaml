@@ -1,0 +1,5 @@
+agents:
+  - id: agent-1
+    type: nonexistent
+    name: Unknown Agent
+    model: unknown-model

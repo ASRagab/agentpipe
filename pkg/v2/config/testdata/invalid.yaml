@@ -1,0 +1,4 @@
+this is not: valid: yaml: syntax
+  - broken indent
+    - more broken
+  foo bar
