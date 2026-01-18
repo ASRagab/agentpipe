@@ -563,9 +563,9 @@ func TestRunV2CommandRecognition(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Check if it's a recognized command (using the helper)
-			isRecognized := handleV2CommandRecognized(tc.input)
+			isRecognized := handleCommandRecognized(tc.input)
 			if isRecognized != tc.isCommand {
-				t.Errorf("handleV2CommandRecognized(%q) = %v, want %v", tc.input, isRecognized, tc.isCommand)
+				t.Errorf("handleCommandRecognized(%q) = %v, want %v", tc.input, isRecognized, tc.isCommand)
 			}
 
 			// Check exit commands separately

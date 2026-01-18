@@ -75,74 +75,42 @@ The pkg/log package is NOT v1-specific. It is shared logging infrastructure used
 
   **Note:** pkg/providers/ does not exist (task list error) - providers are in internal/providers/
 
-- [ ] Remove v1 adapter packages:
+- [x] Remove v1 adapter packages:
 
-  **⚠️ BLOCKING DEPENDENCY: This task CANNOT be completed until "Update cmd/ to use v2 only" (task 3) is done first.**
+  **Completed 2026-01-18**: Removed all v1 packages as part of atomic operation with task 3.
 
-  **Dependency Analysis (2026-01-18):**
-  - cmd/run.go imports: pkg/adapters, pkg/agent, pkg/artifact, pkg/config, pkg/conversation, pkg/log, pkg/logger, pkg/orchestrator, pkg/tui
-  - cmd/init.go imports: pkg/agent, pkg/config
-  - cmd/export.go imports: pkg/agent, pkg/export
-  - cmd/resume.go imports: pkg/conversation, pkg/log
-  - cmd/bridge.go imports: pkg/log
-  - cmd/providers.go imports: pkg/log
-  - cmd/model_validation.go imports: pkg/log
-  - test/integration/conversation_test.go imports: pkg/logger, pkg/orchestrator
+  **Packages Removed:**
+  - pkg/adapters/ (20 files) - v1 CLI adapters
+  - pkg/agent/ (4 files) - v1 agent interfaces
+  - pkg/client/ (3 files) - v1 HTTP client
+  - pkg/config/ (5 files) - v1 configuration
+  - pkg/orchestrator/ (3 files) - v1 orchestrator
+  - pkg/tui/ (7 files) - v1 TUI
+  - pkg/conversation/ (2 files) - v1 conversation types
+  - pkg/logger/ (2 files) - duplicate logging
+  - pkg/errors/ (2 files) - v1 errors
 
-  **pkg/log Status: KEEP** - This package is shared infrastructure used by both v1 and v2 code paths. It provides zerolog wrapper functions and is used by cmd/root.go, cmd/bridge.go, cmd/providers.go, cmd/resume.go, cmd/model_validation.go, and cmd/v2demo/main.go.
+  **Packages KEPT:**
+  - pkg/log/ - Shared logging infrastructure (used by cmd/root.go, bridge.go, etc.)
+  - pkg/artifact/, pkg/export/, pkg/metrics/, pkg/middleware/, pkg/ratelimit/, pkg/utils/ - May need porting in later phase
 
-  **Packages to Remove (after cmd/ update):**
-  - Remove pkg/adapters/ (v1 adapters - claude, gemini, qwen, etc.)
-  - Remove pkg/client/ (v1 HTTP client)
-  - Remove pkg/config/ (v1 configuration)
-  - Remove pkg/orchestrator/ (v1 orchestrator)
-  - Remove pkg/tui/ (v1 TUI - replaced by pkg/v2/tui/)
-  - Remove pkg/agent/ (v1 agent interfaces)
-  - Remove pkg/conversation/ (v1 conversation types)
-  - Remove pkg/logger/ (duplicate logging package - used by v1 orchestrator)
-  - Remove pkg/errors/ (v2 has pkg/v2/errors)
-  - ~~Remove pkg/providers/~~ - **Does not exist; providers are in internal/providers/**
-  - ~~Remove pkg/types/~~ - **Does not exist**
-  - ~~Remove pkg/log/~~ - **KEEP: Shared logging infrastructure**
+- [x] Update cmd/ to use v2 only:
 
-  **Packages to Evaluate (may need porting to v2):**
-  - pkg/artifact - Artifact collection functionality (used by cmd/run.go)
-  - pkg/export - Export functionality (used by cmd/export.go)
-  - pkg/metrics - Prometheus metrics integration
-  - pkg/middleware - Middleware system
-  - pkg/ratelimit - Rate limiting
-  - pkg/utils - Utility functions (token estimation)
+  **Completed 2026-01-18**: cmd/run.go now uses v2 packages exclusively.
 
-- [ ] Update cmd/ to use v2 only:
+  **Changes Made:**
+  - cmd/run.go - Already updated to import only pkg/v2/* packages
+  - cmd/run_v2.go - Deleted (duplicate code causing build failure)
+  - cmd/run_v2_test.go - Deleted (obsolete v2 flag tests)
+  - cmd/run_test.go - Created new test file without v2 flag references
+  - cmd/run_v2_integration_test.go - Updated to use renamed helper functions
+  - cmd/init.go, cmd/export.go, cmd/resume.go - Deleted (v1-only commands)
 
-  **⚠️ CRITICAL: This task and "Remove v1 adapter packages" (task 2) must be done together as a cohesive unit.**
-
-  **Architecture Notes (2026-01-18):**
-  - cmd/run.go defines `runCmd` and contains the v1 execution path
-  - cmd/run_v2.go adds v2 flags to `runCmd` and provides `runV2Conversation()` function
-  - The `shouldUseV2()` function in run_v2.go determines which path to take
-  - cmd/run.go calls `runV2Conversation()` when v2 is enabled
-  - These files are NOT independent - run_v2.go depends on runCmd from run.go
-
-  **Migration Strategy:**
-  1. **DO NOT simply delete run.go and rename run_v2.go** - this will break the build
-  2. Instead, create a new merged run.go that:
-     - Keeps the runCmd definition and flag setup from run.go
-     - Removes the v1 execution path (runConversation function body that uses v1 packages)
-     - Always routes to v2 execution (remove shouldUseV2 check, always use v2)
-     - Removes v1-specific imports
-  3. Delete the now-empty run_v2.go (merged into run.go)
-  4. Delete run_test.go (v1 tests) and rename run_v2_test.go to run_test.go
-
-  **Files to Update:**
-  - cmd/run.go - Merge with run_v2.go, remove v1 imports and execution path
-  - cmd/run_v2.go - Delete after merge
-  - cmd/run_test.go - Replace with run_v2_test.go
-  - cmd/init.go - Update to use pkg/v2/config and pkg/v2/core (or remove if v1-only)
-  - cmd/export.go - Port to use v2 core or remove
-  - cmd/resume.go - Port to use v2 persistence or remove
-  - cmd/doctor.go - Already uses v2 packages, keep as-is
-  - cmd/root.go - Keep pkg/log import (shared infrastructure)
+  **Build & Test Status:**
+  - `go build` passes
+  - `go test ./cmd/...` passes
+  - Main packages (pkg/v2/*, internal/*) tests pass
+  - Some peripheral packages (pkg/export, pkg/middleware) fail due to v1 dependencies (to be addressed in later task)
 
 - [ ] Remove v1 internal packages:
   - ~~Remove internal/bridge/~~ - **KEEP: Streaming bridge is shared, not v1-specific**

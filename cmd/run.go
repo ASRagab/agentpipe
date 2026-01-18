@@ -1,106 +1,76 @@
+// Package cmd provides CLI commands for AgentPipe.
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/ASRagab/agentpipe/internal/bridge"
-	"github.com/ASRagab/agentpipe/internal/version"
-	_ "github.com/ASRagab/agentpipe/pkg/adapters"
-	"github.com/ASRagab/agentpipe/pkg/agent"
-	"github.com/ASRagab/agentpipe/pkg/artifact"
-	"github.com/ASRagab/agentpipe/pkg/config"
-	"github.com/ASRagab/agentpipe/pkg/conversation"
-	"github.com/ASRagab/agentpipe/pkg/log"
-	"github.com/ASRagab/agentpipe/pkg/logger"
-	"github.com/ASRagab/agentpipe/pkg/orchestrator"
-	"github.com/ASRagab/agentpipe/pkg/tui"
+	"github.com/ASRagab/agentpipe/pkg/v2/config"
+	"github.com/ASRagab/agentpipe/pkg/v2/core"
+	"github.com/ASRagab/agentpipe/pkg/v2/events"
+	"github.com/ASRagab/agentpipe/pkg/v2/manager"
+	v2tui "github.com/ASRagab/agentpipe/pkg/v2/tui"
 )
 
+// Run command flags
 var (
-	configPath         string
-	agents             []string
-	mode               string
-	maxTurns           int
-	turnTimeout        int
-	responseDelay      int
-	initialPrompt      string
-	useTUI             bool
-	healthCheckTimeout int
-	chatLogDir         string
-	disableLogging     bool
-	showMetrics        bool
-	watchConfig        bool
-	saveState          bool
-	stateFile          string
-	streamEnabled      bool
-	noStream           bool
-	noSummary          bool
-	summaryAgent       string
-	jsonOutput         bool
-	outputDir          string
-	noArtifacts        bool
-	noInstructAgents   bool
+	configPath    string
+	useTUI        bool
+	jsonOutput    bool
+	parallel      bool
+	timeout       int
+	saveDir       string
+	resumeID      string
+	exportPath    string
+	autoSave      bool
+	migrateConfig bool
 )
 
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Start a conversation between AI agents",
-	Long: `Start a conversation between multiple AI agents. You can specify agents
-directly via command line flags or use a YAML configuration file.
+	Long: `Start a conversation between multiple AI agents using the v2 engine.
 
-V2 ENGINE (RECOMMENDED):
-  The v2 engine introduces parallel execution, persistence, and graceful degradation.
-  Enable it with --v2 flag or AGENTPIPE_V2=true environment variable.
+The v2 engine provides parallel execution, persistence, and graceful degradation.
 
-  Features:
-    • Parallel agent execution (faster responses)
-    • Auto-save and resume conversations
-    • Circuit breaker for agent failures
-    • Graceful degradation when agents fail
-    • Markdown export on exit
+FEATURES:
+  • Parallel agent execution (faster responses)
+  • Auto-save and resume conversations
+  • Circuit breaker for agent failures
+  • Graceful degradation when agents fail
+  • Markdown export on exit
 
-V2 EXAMPLES:
-  # Basic v2 conversation
-  agentpipe run --v2 -c config.yaml
+EXAMPLES:
+  # Basic conversation
+  agentpipe run -c config.yaml
 
-  # v2 with custom timeout and save directory
-  agentpipe run --v2 -c config.yaml --v2-timeout 90 --save-dir ./chats
+  # With TUI interface
+  agentpipe run -c config.yaml -t
+
+  # With custom timeout and save directory
+  agentpipe run -c config.yaml --timeout 90 --save-dir ./chats
 
   # Resume a previous conversation
-  agentpipe run --v2 --resume latest
-  agentpipe run --v2 --resume abc12345
+  agentpipe run --resume latest
+  agentpipe run --resume abc12345
 
   # Headless mode with piped input
-  echo "What is 2+2?" | agentpipe run --v2 -c config.yaml
+  echo "What is 2+2?" | agentpipe run -c config.yaml
 
   # Export conversation to Markdown on exit
-  agentpipe run --v2 -c config.yaml --export conversation.md
+  agentpipe run -c config.yaml --export conversation.md
 
-  # Migrate v1 config to v2 format (creates backup)
-  agentpipe run --v2 --migrate-config -c old-config.yaml
-
-V1 VS V2 DIFFERENCES:
-  | Feature             | v1               | v2                          |
-  |---------------------|------------------|------------------------------|
-  | Execution           | Sequential       | Parallel (default)           |
-  | Agent failures      | Stops session    | Graceful degradation         |
-  | Persistence         | Manual save      | Auto-save with resume        |
-  | Config format       | orchestrator:    | conversation: (with adapter) |
-  | Interactive cmds    | None             | /save, /status, /retry, etc. |
-
-V2 INTERACTIVE COMMANDS:
+INTERACTIVE COMMANDS:
   When running in interactive mode (no piped input), use these commands:
     /save           Save conversation immediately
     /export [file]  Export to Markdown (default: conversation_<timestamp>.md)
@@ -110,13 +80,12 @@ V2 INTERACTIVE COMMANDS:
     /help           Show available commands
     /quit           Exit conversation (also /exit, /q)
 
-V2 ENVIRONMENT VARIABLES:
-  AGENTPIPE_V2=true       Enable v2 engine by default
+ENVIRONMENT VARIABLES:
   AGENTPIPE_CONFIG=path   Default config file path
   AGENTPIPE_SAVE_DIR=dir  Directory for conversation saves
   AGENTPIPE_TIMEOUT=60    Default agent timeout in seconds
 
-V2 TROUBLESHOOTING:
+TROUBLESHOOTING:
   "failed to resume conversation":
     - Check that the conversation ID exists in your save directory
     - Use 'latest' to resume the most recent conversation
@@ -125,15 +94,10 @@ V2 TROUBLESHOOTING:
   "all agents failed":
     - Use /status to see which agents failed and why
     - Use /retry to reset circuit breakers and try again
-    - Check agent health with 'agentpipe doctor --v2 -c config.yaml'
-
-  "config migration issues":
-    - Backup is saved as <config>.v1.backup before migration
-    - Check the migrated config for correct adapter assignments
-    - See examples/v2/demo-config.yaml for v2 config format
+    - Check agent health with 'agentpipe doctor -c config.yaml'
 
   "timeout errors":
-    - Increase timeout with --v2-timeout flag
+    - Increase timeout with --timeout flag
     - Check network connectivity to AI providers
     - Some agents (Claude, Cursor) need longer startup times`,
 	Run: runConversation,
@@ -142,607 +106,509 @@ V2 TROUBLESHOOTING:
 func init() {
 	rootCmd.AddCommand(runCmd)
 
+	// Configuration
 	runCmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to YAML configuration file")
-	runCmd.Flags().StringSliceVarP(&agents, "agents", "a", []string{}, "Agents to use (e.g., claude:Assistant1,gemini:Assistant2)")
-	runCmd.Flags().StringVarP(&mode, "mode", "m", "round-robin", "Conversation mode (round-robin, reactive, free-form)")
-	runCmd.Flags().IntVar(&maxTurns, "max-turns", 10, "Maximum number of conversation turns")
-	runCmd.Flags().IntVar(&turnTimeout, "timeout", 30, "Turn timeout in seconds")
-	runCmd.Flags().IntVar(&responseDelay, "delay", 1, "Delay between responses in seconds")
-	runCmd.Flags().StringVarP(&initialPrompt, "prompt", "p", "", "Initial prompt to start the conversation")
+
+	// Display options
 	runCmd.Flags().BoolVarP(&useTUI, "tui", "t", false, "Use TUI interface")
-	runCmd.Flags().Bool("skip-health-check", false, "Skip agent health checks (not recommended)")
-	runCmd.Flags().IntVar(&healthCheckTimeout, "health-check-timeout", 5, "Health check timeout in seconds")
-	runCmd.Flags().StringVar(&chatLogDir, "log-dir", "", "Directory to save chat logs (default: ~/.agentpipe/chats)")
-	runCmd.Flags().BoolVar(&disableLogging, "no-log", false, "Disable chat logging")
-	runCmd.Flags().BoolVar(&showMetrics, "metrics", false, "Show response metrics (duration, tokens, cost)")
-	runCmd.Flags().BoolVar(&watchConfig, "watch-config", false, "Watch config file for changes and hot-reload (requires --config)")
-	runCmd.Flags().BoolVar(&saveState, "save-state", false, "Save conversation state on exit (to ~/.agentpipe/states)")
-	runCmd.Flags().StringVar(&stateFile, "state-file", "", "Specific file path to save conversation state")
-	runCmd.Flags().BoolVar(&streamEnabled, "stream", false, "Enable streaming to AgentPipe Web for this run (overrides config)")
-	runCmd.Flags().BoolVar(&noStream, "no-stream", false, "Disable streaming to AgentPipe Web for this run (overrides config)")
-	runCmd.Flags().BoolVar(&noSummary, "no-summary", false, "Disable conversation summary generation (overrides config)")
-	runCmd.Flags().StringVar(&summaryAgent, "summary-agent", "", "Agent to use for summary generation (default: gemini, overrides config)")
 	runCmd.Flags().BoolVar(&jsonOutput, "json", false, "Output events in JSON format (JSONL)")
-	runCmd.Flags().StringVar(&outputDir, "output-dir", "./agentpipe-artifacts", "Directory for saving artifacts created by agents")
-	runCmd.Flags().BoolVar(&noArtifacts, "no-artifacts", false, "Disable artifact collection from agent responses")
-	runCmd.Flags().BoolVar(&noInstructAgents, "no-instruct-agents", false, "Disable artifact creation instructions in agent prompts")
+
+	// Execution options
+	runCmd.Flags().BoolVar(&parallel, "parallel", true, "Enable parallel agent execution")
+	runCmd.Flags().IntVar(&timeout, "timeout", 60, "Default agent timeout in seconds")
+
+	// Persistence options
+	runCmd.Flags().StringVar(&saveDir, "save-dir", "", "Directory for conversation saves")
+	runCmd.Flags().StringVar(&resumeID, "resume", "", "Resume a saved conversation (use 'latest' for most recent)")
+	runCmd.Flags().StringVar(&exportPath, "export", "", "Export conversation to Markdown on exit")
+	runCmd.Flags().BoolVar(&autoSave, "auto-save", true, "Enable auto-save")
+
+	// Migration options
+	runCmd.Flags().BoolVar(&migrateConfig, "migrate-config", false, "Migrate v1 config to v2 format and save")
+
+	// Bind environment variables
+	viper.SetDefault("AGENTPIPE_SAVE_DIR", "")
+	viper.SetDefault("AGENTPIPE_TIMEOUT", 60)
 }
 
-func runConversation(cobraCmd *cobra.Command, args []string) {
-	// Check if v2 engine should be used
-	if shouldUseV2() {
-		log.Debug("using v2 engine")
-		if err := runV2Conversation(cobraCmd, configPath); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		return
-	}
-
-	var cfg *config.Config
-	var err error
-	var stdoutEmitter *bridge.StdoutEmitter
-
-	// If --json mode, use the globalJSONEmitter created in initConfig
-	if jsonOutput {
-		stdoutEmitter = globalJSONEmitter
-	}
-
-	if configPath != "" {
-		log.WithField("config_path", configPath).Debug("loading configuration from file")
-		cfg, err = config.LoadConfig(configPath)
-		if err != nil {
-			log.WithError(err).WithField("config_path", configPath).Error("failed to load configuration")
-			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-			os.Exit(1)
-		}
-		log.WithFields(map[string]interface{}{
-			"config_path": configPath,
-			"agents":      len(cfg.Agents),
-			"mode":        cfg.Orchestrator.Mode,
-		}).Info("configuration loaded successfully")
-	} else if len(agents) > 0 {
-		log.WithField("agent_count", len(agents)).Debug("creating configuration from CLI arguments")
-		cfg = config.NewDefaultConfig()
-		for i, agentSpec := range agents {
-			agentCfg, err := parseAgentSpec(agentSpec, i)
-			if err != nil {
-				log.WithError(err).WithField("agent_spec", agentSpec).Error("failed to parse agent specification")
-				fmt.Fprintf(os.Stderr, "Error parsing agent spec: %v\n", err)
-				os.Exit(1)
-			}
-			cfg.Agents = append(cfg.Agents, agentCfg)
-		}
-	} else {
-		log.Error("no configuration source specified (need --config or --agents)")
-		fmt.Fprintf(os.Stderr, "Error: Either --config or --agents must be specified\n")
-		os.Exit(1)
-	}
-
-	if mode != "" {
-		cfg.Orchestrator.Mode = mode
-	}
-	if maxTurns > 0 {
-		cfg.Orchestrator.MaxTurns = maxTurns
-	}
-	if turnTimeout > 0 {
-		cfg.Orchestrator.TurnTimeout = time.Duration(turnTimeout) * time.Second
-	}
-	if responseDelay > 0 {
-		cfg.Orchestrator.ResponseDelay = time.Duration(responseDelay) * time.Second
-	}
-	if initialPrompt != "" {
-		cfg.Orchestrator.InitialPrompt = initialPrompt
-	}
-
-	// Apply CLI overrides for logging
-	if disableLogging {
-		cfg.Logging.Enabled = false
-	}
-	if chatLogDir != "" {
-		cfg.Logging.ChatLogDir = chatLogDir
-		cfg.Logging.Enabled = true
-	}
-	if showMetrics {
-		cfg.Logging.ShowMetrics = true
-	}
-
-	// Apply CLI overrides for summary
-	if noSummary {
-		cfg.Orchestrator.Summary.Enabled = false
-	}
-	if summaryAgent != "" {
-		cfg.Orchestrator.Summary.Agent = summaryAgent
-	}
-
-	// Apply CLI overrides for artifacts
-	if noArtifacts {
-		cfg.Artifacts.Enabled = false
-	}
-	if outputDir != "" {
-		cfg.Artifacts.OutputDir = outputDir
-	}
-	if noInstructAgents {
-		cfg.Artifacts.InstructAgents = false
-	}
-
-	if err := startConversation(cobraCmd, cfg, stdoutEmitter); err != nil {
+// runConversation runs a conversation using the v2 engine.
+func runConversation(cmd *cobra.Command, args []string) {
+	if err := executeConversation(cmd, configPath); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func parseAgentSpec(spec string, index int) (agent.AgentConfig, error) {
-	// Parse the spec using the new model-aware parser
-	agentType, model, name, err := parseAgentSpecWithModel(spec)
-	if err != nil {
-		return agent.AgentConfig{}, fmt.Errorf("invalid agent specification '%s': %w", spec, err)
-	}
-
-	// Auto-generate name if not provided
-	if name == "" {
-		name = fmt.Sprintf("%s-agent-%d", agentType, index+1)
-	}
-
-	return agent.AgentConfig{
-		ID:    fmt.Sprintf("%s-%d", agentType, index),
-		Type:  agentType,
-		Name:  name,
-		Model: model,
-	}, nil
-}
-
-func startConversation(cmd *cobra.Command, cfg *config.Config, stdoutEmitter *bridge.StdoutEmitter) error {
+// executeConversation runs the conversation with the v2 engine.
+func executeConversation(cmd *cobra.Command, cfgPath string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Set up config watcher if requested
-	var configWatcher *config.ConfigWatcher
-	if watchConfig && configPath != "" {
-		var err error
-		configWatcher, err = config.NewConfigWatcher(configPath)
-		if err != nil {
-			log.WithError(err).Error("failed to create config watcher")
-			fmt.Fprintf(os.Stderr, "Warning: Failed to create config watcher: %v\n", err)
-		} else {
-			// Register callback to log config changes
-			configWatcher.OnConfigChange(func(oldConfig, newConfig *config.Config) {
-				log.WithFields(map[string]interface{}{
-					"old_agents":    len(oldConfig.Agents),
-					"new_agents":    len(newConfig.Agents),
-					"old_max_turns": oldConfig.Orchestrator.MaxTurns,
-					"new_max_turns": newConfig.Orchestrator.MaxTurns,
-					"old_mode":      oldConfig.Orchestrator.Mode,
-					"new_mode":      newConfig.Orchestrator.Mode,
-				}).Info("configuration file changed")
-
-				fmt.Println("\n📝 Configuration file changed!")
-				fmt.Printf("   Mode: %s → %s\n", oldConfig.Orchestrator.Mode, newConfig.Orchestrator.Mode)
-				fmt.Printf("   Max Turns: %d → %d\n", oldConfig.Orchestrator.MaxTurns, newConfig.Orchestrator.MaxTurns)
-				fmt.Printf("   Agents: %d → %d\n", len(oldConfig.Agents), len(newConfig.Agents))
-				fmt.Println("   Note: Some changes require restarting the conversation")
-			})
-
-			// Start watching in background
-			go configWatcher.StartWatching()
-			defer configWatcher.StopWatching()
-
-			fmt.Println("👀 Config file watching enabled (changes will be detected automatically)")
-		}
-	}
-
-	// Track graceful shutdown for summary display
-	gracefulShutdown := false
+	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigChan
-		fmt.Println("\n\n⏸️  Interrupted. Shutting down gracefully...")
-		gracefulShutdown = true
+		fmt.Fprintln(os.Stderr, "\n\nInterrupted. Shutting down gracefully...")
 		cancel()
 	}()
 
-	if useTUI {
-		// Use enhanced TUI - agent initialization will happen inside TUI
-		skipHealthCheck, err := cmd.Flags().GetBool("skip-health-check")
-		if err != nil {
-			skipHealthCheck = false
-		}
-		return tui.RunEnhanced(ctx, cfg, nil, skipHealthCheck, healthCheckTimeout, configPath)
+	// Load configuration
+	cfg, err := loadConfig(cfgPath)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Non-TUI mode: initialize agents here
-	agentsList := make([]agent.Agent, 0)
+	// Apply CLI overrides
+	if timeout > 0 {
+		cfg.Conversation.Timeout = time.Duration(timeout) * time.Second
+	}
+	if saveDir != "" {
+		cfg.Persistence.SaveDir = saveDir
+	}
+	if envSaveDir := os.Getenv("AGENTPIPE_SAVE_DIR"); envSaveDir != "" && saveDir == "" {
+		cfg.Persistence.SaveDir = envSaveDir
+	}
+	if envTimeout := os.Getenv("AGENTPIPE_TIMEOUT"); envTimeout != "" && timeout == 60 {
+		if t, parseErr := time.ParseDuration(envTimeout + "s"); parseErr == nil {
+			cfg.Conversation.Timeout = t
+		}
+	}
+	cfg.Persistence.AutoSave = autoSave
 
-	verbose := viper.GetBool("verbose")
-
-	if !jsonOutput {
-		fmt.Println("🔍 Initializing agents...")
+	// Initialize agents from config
+	agents, err := cfg.InitializeAgents()
+	if err != nil {
+		return fmt.Errorf("failed to initialize agents: %w", err)
 	}
 
-	for _, agentCfg := range cfg.Agents {
-		if verbose {
-			fmt.Printf("  Creating agent %s (type: %s)...\n", agentCfg.Name, agentCfg.Type)
-		}
-
-		log.WithFields(map[string]interface{}{
-			"agent_name": agentCfg.Name,
-			"agent_type": agentCfg.Type,
-			"agent_id":   agentCfg.ID,
-		}).Debug("creating agent")
-
-		a, err := agent.CreateAgent(agentCfg)
-		if err != nil {
-			log.WithError(err).WithFields(map[string]interface{}{
-				"agent_name": agentCfg.Name,
-				"agent_type": agentCfg.Type,
-			}).Error("failed to create agent")
-			return fmt.Errorf("failed to create agent %s: %w", agentCfg.Name, err)
-		}
-
-		if !a.IsAvailable() {
-			log.WithFields(map[string]interface{}{
-				"agent_name": agentCfg.Name,
-				"agent_type": agentCfg.Type,
-			}).Error("agent CLI not available")
-			return fmt.Errorf("agent %s (type: %s) is not available - please run 'agentpipe doctor'", agentCfg.Name, agentCfg.Type)
-		}
-
-		// Perform health check unless skipped
-		skipHealthCheck, err := cmd.Flags().GetBool("skip-health-check")
-		if err != nil {
-			skipHealthCheck = false
-		}
-		if !skipHealthCheck {
-			if verbose {
-				fmt.Printf("  Checking health of %s...\n", agentCfg.Name)
-			}
-
-			timeout := time.Duration(healthCheckTimeout) * time.Second
-			if timeout == 0 {
-				timeout = 5 * time.Second
-			}
-
-			healthCtx, cancel := context.WithTimeout(context.Background(), timeout)
-			err = a.HealthCheck(healthCtx)
-			cancel()
-
-			if err != nil {
-				fmt.Printf("  ⚠️  Health check failed for %s: %v\n", agentCfg.Name, err)
-				fmt.Printf("  Troubleshooting tips:\n")
-				fmt.Printf("    - Make sure the %s CLI is properly installed and configured\n", agentCfg.Type)
-				fmt.Printf("    - Try running the CLI manually to check if it works\n")
-				fmt.Printf("    - Check if API keys or authentication is required\n")
-				fmt.Printf("    - Use --skip-health-check to bypass this check (not recommended)\n")
-				if verbose {
-					fmt.Printf("    - Full error: %v\n", err)
-				}
-				return fmt.Errorf("agent %s failed health check", agentCfg.Name)
-			}
-
-			if verbose {
-				fmt.Printf("  ✅ Agent %s is ready\n", agentCfg.Name)
-			}
-		} else if verbose {
-			fmt.Printf("  ⚠️  Skipping health check for %s\n", agentCfg.Name)
-		}
-
-		agentsList = append(agentsList, a)
-	}
-
-	if len(agentsList) == 0 {
+	if len(agents) == 0 {
 		return fmt.Errorf("no agents configured")
 	}
 
-	if !jsonOutput {
-		fmt.Printf("✅ All %d agents initialized successfully\n\n", len(agentsList))
+	// Create event bus
+	eventBus := events.NewBus()
+	defer eventBus.Close()
+
+	// Create manager config
+	managerCfg := manager.Config{
+		Timeout: cfg.Conversation.Timeout,
+		SaveDir: cfg.Persistence.SaveDir,
+		Persistence: manager.PersistenceConfig{
+			Enabled: cfg.Persistence.AutoSave,
+			SaveDir: cfg.Persistence.SaveDir,
+		},
+		GracefulDegradation: manager.DefaultGracefulDegradationConfig(),
 	}
 
-	orchConfig := orchestrator.OrchestratorConfig{
-		Mode:          orchestrator.ConversationMode(cfg.Orchestrator.Mode),
-		TurnTimeout:   cfg.Orchestrator.TurnTimeout,
-		MaxTurns:      cfg.Orchestrator.MaxTurns,
-		ResponseDelay: cfg.Orchestrator.ResponseDelay,
-		InitialPrompt: cfg.Orchestrator.InitialPrompt,
-		Summary:       cfg.Orchestrator.Summary,
+	// Create conversation manager
+	mgr, err := manager.NewConversationManager(managerCfg, agents, eventBus)
+	if err != nil {
+		return fmt.Errorf("failed to create conversation manager: %w", err)
 	}
+	defer mgr.Close()
 
-	// Create logger if enabled
-	var chatLogger *logger.ChatLogger
-	if cfg.Logging.Enabled {
-		var err error
-		// Suppress console output when --json is set
-		var consoleWriter io.Writer = os.Stdout
-		if jsonOutput {
-			consoleWriter = nil
+	// Resume if requested
+	if resumeID != "" {
+		if err := mgr.Resume(resumeID); err != nil {
+			return fmt.Errorf("failed to resume conversation: %w", err)
 		}
-		chatLogger, err = logger.NewChatLogger(cfg.Logging.ChatLogDir, cfg.Logging.LogFormat, consoleWriter, cfg.Logging.ShowMetrics)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to create chat logger: %v\n", err)
-			// Continue without logging
+		fmt.Fprintf(os.Stderr, "Resumed conversation from: %s\n", resumeID)
+	}
+
+	// Start conversation
+	mgr.Start()
+
+	// Run TUI or headless mode
+	if useTUI {
+		return v2tui.RunWithContext(ctx, mgr, eventBus)
+	}
+
+	return runHeadless(ctx, mgr, eventBus, cfg)
+}
+
+// loadConfig loads and possibly migrates configuration.
+func loadConfig(cfgPath string) (*config.Config, error) {
+	if cfgPath == "" {
+		// Check environment variable
+		if envConfig := os.Getenv("AGENTPIPE_CONFIG"); envConfig != "" {
+			cfgPath = envConfig
 		} else {
-			defer chatLogger.Close()
+			return nil, fmt.Errorf("config file required (use -c or AGENTPIPE_CONFIG)")
 		}
 	}
 
-	// Create orchestrator with appropriate writer
-	var writer io.Writer = os.Stdout
-	if chatLogger != nil || jsonOutput {
-		writer = nil // Logger will handle console output, or suppress for JSON mode
+	// Check for v1 config and display user-visible warning
+	if err := checkAndWarnV1Config(cfgPath); err != nil {
+		// Non-fatal - just log the detection error
+		fmt.Fprintf(os.Stderr, "Warning: Could not check config version: %v\n", err)
 	}
 
-	orch := orchestrator.NewOrchestrator(orchConfig, writer)
-	if chatLogger != nil {
-		orch.SetLogger(chatLogger)
+	opts := config.LoadOptions{
+		SaveMigratedConfig: migrateConfig,
 	}
 
-	// Capture command information for event tracking
-	commandInfo := buildCommandInfo(cmd, cfg)
-	orch.SetCommandInfo(commandInfo)
+	cfg, err := config.LoadConfigWithOptions(cfgPath, opts)
+	if err != nil {
+		return nil, err
+	}
 
-	// Configure artifact collection
-	orch.SetArtifactConfig(artifact.Config{
-		Enabled:        cfg.Artifacts.Enabled,
-		OutputDir:      cfg.Artifacts.OutputDir,
-		InstructAgents: cfg.Artifacts.InstructAgents,
+	return cfg, nil
+}
+
+// checkAndWarnV1Config checks if the config file is in v1 format and warns the user.
+func checkAndWarnV1Config(cfgPath string) error {
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	isV1, err := config.DetectV1Config(data)
+	if err != nil {
+		return fmt.Errorf("failed to detect config version: %w", err)
+	}
+
+	if isV1 {
+		// Display user-visible deprecation warning
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "┌──────────────────────────────────────────────────────────────────┐")
+		fmt.Fprintln(os.Stderr, "│  ⚠️  DEPRECATION WARNING: v1 configuration format detected        │")
+		fmt.Fprintln(os.Stderr, "├──────────────────────────────────────────────────────────────────┤")
+		fmt.Fprintln(os.Stderr, "│  Your config file uses the legacy v1 format which is deprecated. │")
+		fmt.Fprintln(os.Stderr, "│  The config will be automatically migrated in memory for now.    │")
+		fmt.Fprintln(os.Stderr, "│                                                                  │")
+		fmt.Fprintln(os.Stderr, "│  To permanently migrate your config file, run:                   │")
+		fmt.Fprintf(os.Stderr, "│    agentpipe run --migrate-config -c %s\n", truncateForBox(cfgPath, 20))
+		fmt.Fprintln(os.Stderr, "│                                                                  │")
+		fmt.Fprintln(os.Stderr, "│  This will:                                                      │")
+		fmt.Fprintln(os.Stderr, "│    • Backup your original config to <filename>.v1.backup        │")
+		fmt.Fprintln(os.Stderr, "│    • Convert to v2 format with parallel execution support       │")
+		fmt.Fprintln(os.Stderr, "│    • Add new v2 features: timeouts, persistence, etc.           │")
+		fmt.Fprintln(os.Stderr, "│                                                                  │")
+		fmt.Fprintln(os.Stderr, "│  See: agentpipe run --help for options                           │")
+		fmt.Fprintln(os.Stderr, "└──────────────────────────────────────────────────────────────────┘")
+		fmt.Fprintln(os.Stderr, "")
+
+		// If --migrate-config flag was passed, confirm the migration
+		if migrateConfig {
+			fmt.Fprintln(os.Stderr, "📁 Migrating config file with backup...")
+		}
+	}
+
+	return nil
+}
+
+// truncateForBox truncates a string to fit in the warning box.
+func truncateForBox(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return "..." + s[len(s)-maxLen:]
+}
+
+// runHeadless runs in headless (non-TUI) mode.
+func runHeadless(ctx context.Context, mgr *manager.ConversationManager, eventBus *events.Bus, cfg *config.Config) error {
+	verbose := viper.GetBool("verbose")
+
+	// Print startup info
+	if !jsonOutput {
+		fmt.Fprintln(os.Stderr, "🚀 AgentPipe")
+		fmt.Fprintf(os.Stderr, "Mode: parallel | Timeout: %s | Agents: %d\n",
+			cfg.Conversation.Timeout.String(), len(mgr.GetAgents()))
+		if mgr.IsResumed() {
+			fmt.Fprintln(os.Stderr, "📂 Resumed from saved conversation")
+		}
+		fmt.Fprintln(os.Stderr, strings.Repeat("=", 60))
+	}
+
+	// Subscribe to events for output
+	eventBus.Subscribe(core.EventMessageCreated, func(event core.Event) {
+		if msg, ok := event.Data.(core.Message); ok {
+			printMessage(msg, verbose)
+		}
 	})
 
-	// Set up JSON stdout emitter if --json flag is set
-	if jsonOutput {
-		// stdoutEmitter was already created at the beginning of this function
-		orch.SetBridgeEmitter(stdoutEmitter)
+	// Check if we have piped input
+	stat, _ := os.Stdin.Stat()
+	isPiped := (stat.Mode() & os.ModeCharDevice) == 0
 
-		// Set JSON emitter on logger to emit log.entry events
-		if chatLogger != nil {
-			chatLogger.SetJSONEmitter(stdoutEmitter)
-		}
-		// Note: zerolog was already reinitialized at the start of runConversation
-	} else {
-		// Set up streaming bridge if enabled (only when not in JSON mode)
-		shouldStream := determineShouldStream(streamEnabled, noStream)
-		if shouldStream {
-			bridgeConfig := bridge.LoadConfig()
-			if bridgeConfig.Enabled || streamEnabled {
-				// Override config enabled setting if --stream was specified
-				if streamEnabled {
-					bridgeConfig.Enabled = true
-				}
-
-				emitter := bridge.NewEmitter(bridgeConfig, version.GetShortVersion())
-				orch.SetBridgeEmitter(emitter)
-
-				if verbose {
-					fmt.Printf("🌐 Streaming enabled (conversation ID: %s)\n", emitter.GetConversationID())
-				}
-			}
-		}
+	if isPiped {
+		return runPipedMode(ctx, mgr)
 	}
 
-	// Only show UI elements when not in JSON output mode
-	if !jsonOutput {
-		fmt.Println("🚀 Starting AgentPipe conversation...")
-		fmt.Printf("Mode: %s | Max turns: %d | Agents: %d\n", cfg.Orchestrator.Mode, cfg.Orchestrator.MaxTurns, len(agentsList))
-		if !cfg.Logging.Enabled {
-			fmt.Println("📝 Chat logging disabled (use --log-dir to enable)")
-		}
-		fmt.Println(strings.Repeat("=", 60))
-	}
+	return runInteractiveMode(ctx, mgr, eventBus)
+}
 
-	log.WithFields(map[string]interface{}{
-		"mode":         cfg.Orchestrator.Mode,
-		"max_turns":    cfg.Orchestrator.MaxTurns,
-		"agent_count":  len(agentsList),
-		"logging":      cfg.Logging.Enabled,
-		"show_metrics": cfg.Logging.ShowMetrics,
-	}).Info("starting agentpipe conversation")
-
-	for _, a := range agentsList {
-		orch.AddAgent(a)
-	}
-
-	err := orch.Start(ctx)
-
+// runPipedMode handles piped input (non-interactive).
+func runPipedMode(ctx context.Context, mgr *manager.ConversationManager) error {
+	// Read all input
+	input, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		log.WithError(err).Error("orchestrator error during conversation")
-	} else {
-		log.Info("conversation completed successfully")
+		return fmt.Errorf("failed to read input: %w", err)
 	}
 
-	// Only print UI summary when not in JSON mode
-	if !jsonOutput {
-		fmt.Println("\n" + strings.Repeat("=", 60))
+	content := strings.TrimSpace(string(input))
+	if content == "" {
+		return fmt.Errorf("no input provided")
 	}
 
-	// Save conversation state if requested
-	if saveState || stateFile != "" {
-		if saveErr := saveConversationState(orch, cfg, time.Now()); saveErr != nil {
-			log.WithError(saveErr).Error("failed to save conversation state")
-			fmt.Fprintf(os.Stderr, "Warning: Failed to save conversation state: %v\n", saveErr)
-		}
-	}
-
-	// Only print session summary when not in JSON output mode
-	if !jsonOutput {
-		// Always print session summary (whether interrupted or completed normally)
-		if gracefulShutdown {
-			fmt.Println("📊 Session Summary (Interrupted)")
-		} else if err != nil {
-			fmt.Println("📊 Session Summary (Ended with Error)")
-		} else {
-			fmt.Println("📊 Session Summary (Completed)")
-		}
-		fmt.Println(strings.Repeat("=", 60))
-		printSessionSummary(orch, cfg)
-	}
-
+	// Send message and wait for responses
+	responses, err := mgr.SendUserMessage(ctx, content)
 	if err != nil {
-		return fmt.Errorf("orchestrator error: %w", err)
+		// Print responses even if some agents failed
+		for _, msg := range responses {
+			printMessage(msg, false)
+		}
+		return fmt.Errorf("error during message processing: %w", err)
 	}
+
+	// Mark complete and print summary
+	mgr.Complete()
+	printSummary(mgr)
 
 	return nil
 }
 
-// saveConversationState saves the current conversation state to a file.
-func saveConversationState(orch *orchestrator.Orchestrator, cfg *config.Config, startedAt time.Time) error {
-	messages := orch.GetMessages()
-	state := conversation.NewState(messages, cfg, startedAt)
+// runInteractiveMode runs the interactive headless mode.
+func runInteractiveMode(ctx context.Context, mgr *manager.ConversationManager, eventBus *events.Bus) error {
+	reader := bufio.NewReader(os.Stdin)
 
-	// Populate summary fields if available
-	if summary := orch.GetSummary(); summary != nil {
-		state.Metadata.ShortText = summary.ShortText
-		state.Metadata.Text = summary.Text
-	}
+	for {
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			mgr.Complete()
+			printSummary(mgr)
+			return nil
+		default:
+		}
 
-	// Determine save path
-	var savePath string
-	if stateFile != "" {
-		savePath = stateFile
-	} else {
-		// Use default state directory
-		stateDir, err := conversation.GetDefaultStateDir()
+		// Prompt for input
+		if !jsonOutput {
+			fmt.Fprint(os.Stderr, "\n💬 You: ")
+		}
+
+		line, err := reader.ReadString('\n')
 		if err != nil {
-			return fmt.Errorf("failed to get state directory: %w", err)
-		}
-
-		savePath = filepath.Join(stateDir, conversation.GenerateStateFileName())
-	}
-
-	// Save state
-	if err := state.Save(savePath); err != nil {
-		return err
-	}
-
-	fmt.Printf("\n💾 Conversation state saved to: %s\n", savePath)
-	log.WithFields(map[string]interface{}{
-		"path":     savePath,
-		"messages": len(messages),
-	}).Info("conversation state saved successfully")
-
-	return nil
-}
-
-// printSessionSummary prints a summary of the conversation session
-func printSessionSummary(orch *orchestrator.Orchestrator, cfg *config.Config) {
-	messages := orch.GetMessages()
-
-	// Calculate statistics
-	totalMessages := 0
-	agentMessages := 0
-	systemMessages := 0
-	totalCost := 0.0
-	totalTime := time.Duration(0)
-	totalTokens := 0
-
-	for _, msg := range messages {
-		totalMessages++
-
-		if msg.Role == "agent" {
-			agentMessages++
-			if msg.Metrics != nil {
-				if msg.Metrics.Cost > 0 {
-					totalCost += msg.Metrics.Cost
-				}
-				if msg.Metrics.Duration > 0 {
-					totalTime += msg.Metrics.Duration
-				}
-				if msg.Metrics.TotalTokens > 0 {
-					totalTokens += msg.Metrics.TotalTokens
-				}
+			if err == io.EOF {
+				mgr.Complete()
+				printSummary(mgr)
+				return nil
 			}
-		} else if msg.Role == "system" {
-			systemMessages++
+			return fmt.Errorf("failed to read input: %w", err)
+		}
+
+		content := strings.TrimSpace(line)
+		if content == "" {
+			continue
+		}
+
+		// Handle special commands
+		if handleCommand(content, mgr) {
+			continue
+		}
+
+		// Check for exit commands
+		if content == "/quit" || content == "/exit" || content == "/q" {
+			mgr.Complete()
+			printSummary(mgr)
+			return nil
+		}
+
+		// Send message
+		if !jsonOutput {
+			fmt.Fprintln(os.Stderr, "")
+		}
+
+		_, err = mgr.SendUserMessage(ctx, content)
+		if err != nil {
+			if err == manager.ErrAllAgentsFailed {
+				fmt.Fprintln(os.Stderr, "⚠️  All agents failed. Conversation paused.")
+				fmt.Fprintln(os.Stderr, "Type /retry to retry failed agents, or /status to see agent status.")
+				continue
+			}
+			// Non-fatal error, continue
+			fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 		}
 	}
-
-	// Display summary
-	fmt.Printf("Total Messages:      %d\n", totalMessages)
-	fmt.Printf("  Agent Messages:    %d\n", agentMessages)
-	fmt.Printf("  System Messages:   %d\n", systemMessages)
-
-	if totalTokens > 0 {
-		fmt.Printf("Total Tokens:        %d\n", totalTokens)
-	}
-
-	// Format time
-	if totalTime > 0 {
-		if totalTime < time.Second {
-			fmt.Printf("Total Time:          %dms\n", totalTime.Milliseconds())
-		} else if totalTime < time.Minute {
-			fmt.Printf("Total Time:          %.1fs\n", totalTime.Seconds())
-		} else {
-			minutes := int(totalTime.Minutes())
-			seconds := int(totalTime.Seconds()) % 60
-			fmt.Printf("Total Time:          %dm%ds\n", minutes, seconds)
-		}
-	}
-
-	if totalCost > 0 {
-		fmt.Printf("Total Cost:          $%.4f\n", totalCost)
-	}
-
-	fmt.Println(strings.Repeat("=", 60))
-	fmt.Println("Session ended. All messages logged.")
 }
 
-// determineShouldStream determines if streaming should be enabled based on CLI flags.
-// Priority: --no-stream > --stream > config file setting
-func determineShouldStream(streamEnabled, noStream bool) bool {
-	// If both flags are set, --no-stream takes priority
-	if streamEnabled && noStream {
+// handleCommand handles special commands.
+// Returns true if a command was handled.
+func handleCommand(input string, mgr *manager.ConversationManager) bool {
+	if !strings.HasPrefix(input, "/") {
 		return false
 	}
 
-	// If --no-stream is set, disable streaming
-	if noStream {
-		return false
-	}
+	parts := strings.SplitN(input, " ", 2)
+	cmd := strings.ToLower(parts[0])
 
-	// If --stream is set, enable streaming
-	if streamEnabled {
+	switch cmd {
+	case "/save":
+		path, err := mgr.Save()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Failed to save: %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "💾 Saved to: %s\n", path)
+		}
+		return true
+
+	case "/export":
+		var outputPath string
+		if len(parts) > 1 {
+			outputPath = strings.TrimSpace(parts[1])
+		} else {
+			outputPath = fmt.Sprintf("conversation_%s.md", time.Now().Format("2006-01-02_15-04-05"))
+		}
+		if err := mgr.ExportToMarkdown(outputPath); err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Failed to export: %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "📝 Exported to: %s\n", outputPath)
+		}
+		return true
+
+	case "/status":
+		printAgentStatus(mgr)
+		return true
+
+	case "/retry":
+		if mgr.IsPaused() {
+			mgr.ResetCircuitBreakers()
+			mgr.ResumeConversation(true)
+			fmt.Fprintln(os.Stderr, "🔄 Conversation resumed. Circuit breakers reset.")
+		} else {
+			fmt.Fprintln(os.Stderr, "ℹ️  Conversation is not paused.")
+		}
+		return true
+
+	case "/summary":
+		printSummary(mgr)
+		return true
+
+	case "/help":
+		printHelp()
 		return true
 	}
 
-	// Otherwise, use config file setting (checked later)
-	// We return true here to let the config be checked
-	bridgeConfig := bridge.LoadConfig()
-	return bridgeConfig.Enabled
+	return false
 }
 
-// buildCommandInfo constructs a CommandInfo struct from the cobra command and config
-func buildCommandInfo(cmd *cobra.Command, cfg *config.Config) *bridge.CommandInfo {
-	// Build the full command string
-	args := os.Args
-	fullCommand := strings.Join(args, " ")
+// printMessage prints a message to stdout.
+func printMessage(msg core.Message, verbose bool) {
+	switch msg.Role {
+	case core.RoleAgent:
+		if jsonOutput {
+			return
+		}
+		fmt.Printf("\n🤖 %s:\n", msg.AgentName)
+		fmt.Println(msg.Content)
 
-	// Build options map with all relevant flags
-	options := make(map[string]string)
+		if verbose && msg.Metrics != nil {
+			fmt.Fprintf(os.Stderr, "  [%s | %d tokens | $%.4f]\n",
+				msg.Metrics.Duration.Round(time.Millisecond),
+				msg.Metrics.TotalTokens,
+				msg.Metrics.Cost)
+		}
 
-	// Add all flags that were explicitly set
-	cmd.Flags().Visit(func(flag *pflag.Flag) {
-		options[flag.Name] = flag.Value.String()
-	})
+	case core.RoleSystem:
+		if !jsonOutput {
+			fmt.Fprintf(os.Stderr, "ℹ️  %s\n", msg.Content)
+		}
 
-	// Build agent list string for readability
-	agentList := make([]string, 0, len(cfg.Agents))
-	for _, agent := range cfg.Agents {
-		agentSpec := fmt.Sprintf("%s:%s", agent.Type, agent.Name)
-		agentList = append(agentList, agentSpec)
+	case core.RoleUser:
+		// User messages already shown at input
 	}
-	if len(agentList) > 0 {
-		options["agents_list"] = strings.Join(agentList, ",")
+}
+
+// printAgentStatus prints the status of all agents.
+func printAgentStatus(mgr *manager.ConversationManager) {
+	fmt.Fprintln(os.Stderr, "\n📊 Agent Status")
+	fmt.Fprintln(os.Stderr, strings.Repeat("-", 40))
+
+	agents := mgr.GetAgents()
+	status := mgr.GetAgentStatus()
+	failedAgents := mgr.GetFailedAgents()
+
+	failedMap := make(map[string]*manager.FailedAgentInfo)
+	for _, info := range failedAgents {
+		infoCopy := info
+		failedMap[info.AgentID] = &infoCopy
 	}
 
-	return &bridge.CommandInfo{
-		FullCommand:    fullCommand,
-		Args:           args[1:], // Exclude program name
-		Mode:           cfg.Orchestrator.Mode,
-		MaxTurns:       cfg.Orchestrator.MaxTurns,
-		InitialPrompt:  cfg.Orchestrator.InitialPrompt,
-		ConfigFile:     configPath,
-		TUIEnabled:     useTUI,
-		LoggingEnabled: cfg.Logging.Enabled,
-		ShowMetrics:    showMetrics,
-		Timeout:        int(cfg.Orchestrator.TurnTimeout.Seconds()),
-		Options:        options,
+	for _, agent := range agents {
+		statusIcon := "✅"
+		statusStr := string(status[agent.ID])
+
+		if failed, ok := failedMap[agent.ID]; ok {
+			statusIcon = "❌"
+			statusStr = fmt.Sprintf("error (retries: %d)", failed.RetryCount)
+		} else if status[agent.ID] == core.AgentStatusTyping {
+			statusIcon = "⏳"
+		}
+
+		fmt.Fprintf(os.Stderr, "%s %s (%s): %s\n", statusIcon, agent.Name, agent.Model, statusStr)
 	}
+
+	if mgr.IsPaused() {
+		fmt.Fprintln(os.Stderr, "\n⚠️  Conversation is PAUSED due to all agents failing.")
+		fmt.Fprintln(os.Stderr, "Type /retry to resume.")
+	}
+}
+
+// printSummary prints the conversation summary.
+func printSummary(mgr *manager.ConversationManager) {
+	if jsonOutput {
+		return
+	}
+
+	summary := mgr.Summary()
+
+	// Calculate turn count from user messages
+	turnCount := 0
+	for _, msg := range mgr.GetMessages() {
+		if msg.Role == core.RoleUser {
+			turnCount++
+		}
+	}
+
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, strings.Repeat("=", 60))
+	fmt.Fprintln(os.Stderr, "📊 Conversation Summary")
+	fmt.Fprintln(os.Stderr, strings.Repeat("-", 40))
+	fmt.Fprintf(os.Stderr, "Messages:     %d\n", summary.MessageCount)
+	fmt.Fprintf(os.Stderr, "Turns:        %d\n", turnCount)
+	fmt.Fprintf(os.Stderr, "Total Tokens: %d\n", summary.TotalTokens)
+	fmt.Fprintf(os.Stderr, "Total Cost:   $%.4f\n", summary.TotalCost)
+	fmt.Fprintf(os.Stderr, "Duration:     %s\n", summary.Duration.Round(time.Millisecond))
+
+	// Export if requested
+	if exportPath != "" {
+		if err := mgr.ExportToMarkdown(exportPath); err != nil {
+			fmt.Fprintf(os.Stderr, "\n❌ Failed to export: %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "\n📝 Exported to: %s\n", exportPath)
+		}
+	}
+
+	// Print save location if auto-save was enabled
+	if autoSave {
+		saveID := mgr.GetConversation().ID
+		if saveID != "" {
+			fmt.Fprintf(os.Stderr, "\n💾 Conversation ID: %s\n", saveID[:8])
+			fmt.Fprintf(os.Stderr, "   Use --resume %s to continue later\n", saveID[:8])
+		}
+	}
+}
+
+// printHelp prints available commands.
+func printHelp() {
+	fmt.Fprintln(os.Stderr, "\n📖 Available Commands")
+	fmt.Fprintln(os.Stderr, strings.Repeat("-", 40))
+	fmt.Fprintln(os.Stderr, "/save           Save conversation")
+	fmt.Fprintln(os.Stderr, "/export [file]  Export to Markdown")
+	fmt.Fprintln(os.Stderr, "/status         Show agent status")
+	fmt.Fprintln(os.Stderr, "/retry          Retry failed agents")
+	fmt.Fprintln(os.Stderr, "/summary        Show conversation summary")
+	fmt.Fprintln(os.Stderr, "/quit           Exit conversation")
+	fmt.Fprintln(os.Stderr, "/help           Show this help")
 }
