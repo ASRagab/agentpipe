@@ -900,6 +900,21 @@ func (o *Orchestrator) processArtifacts(content string, agentID, agentName strin
 	}
 }
 
+// isFirstTurnForAgent checks if this is the agent's first response in the conversation.
+// Returns true if the agent has not yet sent any messages with Role="agent".
+func (o *Orchestrator) isFirstTurnForAgent(agentID string) bool {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+
+	for _, msg := range o.messages {
+		// Check for prior responses FROM this agent (not system messages ABOUT them)
+		if msg.AgentID == agentID && msg.Role == "agent" {
+			return false // Agent has responded before
+		}
+	}
+	return true // No prior responses = first turn
+}
+
 func (o *Orchestrator) getAgentResponse(ctx context.Context, a agent.Agent) error {
 	// Apply rate limiting before attempting to get response
 	o.mu.RLock()
@@ -930,8 +945,27 @@ func (o *Orchestrator) getAgentResponse(ctx context.Context, a agent.Agent) erro
 	copy(collectedArtifacts, o.collectedArtifacts)
 	o.mu.RUnlock()
 
+	// Inject artifact creation instructions on first turn
+	if artifactCfg.Enabled && artifactCfg.InstructAgents {
+		if o.isFirstTurnForAgent(a.GetID()) {
+			instructMsg := agent.Message{
+				AgentID:   "system",
+				AgentName: "SYSTEM",
+				Content:   artifact.GenerateInstructions(artifactCfg.OutputDir),
+				Timestamp: time.Now().Unix(),
+				Role:      "system",
+			}
+			messages = append([]agent.Message{instructMsg}, messages...)
+
+			log.WithFields(map[string]interface{}{
+				"agent_id":   a.GetID(),
+				"agent_name": a.GetName(),
+			}).Debug("injected artifact creation instructions for first turn")
+		}
+	}
+
+	// Inject context header showing existing artifacts (on any turn where artifacts exist)
 	if artifactCfg.Enabled && artifactCfg.InstructAgents && len(collectedArtifacts) > 0 {
-		// Generate context header showing existing artifacts
 		contextHeader := artifact.GenerateContextHeader(collectedArtifacts)
 		if contextHeader != "" {
 			// Prepend as a system message so agent knows what artifacts exist

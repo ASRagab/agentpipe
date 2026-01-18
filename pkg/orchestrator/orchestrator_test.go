@@ -1180,3 +1180,48 @@ func TestGetSummary(t *testing.T) {
 		t.Errorf("summary mismatch: expected %q, got %q", testSummary.Text, retrievedSummary.Text)
 	}
 }
+
+func TestIsFirstTurnForAgent(t *testing.T) {
+	cfg := OrchestratorConfig{
+		Mode:        ModeRoundRobin,
+		MaxTurns:    5,
+		TurnTimeout: 30 * time.Second,
+	}
+	orch := NewOrchestrator(cfg, nil)
+
+	// Initially, all agents are on first turn
+	if !orch.isFirstTurnForAgent("agent-1") {
+		t.Error("Expected first turn for new agent")
+	}
+
+	// Add a system message (should NOT affect first-turn detection)
+	orch.mu.Lock()
+	orch.messages = append(orch.messages, agent.Message{
+		AgentID: "agent-1",
+		Role:    "system",
+		Content: "agent-1 has joined",
+	})
+	orch.mu.Unlock()
+
+	if !orch.isFirstTurnForAgent("agent-1") {
+		t.Error("System messages should not count as agent responses")
+	}
+
+	// Add an agent response (should mark as NOT first turn)
+	orch.mu.Lock()
+	orch.messages = append(orch.messages, agent.Message{
+		AgentID: "agent-1",
+		Role:    "agent",
+		Content: "Hello, I am agent-1",
+	})
+	orch.mu.Unlock()
+
+	if orch.isFirstTurnForAgent("agent-1") {
+		t.Error("Expected NOT first turn after agent response")
+	}
+
+	// Different agent should still be on first turn
+	if !orch.isFirstTurnForAgent("agent-2") {
+		t.Error("Different agent should be on first turn")
+	}
+}
