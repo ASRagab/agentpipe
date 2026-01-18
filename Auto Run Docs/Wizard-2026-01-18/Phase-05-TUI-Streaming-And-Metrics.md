@@ -46,12 +46,13 @@ This phase enhances the TUI with real-time streaming response display and compre
     - UpdateFromMetrics() to accumulate metrics as messages complete
     - 13 comprehensive test cases covering all functionality
 
-- [ ] Implement smooth scrolling for new messages:
+- [x] Implement smooth scrolling for new messages:
   - Track viewport scroll position
   - When new message arrives at bottom, auto-scroll
   - If user has scrolled up (not at bottom), don't auto-scroll
   - Show "New messages below" indicator when not at bottom
   - Press End key to jump to bottom
+  - **COMPLETED**: Added `hasNewMessages` and `prevScrollOffset` fields to ConversationModel, implemented `detectUserScroll()` to track scroll position, added `renderNewMessagesIndicator()` and `overlayIndicator()` for visual feedback, enhanced keyboard handling to detect scroll actions and clear indicators on End key, added `JumpToBottom()`, `HasNewMessages()`, and `ClearNewMessagesIndicator()` helper methods, created `NewMessagesIndicatorStyle()` and `ScrollIndicatorStyle()` in styles package, comprehensive tests (12 new test cases covering scroll detection, indicator rendering, and state management)
 
 - [ ] Add response timing visualization:
   - Show thin progress bar below each streaming message

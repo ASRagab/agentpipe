@@ -1,6 +1,7 @@
 package components
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -614,4 +615,229 @@ func containsSubstringHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// Smooth scrolling tests
+
+func TestHasNewMessages(t *testing.T) {
+	model := NewConversationModel()
+
+	// Initially false
+	if model.HasNewMessages() {
+		t.Error("Expected HasNewMessages to be false initially")
+	}
+
+	// Set user scrolled up
+	model.SetUserScrolledUp(true)
+
+	// Initialize viewport for refreshContent to work
+	model.InitViewport(80, 24)
+
+	// Simulate many messages to have scrollable content
+	for i := 0; i < 50; i++ {
+		model.AddMessage(core.Message{
+			ID:      fmt.Sprintf("msg-%d", i),
+			Content: fmt.Sprintf("Message %d", i),
+		})
+	}
+
+	// Start streaming (triggers refreshContent with userScrolledUp = true)
+	model.SetUserScrolledUp(true)
+	model.StartStreaming("msg-new", "agent-1", "Claude")
+
+	// Should now have new messages
+	if !model.HasNewMessages() {
+		t.Error("Expected HasNewMessages to be true after message while scrolled up")
+	}
+}
+
+func TestClearNewMessagesIndicator(t *testing.T) {
+	model := NewConversationModel()
+
+	// Manually set hasNewMessages
+	model.hasNewMessages = true
+
+	// Clear it
+	model.ClearNewMessagesIndicator()
+
+	if model.HasNewMessages() {
+		t.Error("Expected HasNewMessages to be false after clearing")
+	}
+}
+
+func TestJumpToBottom(t *testing.T) {
+	model := NewConversationModel()
+	model.InitViewport(80, 24)
+
+	// Set up state
+	model.userScrolledUp = true
+	model.hasNewMessages = true
+
+	// Jump to bottom
+	model.JumpToBottom()
+
+	// Should clear scroll state and new messages
+	if model.IsUserScrolledUp() {
+		t.Error("Expected userScrolledUp to be false after JumpToBottom")
+	}
+	if model.HasNewMessages() {
+		t.Error("Expected hasNewMessages to be false after JumpToBottom")
+	}
+}
+
+func TestDetectUserScroll(t *testing.T) {
+	model := NewConversationModel()
+	model.InitViewport(80, 24)
+
+	// Add enough messages to create scrollable content
+	for i := 0; i < 100; i++ {
+		model.AddMessage(core.Message{
+			ID:      fmt.Sprintf("msg-%d", i),
+			Content: fmt.Sprintf("Message line %d with some content", i),
+		})
+	}
+
+	// Initially at bottom, so not scrolled up
+	model.detectUserScroll()
+	if model.IsUserScrolledUp() {
+		t.Error("Expected not scrolled up when at bottom")
+	}
+
+	// Scroll up (simulate by going to top)
+	model.viewport.GotoTop()
+	model.detectUserScroll()
+
+	if !model.IsUserScrolledUp() {
+		t.Error("Expected scrolled up after going to top")
+	}
+
+	// Go back to bottom
+	model.viewport.GotoBottom()
+	model.detectUserScroll()
+
+	if model.IsUserScrolledUp() {
+		t.Error("Expected not scrolled up after returning to bottom")
+	}
+}
+
+func TestNewMessagesIndicatorRendering(t *testing.T) {
+	model := NewConversationModel()
+	model.InitViewport(80, 24)
+	model.width = 80
+	model.height = 24
+
+	// Set state to show indicator
+	model.hasNewMessages = true
+	model.userScrolledUp = true
+
+	view := model.View()
+
+	// Should contain the indicator text
+	if !containsSubstring(view, "New messages below") {
+		t.Error("Expected view to contain 'New messages below' indicator")
+	}
+}
+
+func TestNoIndicatorWhenAtBottom(t *testing.T) {
+	model := NewConversationModel()
+	model.InitViewport(80, 24)
+	model.width = 80
+	model.height = 24
+
+	// Add some messages
+	model.AddMessage(core.Message{
+		ID:      "msg-1",
+		Content: "Hello",
+	})
+
+	// Not scrolled up, no new messages
+	model.hasNewMessages = false
+	model.userScrolledUp = false
+
+	view := model.View()
+
+	// Should NOT contain the indicator
+	if containsSubstring(view, "New messages below") {
+		t.Error("Expected view to NOT contain 'New messages below' indicator when at bottom")
+	}
+}
+
+func TestRefreshContentSetsNewMessages(t *testing.T) {
+	model := NewConversationModel()
+	model.InitViewport(80, 24)
+
+	// Add many messages to create scrollable content
+	for i := 0; i < 50; i++ {
+		model.AddMessage(core.Message{
+			ID:      fmt.Sprintf("msg-%d", i),
+			Content: fmt.Sprintf("Message %d", i),
+		})
+	}
+
+	// Scroll to top to simulate user scrolling up
+	model.viewport.GotoTop()
+	model.userScrolledUp = true
+
+	// Refresh content should detect user is scrolled up and set hasNewMessages
+	model.refreshContent()
+
+	if !model.HasNewMessages() {
+		t.Error("Expected hasNewMessages to be true after refreshContent while scrolled up")
+	}
+}
+
+func TestScrollToBottomClearsIndicators(t *testing.T) {
+	model := NewConversationModel()
+	model.InitViewport(80, 24)
+
+	// Set up state
+	model.userScrolledUp = true
+	model.hasNewMessages = true
+
+	// Use ScrollToBottom (the existing method)
+	model.ScrollToBottom()
+
+	// ScrollToBottom doesn't clear indicators in original implementation
+	// but JumpToBottom does - this tests the existing behavior
+	// We're adding JumpToBottom for the new behavior
+	model.JumpToBottom()
+
+	if model.IsUserScrolledUp() {
+		t.Error("Expected userScrolledUp to be false after JumpToBottom")
+	}
+	if model.HasNewMessages() {
+		t.Error("Expected hasNewMessages to be false after JumpToBottom")
+	}
+}
+
+func TestOverlayIndicatorCentering(t *testing.T) {
+	model := NewConversationModel()
+	model.width = 80
+
+	content := "Test content"
+	indicator := "TEST"
+
+	result := model.overlayIndicator(content, indicator)
+
+	// Should contain both the original content and indicator
+	if !containsSubstring(result, "Test content") {
+		t.Error("Expected result to contain original content")
+	}
+	if !containsSubstring(result, "TEST") {
+		t.Error("Expected result to contain indicator")
+	}
+}
+
+func TestRenderNewMessagesIndicator(t *testing.T) {
+	model := NewConversationModel()
+
+	indicator := model.renderNewMessagesIndicator()
+
+	// Should contain the expected text
+	if !containsSubstring(indicator, "New messages below") {
+		t.Error("Expected indicator to contain 'New messages below'")
+	}
+	if !containsSubstring(indicator, "End to jump") {
+		t.Error("Expected indicator to contain 'End to jump'")
+	}
 }

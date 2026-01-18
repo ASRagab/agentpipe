@@ -45,6 +45,8 @@ type ConversationModel struct {
 	cursorVisible     bool           // For blinking cursor animation
 	autoScroll        bool           // Whether to auto-scroll on new messages
 	userScrolledUp    bool           // Whether user has scrolled up from bottom
+	hasNewMessages    bool           // Whether new messages arrived while scrolled up
+	prevScrollOffset  int            // Previous scroll offset for detecting user scroll direction
 }
 
 // NewConversationModel creates a new conversation model.
@@ -74,16 +76,23 @@ func (m ConversationModel) Update(msg tea.Msg) (ConversationModel, tea.Cmd) {
 			switch msg.String() {
 			case "pgup":
 				m.viewport.ViewUp()
+				m.detectUserScroll()
 			case "pgdown":
 				m.viewport.ViewDown()
+				m.detectUserScroll()
 			case "up", "k":
 				m.viewport.LineUp(1)
+				m.detectUserScroll()
 			case "down", "j":
 				m.viewport.LineDown(1)
+				m.detectUserScroll()
 			case "home":
 				m.viewport.GotoTop()
+				m.userScrolledUp = true
 			case "end":
 				m.viewport.GotoBottom()
+				m.userScrolledUp = false
+				m.hasNewMessages = false
 			}
 		}
 
@@ -100,9 +109,27 @@ func (m ConversationModel) Update(msg tea.Msg) (ConversationModel, tea.Cmd) {
 
 	if m.ready {
 		m.viewport, cmd = m.viewport.Update(msg)
+		// Track scroll position after viewport update
+		m.detectUserScroll()
 	}
 
 	return m, cmd
+}
+
+// detectUserScroll detects if the user has scrolled away from the bottom.
+func (m *ConversationModel) detectUserScroll() {
+	if !m.ready {
+		return
+	}
+	// If user is not at the bottom, mark as scrolled up
+	if !m.viewport.AtBottom() {
+		m.userScrolledUp = true
+	} else {
+		// User is at bottom, reset scroll state and new messages indicator
+		m.userScrolledUp = false
+		m.hasNewMessages = false
+	}
+	m.prevScrollOffset = m.viewport.YOffset
 }
 
 // View renders the conversation view.
@@ -129,10 +156,49 @@ func (m ConversationModel) View() string {
 
 	header := title + "\n" + strings.Repeat("─", m.width-4) + "\n"
 
+	// Build the main view
+	viewContent := header + m.viewport.View()
+
+	// Add "New messages below" indicator if user has scrolled up and new messages arrived
+	if m.hasNewMessages && m.userScrolledUp {
+		indicator := m.renderNewMessagesIndicator()
+		// Overlay the indicator at the bottom of the viewport
+		viewContent = m.overlayIndicator(viewContent, indicator)
+	}
+
 	return borderStyle.
 		Width(m.width - 2).
 		Height(m.height - 2).
-		Render(header + m.viewport.View())
+		Render(viewContent)
+}
+
+// renderNewMessagesIndicator renders the "New messages below" indicator.
+func (m ConversationModel) renderNewMessagesIndicator() string {
+	return styles.NewMessagesIndicatorStyle().Render("↓ New messages below (End to jump)")
+}
+
+// overlayIndicator overlays the indicator at the bottom of the content.
+func (m ConversationModel) overlayIndicator(content, indicator string) string {
+	lines := strings.Split(content, "\n")
+	if len(lines) == 0 {
+		return content
+	}
+
+	// Calculate position for the indicator (near the bottom of visible area)
+	indicatorWidth := lipgloss.Width(indicator)
+	contentWidth := m.width - 4 // Account for borders
+
+	// Center the indicator
+	padding := (contentWidth - indicatorWidth) / 2
+	if padding < 0 {
+		padding = 0
+	}
+
+	paddedIndicator := strings.Repeat(" ", padding) + indicator
+
+	// Replace the last visible line with the indicator (overlay style)
+	// For now, append below the viewport content
+	return content + "\n" + paddedIndicator
 }
 
 // renderMessages renders all messages to a string including streaming messages.
@@ -532,6 +598,9 @@ func (m *ConversationModel) refreshContent() {
 	// Auto-scroll only if we were at the bottom and user hasn't scrolled up
 	if atBottom && !m.userScrolledUp {
 		m.viewport.GotoBottom()
+	} else if m.userScrolledUp {
+		// User is scrolled up, mark that new messages arrived
+		m.hasNewMessages = true
 	}
 }
 
@@ -557,4 +626,23 @@ func (m *ConversationModel) IsUserScrolledUp() bool {
 // TotalMessageCount returns the total count of completed and streaming messages.
 func (m *ConversationModel) TotalMessageCount() int {
 	return len(m.messages) + len(m.streamingMessages)
+}
+
+// HasNewMessages returns whether there are new messages while user is scrolled up.
+func (m *ConversationModel) HasNewMessages() bool {
+	return m.hasNewMessages
+}
+
+// ClearNewMessagesIndicator clears the new messages indicator.
+func (m *ConversationModel) ClearNewMessagesIndicator() {
+	m.hasNewMessages = false
+}
+
+// JumpToBottom scrolls to the bottom and clears indicators.
+func (m *ConversationModel) JumpToBottom() {
+	if m.ready {
+		m.viewport.GotoBottom()
+		m.userScrolledUp = false
+		m.hasNewMessages = false
+	}
 }
