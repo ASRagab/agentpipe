@@ -35,10 +35,12 @@ Thank you for your interest in contributing to AgentPipe! This document provides
 
 ### Prerequisites
 
-- **Go 1.25+**: Required for building the project
+- **Go 1.24+**: Required for building the project
 - **Git**: For version control
-- **golangci-lint**: For code linting
+- **golangci-lint v1.x**: For code linting (v2.x config format differs)
 - **make**: For build automation (optional)
+
+> **Note**: As of v2.0, AgentPipe recommends using the v2 engine (`--v2` flag or `AGENTPIPE_V2=true`). When developing, test both v1 and v2 code paths.
 
 ### Development Setup
 
@@ -163,15 +165,26 @@ Follow the official [Go Code Review Comments](https://github.com/golang/go/wiki/
 ```
 pkg/
 ├── agent/          # Agent interfaces and base types
-├── adapters/       # Agent implementations
-├── orchestrator/   # Conversation orchestration
+├── adapters/       # Agent implementations (CLI-based and API-based)
+├── client/         # HTTP client for API-based agents
+├── orchestrator/   # v1 conversation orchestration
+├── v2/             # v2 parallel execution engine
+│   ├── core/       # Core types (Agent, Message, Conversation)
+│   ├── adapters/   # v2 adapter implementations
+│   ├── events/     # Event bus for TUI integration
+│   ├── manager/    # ConversationManager (main entry point)
+│   ├── config/     # v2 configuration and migration
+│   └── persistence/# Save/load/export conversations
 ├── config/         # Configuration management
 ├── logger/         # Logging system
+├── providers/      # AI provider pricing registry
 ├── ratelimit/      # Rate limiting
 ├── errors/         # Error types
 ├── tui/            # Terminal UI
-└── utils/          # Utility functions
+└── utils/          # Utility functions (tokens, costs)
 ```
+
+> **v2 Development**: When working on v2 features, focus on the `pkg/v2/` directory. The v2 engine uses a different architecture with parallel execution, event-driven updates, and the ConversationManager pattern.
 
 ### Naming Conventions
 
@@ -469,6 +482,53 @@ git push origin feature/your-feature-name
 3. Add tests
 4. Update help text
 5. Document in `README.md`
+
+### New v2 Adapter (API-Based)
+
+v2 supports both CLI-based and API-based adapters. API-based adapters communicate directly with provider APIs without requiring CLI installations.
+
+1. Create adapter in `pkg/v2/adapters/`
+2. Implement `AgentAdapter` interface:
+   ```go
+   type AgentAdapter interface {
+       Initialize(config AgentConfig) error
+       SendMessage(ctx context.Context, messages []Message) (*Response, error)
+       StreamMessage(ctx context.Context, messages []Message, writer StreamWriter) error
+       HealthCheck(ctx context.Context) error
+       GetInfo() AdapterInfo
+   }
+   ```
+3. Use `pkg/client/` for HTTP communication
+4. Add comprehensive tests with mock HTTP responses
+5. Register factory in adapter registry
+6. Update `docs/v2/adapters.md`
+7. Add example configuration in `examples/v2/`
+
+### v2 Testing
+
+When testing v2 features:
+
+```bash
+# Run v2-specific tests
+go test -v ./pkg/v2/...
+
+# Test v2 integration
+go test -v ./test/integration/ -run TestV2
+
+# Test with actual API (requires credentials)
+OPENROUTER_API_KEY=your-key go test -v ./pkg/v2/adapters/ -run TestOpenRouter
+
+# Run v2 demo
+./agentpipe run --v2 -a openrouter:anthropic/claude-3-haiku:Test -p "Hello"
+```
+
+### v2 Architecture Principles
+
+1. **Parallel by default**: Agents respond concurrently, not sequentially
+2. **Event-driven**: TUI updates via EventBus, not direct calls
+3. **Circuit breaker**: Graceful degradation on repeated failures
+4. **Auto-save**: Conversations persist automatically
+5. **Configuration migration**: v1 configs work with automatic conversion
 
 ## Documentation
 
