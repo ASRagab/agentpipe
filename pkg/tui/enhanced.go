@@ -793,8 +793,30 @@ func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.message.Role == "active" {
 			// This is just an indicator that an agent is actively typing
 			m.activeAgent = msg.message.AgentName
+
+			// Auto-follow if enabled
+			if m.autoFollow {
+				for i, name := range m.agentOrder {
+					if name == msg.message.AgentName {
+						m.selectedAgentIndex = i
+						break
+					}
+				}
+			}
 		} else {
-			// Regular message
+			// Route message to per-agent buffer
+			agentName := msg.message.AgentName
+			if agentName == "" {
+				agentName = "System"
+			}
+
+			// Initialize buffer if needed
+			if m.agentMessages == nil {
+				m.agentMessages = make(map[string][]agent.Message)
+			}
+			m.agentMessages[agentName] = append(m.agentMessages[agentName], msg.message)
+
+			// Also keep in legacy messages array for compatibility
 			m.messages = append(m.messages, msg.message)
 
 			// Log the message if logging is enabled

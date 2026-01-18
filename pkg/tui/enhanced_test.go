@@ -1103,3 +1103,81 @@ func TestMessageWriter_FlushOnDoubleNewline(t *testing.T) {
 		t.Error("Expected message to be flushed on double newline")
 	}
 }
+
+func TestEnhancedModel_MessageRouting(t *testing.T) {
+	cfg := &config.Config{
+		Orchestrator: config.OrchestratorConfig{
+			Mode: "round-robin",
+		},
+	}
+
+	m := createTestEnhancedModel(cfg, conversationPanel, false)
+	m.agentOrder = []string{"Agent1", "Agent2"}
+	m.agentMessages = make(map[string][]agent.Message)
+	m.agentViewports = make(map[string]viewport.Model)
+	m.running = true
+
+	// Initialize with window size
+	sizeMsg := tea.WindowSizeMsg{Width: 100, Height: 40}
+	updatedModel, _ := m.Update(sizeMsg)
+	m = updatedModel.(EnhancedModel)
+
+	// Simulate message from Agent1
+	msg := messageUpdate{
+		message: agent.Message{
+			AgentID:   "agent1",
+			AgentName: "Agent1",
+			Content:   "Hello from Agent1",
+			Role:      "agent",
+		},
+	}
+
+	newModel, _ := m.Update(msg)
+	updated := newModel.(EnhancedModel)
+
+	// Check message was routed to Agent1's buffer
+	if len(updated.agentMessages["Agent1"]) != 1 {
+		t.Errorf("Expected 1 message for Agent1, got %d", len(updated.agentMessages["Agent1"]))
+	}
+	if len(updated.agentMessages["Agent2"]) != 0 {
+		t.Errorf("Expected 0 messages for Agent2, got %d", len(updated.agentMessages["Agent2"]))
+	}
+}
+
+func TestEnhancedModel_AutoFollowOnActive(t *testing.T) {
+	cfg := &config.Config{
+		Orchestrator: config.OrchestratorConfig{
+			Mode: "round-robin",
+		},
+	}
+
+	m := createTestEnhancedModel(cfg, conversationPanel, false)
+	m.agentOrder = []string{"Agent1", "Agent2"}
+	m.agentMessages = make(map[string][]agent.Message)
+	m.agentViewports = make(map[string]viewport.Model)
+	m.selectedAgentIndex = 0
+	m.autoFollow = true
+	m.running = true
+
+	// Initialize with window size
+	sizeMsg := tea.WindowSizeMsg{Width: 100, Height: 40}
+	updatedModel, _ := m.Update(sizeMsg)
+	m = updatedModel.(EnhancedModel)
+
+	// Simulate "active" message from Agent2
+	msg := messageUpdate{
+		message: agent.Message{
+			AgentID:   "agent2",
+			AgentName: "Agent2",
+			Role:      "active",
+		},
+	}
+
+	newModel, _ := m.Update(msg)
+	updated := newModel.(EnhancedModel)
+
+	// Should auto-switch to Agent2
+	if updated.selectedAgentIndex != 1 {
+		t.Errorf("Expected selectedAgentIndex=1 (Agent2), got %d", updated.selectedAgentIndex)
+	}
+}
