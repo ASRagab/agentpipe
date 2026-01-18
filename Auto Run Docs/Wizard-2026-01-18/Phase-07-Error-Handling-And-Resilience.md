@@ -53,12 +53,41 @@ This phase implements comprehensive error handling, retry logic, and resilience 
     - TestWithRetry_NonRetryableError, TestRetryOnError_Success, TestRetryableAdapter_DelegatesMethods
     - TestRetryConfig_ZeroMaxAttempts
 
-- [ ] Add retry support to API adapters:
+- [x] Add retry support to API adapters:
   - Wrap SendMessage() and StreamMessage() with retry logic
   - Detect rate limit responses (HTTP 429) and parse retry-after header
   - Detect network errors (connection refused, timeout, DNS)
   - Detect auth errors (HTTP 401, 403) - do not retry
   - Emit EventAgentError with retry count on each failure
+
+  **Completed**: Implemented comprehensive error classification and retry support for API adapters:
+  - Created `pkg/v2/adapters/api/http_errors.go` with `HTTPErrorClassifier`:
+    - `ClassifyHTTPError()` detects HTTP 429 (rate limit), 401/403 (auth), 5xx (retryable network), 4xx (non-retryable)
+    - `ClassifyConnectionError()` handles connection-level errors (timeout, DNS, connection refused)
+    - `parseRetryAfter()` parses both seconds and HTTP-date format from Retry-After header
+    - Helper functions: `IsRateLimitError()`, `IsAuthError()`, `IsNetworkError()`, `IsTimeoutError()`
+    - `GetRetryAfter()` and `GetHTTPStatusCode()` for extracting error metadata
+  - Updated `OpenRouterAdapter` with proper error classification:
+    - Added `agentID`, `agentName`, `errorClassifier` fields
+    - `doRequestWithRetry()` now uses `errors.IsRetryable()` and respects retry-after durations
+    - `doRequest()` classifies connection-level errors via `ClassifyConnectionError()`
+    - `handleErrorResponse()` uses `ClassifyHTTPError()` for proper error types
+    - Comprehensive logging with attempt count, delay, and retryability status
+    - Returns `AgentError` with `RetryCount` set after exhausting all attempts
+  - Updated `ClaudeAPIAdapter` with identical error classification:
+    - Same pattern as OpenRouter with agent info and error classifier
+    - Full integration with v2 errors package
+    - Proper logging and retry-after handling
+  - Removed deprecated `shouldRetry()` function (replaced by proper classification)
+  - Created `pkg/v2/adapters/api/http_errors_test.go` with 15 test cases:
+    - Rate limit detection with Retry-After parsing
+    - Auth error detection (401, 403)
+    - Server error detection (500, 502, 503, 504) - retryable
+    - Client error detection (400, 404, 422) - non-retryable
+    - Connection error classification (timeout, DNS, refused)
+    - Helper function tests (IsRateLimitError, GetRetryAfter, etc.)
+    - Integration test with httptest server
+  - All tests pass (100%)
 
 - [ ] Implement circuit breaker in `pkg/v2/adapters/circuit_breaker.go`:
   - CircuitBreaker struct with state (closed, open, half-open), failureCount, lastFailure

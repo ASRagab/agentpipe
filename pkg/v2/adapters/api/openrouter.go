@@ -16,6 +16,7 @@ import (
 	"github.com/kevinelliott/agentpipe/pkg/log"
 	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
 	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/kevinelliott/agentpipe/pkg/v2/errors"
 )
 
 const (
@@ -26,12 +27,15 @@ const (
 
 // OpenRouterAdapter implements the AgentAdapter interface for OpenRouter's API.
 type OpenRouterAdapter struct {
-	apiKey      string
-	model       string
-	temperature float64
-	maxTokens   int
-	httpClient  *http.Client
-	systemPrompt string
+	apiKey         string
+	model          string
+	temperature    float64
+	maxTokens      int
+	httpClient     *http.Client
+	systemPrompt   string
+	agentID        string
+	agentName      string
+	errorClassifier *HTTPErrorClassifier
 }
 
 // NewOpenRouterAdapter creates a new OpenRouter adapter instance.
@@ -45,6 +49,11 @@ func NewOpenRouterAdapter() adapters.AgentAdapter {
 
 // Initialize configures the adapter with the agent configuration.
 func (o *OpenRouterAdapter) Initialize(agent core.Agent) error {
+	// Store agent info for error classification
+	o.agentID = agent.ID
+	o.agentName = agent.Name
+	o.errorClassifier = NewHTTPErrorClassifier(agent.ID, agent.Name)
+
 	// Get API key from environment variable
 	envVar := agent.Config.APIKeyEnvVar
 	if envVar == "" {
@@ -251,16 +260,38 @@ func (o *OpenRouterAdapter) buildAPIMessages(messages []core.Message) []chatMess
 }
 
 // doRequestWithRetry performs the request with retry logic.
+// Uses the v2 errors package for proper error classification and retry decisions.
 func (o *OpenRouterAdapter) doRequestWithRetry(ctx context.Context, req chatCompletionRequest) (*chatCompletionResponse, time.Duration, error) {
 	var lastErr error
 	startTime := time.Now()
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
-			// Exponential backoff: 1s, 2s, 4s
-			shift := min(attempt-1, 30)
-			//nolint:gosec // shift is bounded, safe from overflow
-			backoff := time.Duration(1<<uint(shift)) * time.Second
+			// Check for rate limit retry-after first
+			var backoff time.Duration
+			if retryAfter := GetRetryAfter(lastErr); retryAfter > 0 {
+				backoff = retryAfter
+				log.WithFields(map[string]interface{}{
+					"agent_id":    o.agentID,
+					"agent_name":  o.agentName,
+					"attempt":     attempt + 1,
+					"max":         maxRetries + 1,
+					"retry_after": backoff.String(),
+				}).Info("Waiting for rate limit retry-after before retry")
+			} else {
+				// Exponential backoff: 1s, 2s, 4s
+				shift := min(attempt-1, 30)
+				//nolint:gosec // shift is bounded, safe from overflow
+				backoff = time.Duration(1<<uint(shift)) * time.Second
+			}
+
+			log.WithFields(map[string]interface{}{
+				"agent_id":   o.agentID,
+				"agent_name": o.agentName,
+				"attempt":    attempt + 1,
+				"max":        maxRetries + 1,
+				"delay":      backoff.String(),
+			}).Info("Retrying OpenRouter request")
 
 			select {
 			case <-ctx.Done():
@@ -273,16 +304,41 @@ func (o *OpenRouterAdapter) doRequestWithRetry(ctx context.Context, req chatComp
 		duration := time.Since(startTime)
 		if err != nil {
 			lastErr = err
-			if shouldRetry(err) {
-				continue
+
+			// Log the error with attempt info
+			log.WithFields(map[string]interface{}{
+				"agent_id":   o.agentID,
+				"agent_name": o.agentName,
+				"attempt":    attempt + 1,
+				"max":        maxRetries + 1,
+				"error":      err.Error(),
+				"retryable":  errors.IsRetryable(err),
+			}).Warn("OpenRouter request failed")
+
+			// Only retry if error is retryable
+			if !errors.IsRetryable(err) {
+				return nil, duration, err
 			}
-			return nil, duration, err
+			continue
+		}
+
+		if attempt > 0 {
+			log.WithFields(map[string]interface{}{
+				"agent_id":   o.agentID,
+				"agent_name": o.agentName,
+				"attempt":    attempt + 1,
+			}).Info("OpenRouter request succeeded after retry")
 		}
 
 		return resp, duration, nil
 	}
 
-	return nil, time.Since(startTime), fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
+	// All retries exhausted - wrap with retry count
+	finalErr := errors.WrapError(o.agentID, o.agentName, lastErr)
+	if finalErr != nil {
+		finalErr = finalErr.WithRetryCount(maxRetries + 1)
+	}
+	return nil, time.Since(startTime), finalErr
 }
 
 // doRequest performs a single HTTP request.
@@ -304,6 +360,10 @@ func (o *OpenRouterAdapter) doRequest(ctx context.Context, req chatCompletionReq
 	duration := time.Since(startTime)
 
 	if err != nil {
+		// Classify connection-level errors (timeout, DNS, connection refused)
+		if o.errorClassifier != nil {
+			return nil, duration, o.errorClassifier.ClassifyConnectionError(err)
+		}
 		return nil, duration, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -314,11 +374,11 @@ func (o *OpenRouterAdapter) doRequest(ctx context.Context, req chatCompletionReq
 
 	var result chatCompletionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, duration, fmt.Errorf("failed to decode response: %w", err)
+		return nil, duration, errors.NewInvalidResponseError(o.agentID, o.agentName, "failed to decode response", err)
 	}
 
 	if result.Error != nil {
-		return nil, duration, fmt.Errorf("API error: %s", result.Error.Message)
+		return nil, duration, errors.NewAgentError(o.agentID, o.agentName, errors.ErrTypeUnknown, result.Error.Message, nil)
 	}
 
 	return &result, duration, nil
@@ -340,6 +400,10 @@ func (o *OpenRouterAdapter) doStreamRequest(ctx context.Context, req chatComplet
 
 	resp, err := o.httpClient.Do(httpReq)
 	if err != nil {
+		// Classify connection-level errors
+		if o.errorClassifier != nil {
+			return nil, o.errorClassifier.ClassifyConnectionError(err)
+		}
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -404,10 +468,14 @@ func (o *OpenRouterAdapter) setHeaders(req *http.Request) {
 	req.Header.Set("X-Title", "AgentPipe")
 }
 
-// handleErrorResponse parses an error response.
+// handleErrorResponse parses an error response and returns a properly classified AgentError.
 func (o *OpenRouterAdapter) handleErrorResponse(resp *http.Response) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		// Can't read body, classify based on status code alone
+		if o.errorClassifier != nil {
+			return o.errorClassifier.ClassifyHTTPError(resp, fmt.Sprintf("HTTP %d (failed to read error body)", resp.StatusCode))
+		}
 		return fmt.Errorf("HTTP %d (failed to read error body: %w)", resp.StatusCode, err)
 	}
 
@@ -415,15 +483,21 @@ func (o *OpenRouterAdapter) handleErrorResponse(resp *http.Response) error {
 		Error *chatError `json:"error"`
 	}
 
+	var errorMessage string
 	if err := json.Unmarshal(body, &errorResp); err != nil {
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		errorMessage = string(body)
+	} else if errorResp.Error != nil {
+		errorMessage = errorResp.Error.Message
+	} else {
+		errorMessage = string(body)
 	}
 
-	if errorResp.Error != nil {
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, errorResp.Error.Message)
+	// Use the error classifier to create a properly typed error
+	if o.errorClassifier != nil {
+		return o.errorClassifier.ClassifyHTTPError(resp, errorMessage)
 	}
 
-	return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	return fmt.Errorf("HTTP %d: %s", resp.StatusCode, errorMessage)
 }
 
 // estimateCost calculates the cost based on token usage.
@@ -434,23 +508,6 @@ func (o *OpenRouterAdapter) estimateCost(inputTokens, outputTokens int) float64 
 	outputCostPer1K := 0.0002
 
 	return (float64(inputTokens) * inputCostPer1K / 1000) + (float64(outputTokens) * outputCostPer1K / 1000)
-}
-
-// shouldRetry determines if an error warrants a retry.
-func shouldRetry(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	errStr := err.Error()
-	if strings.Contains(errStr, "HTTP 5") ||
-		strings.Contains(errStr, "connection") ||
-		strings.Contains(errStr, "timeout") ||
-		strings.Contains(errStr, "EOF") {
-		return true
-	}
-
-	return false
 }
 
 // API types for OpenRouter

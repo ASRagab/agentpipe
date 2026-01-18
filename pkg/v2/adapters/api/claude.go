@@ -15,6 +15,7 @@ import (
 	"github.com/kevinelliott/agentpipe/pkg/log"
 	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
 	"github.com/kevinelliott/agentpipe/pkg/v2/core"
+	"github.com/kevinelliott/agentpipe/pkg/v2/errors"
 )
 
 const (
@@ -24,12 +25,15 @@ const (
 
 // ClaudeAPIAdapter implements the AgentAdapter interface for Anthropic's Claude API.
 type ClaudeAPIAdapter struct {
-	apiKey       string
-	model        string
-	maxTokens    int
-	temperature  float64
-	systemPrompt string
-	httpClient   *http.Client
+	apiKey          string
+	model           string
+	maxTokens       int
+	temperature     float64
+	systemPrompt    string
+	httpClient      *http.Client
+	agentID         string
+	agentName       string
+	errorClassifier *HTTPErrorClassifier
 }
 
 // NewClaudeAPIAdapter creates a new Claude API adapter instance.
@@ -43,6 +47,11 @@ func NewClaudeAPIAdapter() adapters.AgentAdapter {
 
 // Initialize configures the adapter with the agent configuration.
 func (c *ClaudeAPIAdapter) Initialize(agent core.Agent) error {
+	// Store agent info for error classification
+	c.agentID = agent.ID
+	c.agentName = agent.Name
+	c.errorClassifier = NewHTTPErrorClassifier(agent.ID, agent.Name)
+
 	// Get API key from environment variable
 	envVar := agent.Config.APIKeyEnvVar
 	if envVar == "" {
@@ -245,15 +254,38 @@ func (c *ClaudeAPIAdapter) buildAPIMessages(messages []core.Message) []claudeMes
 }
 
 // doRequestWithRetry performs the request with retry logic.
+// Uses the v2 errors package for proper error classification and retry decisions.
 func (c *ClaudeAPIAdapter) doRequestWithRetry(ctx context.Context, req claudeRequest) (*claudeResponse, time.Duration, error) {
 	var lastErr error
 	startTime := time.Now()
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
-			shift := min(attempt-1, 30)
-			//nolint:gosec // shift is bounded, safe from overflow
-			backoff := time.Duration(1<<uint(shift)) * time.Second
+			// Check for rate limit retry-after first
+			var backoff time.Duration
+			if retryAfter := GetRetryAfter(lastErr); retryAfter > 0 {
+				backoff = retryAfter
+				log.WithFields(map[string]interface{}{
+					"agent_id":    c.agentID,
+					"agent_name":  c.agentName,
+					"attempt":     attempt + 1,
+					"max":         maxRetries + 1,
+					"retry_after": backoff.String(),
+				}).Info("Waiting for rate limit retry-after before retry")
+			} else {
+				// Exponential backoff: 1s, 2s, 4s
+				shift := min(attempt-1, 30)
+				//nolint:gosec // shift is bounded, safe from overflow
+				backoff = time.Duration(1<<uint(shift)) * time.Second
+			}
+
+			log.WithFields(map[string]interface{}{
+				"agent_id":   c.agentID,
+				"agent_name": c.agentName,
+				"attempt":    attempt + 1,
+				"max":        maxRetries + 1,
+				"delay":      backoff.String(),
+			}).Info("Retrying Claude API request")
 
 			select {
 			case <-ctx.Done():
@@ -266,16 +298,41 @@ func (c *ClaudeAPIAdapter) doRequestWithRetry(ctx context.Context, req claudeReq
 		duration := time.Since(startTime)
 		if err != nil {
 			lastErr = err
-			if shouldRetry(err) {
-				continue
+
+			// Log the error with attempt info
+			log.WithFields(map[string]interface{}{
+				"agent_id":   c.agentID,
+				"agent_name": c.agentName,
+				"attempt":    attempt + 1,
+				"max":        maxRetries + 1,
+				"error":      err.Error(),
+				"retryable":  errors.IsRetryable(err),
+			}).Warn("Claude API request failed")
+
+			// Only retry if error is retryable
+			if !errors.IsRetryable(err) {
+				return nil, duration, err
 			}
-			return nil, duration, err
+			continue
+		}
+
+		if attempt > 0 {
+			log.WithFields(map[string]interface{}{
+				"agent_id":   c.agentID,
+				"agent_name": c.agentName,
+				"attempt":    attempt + 1,
+			}).Info("Claude API request succeeded after retry")
 		}
 
 		return resp, duration, nil
 	}
 
-	return nil, time.Since(startTime), fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
+	// All retries exhausted - wrap with retry count
+	finalErr := errors.WrapError(c.agentID, c.agentName, lastErr)
+	if finalErr != nil {
+		finalErr = finalErr.WithRetryCount(maxRetries + 1)
+	}
+	return nil, time.Since(startTime), finalErr
 }
 
 // doRequest performs a single HTTP request.
@@ -297,6 +354,10 @@ func (c *ClaudeAPIAdapter) doRequest(ctx context.Context, req claudeRequest) (*c
 	duration := time.Since(startTime)
 
 	if err != nil {
+		// Classify connection-level errors (timeout, DNS, connection refused)
+		if c.errorClassifier != nil {
+			return nil, duration, c.errorClassifier.ClassifyConnectionError(err)
+		}
 		return nil, duration, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -307,7 +368,7 @@ func (c *ClaudeAPIAdapter) doRequest(ctx context.Context, req claudeRequest) (*c
 
 	var result claudeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, duration, fmt.Errorf("failed to decode response: %w", err)
+		return nil, duration, errors.NewInvalidResponseError(c.agentID, c.agentName, "failed to decode response", err)
 	}
 
 	return &result, duration, nil
@@ -329,6 +390,10 @@ func (c *ClaudeAPIAdapter) doStreamRequest(ctx context.Context, req claudeReques
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
+		// Classify connection-level errors
+		if c.errorClassifier != nil {
+			return nil, c.errorClassifier.ClassifyConnectionError(err)
+		}
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -399,23 +464,33 @@ func (c *ClaudeAPIAdapter) setHeaders(req *http.Request) {
 	req.Header.Set("anthropic-version", claudeAPIVersion)
 }
 
-// handleErrorResponse parses an error response.
+// handleErrorResponse parses an error response and returns a properly classified AgentError.
 func (c *ClaudeAPIAdapter) handleErrorResponse(resp *http.Response) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		// Can't read body, classify based on status code alone
+		if c.errorClassifier != nil {
+			return c.errorClassifier.ClassifyHTTPError(resp, fmt.Sprintf("HTTP %d (failed to read error body)", resp.StatusCode))
+		}
 		return fmt.Errorf("HTTP %d (failed to read error body: %w)", resp.StatusCode, err)
 	}
 
 	var errorResp claudeErrorResponse
+	var errorMessage string
 	if err := json.Unmarshal(body, &errorResp); err != nil {
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+		errorMessage = string(body)
+	} else if errorResp.Error != nil {
+		errorMessage = errorResp.Error.Message
+	} else {
+		errorMessage = string(body)
 	}
 
-	if errorResp.Error != nil {
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, errorResp.Error.Message)
+	// Use the error classifier to create a properly typed error
+	if c.errorClassifier != nil {
+		return c.errorClassifier.ClassifyHTTPError(resp, errorMessage)
 	}
 
-	return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	return fmt.Errorf("HTTP %d: %s", resp.StatusCode, errorMessage)
 }
 
 // estimateCost calculates the cost based on token usage.
