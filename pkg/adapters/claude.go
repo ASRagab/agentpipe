@@ -117,15 +117,15 @@ func (c *ClaudeAgent) SendMessage(ctx context.Context, messages []agent.Message)
 	// Build prompt with structured format
 	prompt := c.buildPrompt(relevantMessages, true)
 
-	// Build command args
-	args := []string{}
+	// Build command args - must use -p for non-interactive mode
+	args := []string{"-p"}
 
 	// Add model flag if specified
 	if c.Config.Model != "" {
 		args = append(args, "--model", c.Config.Model)
 	}
 
-	// Claude CLI takes prompt via stdin
+	// Claude CLI takes prompt via stdin with -p flag
 	cmd := exec.CommandContext(ctx, c.execPath, args...)
 	cmd.Stdin = strings.NewReader(prompt)
 
@@ -174,15 +174,15 @@ func (c *ClaudeAgent) StreamMessage(ctx context.Context, messages []agent.Messag
 	// Build prompt with structured format
 	prompt := c.buildPrompt(relevantMessages, true)
 
-	// Build command args
-	args := []string{}
+	// Build command args - must use -p for non-interactive mode
+	args := []string{"-p"}
 
 	// Add model flag if specified
 	if c.Config.Model != "" {
 		args = append(args, "--model", c.Config.Model)
 	}
 
-	// Claude CLI takes prompt via stdin
+	// Claude CLI takes prompt via stdin with -p flag
 	cmd := exec.CommandContext(ctx, c.execPath, args...)
 	cmd.Stdin = strings.NewReader(prompt)
 
@@ -254,8 +254,15 @@ func (c *ClaudeAgent) buildPrompt(messages []agent.Message, isInitialSession boo
 	if c.Config.Prompt != "" {
 		prompt.WriteString("YOUR ROLE AND INSTRUCTIONS:\n")
 		prompt.WriteString(c.Config.Prompt)
-		prompt.WriteString("\n")
+		prompt.WriteString("\n\n")
 	}
+
+	prompt.WriteString("ARTIFACT CREATION:\n")
+	prompt.WriteString("To create a saveable artifact, use fenced code blocks with a filename:\n")
+	prompt.WriteString("  ```language:path/to/filename.ext\n")
+	prompt.WriteString("  content here\n")
+	prompt.WriteString("  ```\n")
+	prompt.WriteString("Artifacts will be saved to the workspace automatically.\n")
 	prompt.WriteString(strings.Repeat("=", 60))
 	prompt.WriteString("\n\n")
 
