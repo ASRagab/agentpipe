@@ -29,12 +29,17 @@ type Config struct {
 
 // ConversationConfig contains conversation-level settings.
 type ConversationConfig struct {
-	// Timeout is the maximum time to wait for agent responses.
+	// Timeout is the default timeout for individual agent responses.
 	Timeout time.Duration `yaml:"timeout"`
+	// GlobalTimeout is the maximum time for all agents combined to respond.
+	// If not set or 0, no global timeout is enforced.
+	GlobalTimeout time.Duration `yaml:"global_timeout,omitempty"`
 	// Mode is the conversation mode (parallel, round-robin, reactive).
 	Mode string `yaml:"mode,omitempty"`
 	// MaxTurns is the maximum number of conversation turns.
 	MaxTurns int `yaml:"max_turns,omitempty"`
+	// PreservePartialResponse determines whether to keep partial responses on timeout.
+	PreservePartialResponse *bool `yaml:"preserve_partial_response,omitempty"`
 }
 
 // AgentConfig represents a single agent's configuration.
@@ -49,6 +54,8 @@ type AgentConfig struct {
 	Name string `yaml:"name"`
 	// Model is the AI model to use.
 	Model string `yaml:"model"`
+	// Timeout is the per-agent timeout (overrides conversation default).
+	Timeout time.Duration `yaml:"timeout,omitempty"`
 	// Config contains adapter-specific settings.
 	Config AgentAdapterConfig `yaml:"config,omitempty"`
 }
@@ -295,4 +302,51 @@ func (c *Config) InitializeAgents() ([]core.Agent, error) {
 // GetManagerConfig returns the manager configuration.
 func (c *Config) GetManagerConfig() (timeout time.Duration, saveDir string) {
 	return c.Conversation.Timeout, c.Persistence.SaveDir
+}
+
+// TimeoutConfigInfo contains timeout configuration details extracted from config.
+type TimeoutConfigInfo struct {
+	// DefaultAgentTimeout is the default timeout for agents without specific timeout.
+	DefaultAgentTimeout time.Duration
+	// GlobalTimeout is the maximum time for all agents combined (0 = disabled).
+	GlobalTimeout time.Duration
+	// PreservePartialResponse determines if partial responses should be saved on timeout.
+	PreservePartialResponse bool
+	// PerAgentTimeouts maps agent IDs to their specific timeouts.
+	PerAgentTimeouts map[string]time.Duration
+}
+
+// GetTimeoutConfig extracts timeout configuration from the config.
+func (c *Config) GetTimeoutConfig() TimeoutConfigInfo {
+	info := TimeoutConfigInfo{
+		DefaultAgentTimeout:     c.Conversation.Timeout,
+		GlobalTimeout:           c.Conversation.GlobalTimeout,
+		PreservePartialResponse: true, // default
+		PerAgentTimeouts:        make(map[string]time.Duration),
+	}
+
+	// Check if preserve partial response is explicitly set
+	if c.Conversation.PreservePartialResponse != nil {
+		info.PreservePartialResponse = *c.Conversation.PreservePartialResponse
+	}
+
+	// Collect per-agent timeouts
+	for _, agentCfg := range c.Agents {
+		if agentCfg.Timeout > 0 {
+			info.PerAgentTimeouts[agentCfg.ID] = agentCfg.Timeout
+		}
+	}
+
+	return info
+}
+
+// GetAgentTimeout returns the timeout for a specific agent.
+// Returns the agent-specific timeout if set, otherwise the default.
+func (c *Config) GetAgentTimeout(agentID string) time.Duration {
+	for _, agentCfg := range c.Agents {
+		if agentCfg.ID == agentID && agentCfg.Timeout > 0 {
+			return agentCfg.Timeout
+		}
+	}
+	return c.Conversation.Timeout
 }

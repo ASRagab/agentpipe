@@ -207,13 +207,66 @@ This phase implements comprehensive error handling, retry logic, and resilience 
     - TestErrAllAgentsFailed_ErrorMessage, TestErrConversationPaused_ErrorMessage
   - All 32 manager package tests pass (100%) with race detection enabled
 
-- [ ] Implement timeout handling:
+- [x] Implement timeout handling:
   - Per-agent timeout in config (default: 30s)
   - Global conversation timeout for all agents combined
   - Context cancellation propagated to adapters
   - Partial response preservation on timeout
   - Emit EventAgentError with timeout details
   - Show timeout message in TUI
+
+  **Completed**: Implemented comprehensive timeout handling with:
+  - Created `pkg/v2/pool/timeout.go` with `TimeoutConfig` and `TimeoutHandler`:
+    - `TimeoutConfig` with DefaultAgentTimeout (30s), GlobalConversationTimeout (120s), GracePeriod (2s), PreservePartialResponse (true)
+    - `DefaultTimeoutConfig()` factory with sensible defaults
+    - `TimeoutHandler` for managing per-agent timeouts with thread-safe operations
+    - `SetAgentTimeout(agentID, timeout)` for per-agent configuration
+    - `GetAgentTimeout(agentID)` with fallback to default
+    - `SetAgentTimeouts([]AgentTimeoutConfig)` for bulk configuration
+    - `CreateAgentContext()` creates context with agent-specific timeout
+    - `CreateGlobalContext()` creates context for global conversation timeout
+  - `TimeoutError` struct with detailed timeout context:
+    - AgentID, AgentName, TimeoutDuration, ElapsedTime, PartialContent, IsGlobalTimeout
+    - `ToAgentError()` converts to v2 errors.AgentError
+    - `HasPartialContent()` helper method
+  - `TimeoutResult` struct for operation results:
+    - Success, Content, Metrics, Error, TimedOut, ElapsedTime, PartialContent
+  - `ExecuteWithTimeout()` method with partial response preservation:
+    - Runs operation in goroutine with timeout context
+    - Collects partial content via channel during execution
+    - Emits EventAgentError with timeout details on timeout
+    - Logs timeout with structured fields
+  - `TimeoutStats` for tracking timeout statistics:
+    - TotalTimeouts, TimeoutsByAgent, AverageTimeoutDuration
+    - PartialResponsesPreserved, GlobalTimeouts counters
+    - Thread-safe with RWMutex
+  - Updated `pkg/v2/pool/pool.go`:
+    - Added `timeoutHandler` and `timeoutStats` fields to Pool
+    - `NewPool()` initializes TimeoutHandler with default config
+    - `NewPoolWithTimeoutConfig()` for custom timeout configuration
+    - `NewPoolWithFullConfig()` for both circuit breaker and timeout config
+    - `executeAgent()` uses per-agent timeout from handler
+    - Records timeout stats when timeouts occur
+    - Enhanced error logging with timeout flag
+    - New methods: `SetAgentTimeout()`, `GetAgentTimeout()`, `SetAgentTimeouts()`
+    - `GetTimeoutStats()`, `GetTimeoutHandler()` for monitoring
+  - Updated `pkg/v2/config/config.go`:
+    - Added `GlobalTimeout` and `PreservePartialResponse` to ConversationConfig
+    - Added `Timeout` field to AgentConfig for per-agent override
+    - `TimeoutConfigInfo` struct for extracting timeout configuration
+    - `GetTimeoutConfig()` extracts all timeout settings
+    - `GetAgentTimeout(agentID)` returns agent-specific or default timeout
+  - Created `pkg/v2/pool/timeout_test.go` with 20 comprehensive tests:
+    - TestDefaultTimeoutConfig, TestTimeoutHandler_SetAndGetAgentTimeout
+    - TestTimeoutHandler_SetAgentTimeouts, TestTimeoutHandler_CreateAgentContext
+    - TestTimeoutHandler_CreateGlobalContext, TestTimeoutHandler_CreateGlobalContext_Disabled
+    - TestTimeoutError, TestTimeoutError_GlobalTimeout
+    - TestTimeoutHandler_ExecuteWithTimeout_Success, TestTimeoutHandler_ExecuteWithTimeout_Timeout
+    - TestTimeoutHandler_ExecuteWithTimeout_NonRetryableError
+    - TestTimeoutStats, TestTimeoutStats_Concurrent, TestIsContextTimeout
+    - TestPool_SetAgentTimeout, TestPool_GetTimeoutStats, TestNewPoolWithTimeoutConfig
+    - TestPool_SetAgentTimeouts, TestTimeoutResult_Fields
+  - All 12 v2 test packages pass (100%) with race detection enabled
 
 - [ ] Add request cancellation:
   - Cancel() method on AgentPool to stop all pending requests

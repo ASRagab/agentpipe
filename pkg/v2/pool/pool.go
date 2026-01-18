@@ -43,11 +43,13 @@ type AgentEntry struct {
 
 // Pool is the default implementation of AgentPool.
 type Pool struct {
-	agents              []AgentEntry
-	eventBus            *events.Bus
-	timeout             time.Duration
+	agents               []AgentEntry
+	eventBus             *events.Bus
+	timeout              time.Duration
 	circuitBreakerConfig adapters.CircuitBreakerConfig
-	mu                  sync.RWMutex
+	timeoutHandler       *TimeoutHandler
+	timeoutStats         *TimeoutStats
+	mu                   sync.RWMutex
 }
 
 // NewPool creates a new agent pool.
@@ -55,11 +57,17 @@ func NewPool(eventBus *events.Bus, timeout time.Duration) *Pool {
 	if timeout == 0 {
 		timeout = 60 * time.Second
 	}
+
+	timeoutConfig := DefaultTimeoutConfig()
+	timeoutConfig.DefaultAgentTimeout = timeout
+
 	return &Pool{
 		agents:               make([]AgentEntry, 0),
 		eventBus:             eventBus,
 		timeout:              timeout,
 		circuitBreakerConfig: adapters.DefaultCircuitBreakerConfig(),
+		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
+		timeoutStats:         NewTimeoutStats(),
 	}
 }
 
@@ -68,11 +76,41 @@ func NewPoolWithCircuitBreaker(eventBus *events.Bus, timeout time.Duration, cbCo
 	if timeout == 0 {
 		timeout = 60 * time.Second
 	}
+
+	timeoutConfig := DefaultTimeoutConfig()
+	timeoutConfig.DefaultAgentTimeout = timeout
+
 	return &Pool{
 		agents:               make([]AgentEntry, 0),
 		eventBus:             eventBus,
 		timeout:              timeout,
 		circuitBreakerConfig: cbConfig,
+		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
+		timeoutStats:         NewTimeoutStats(),
+	}
+}
+
+// NewPoolWithTimeoutConfig creates a new agent pool with custom timeout configuration.
+func NewPoolWithTimeoutConfig(eventBus *events.Bus, timeoutConfig TimeoutConfig) *Pool {
+	return &Pool{
+		agents:               make([]AgentEntry, 0),
+		eventBus:             eventBus,
+		timeout:              timeoutConfig.DefaultAgentTimeout,
+		circuitBreakerConfig: adapters.DefaultCircuitBreakerConfig(),
+		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
+		timeoutStats:         NewTimeoutStats(),
+	}
+}
+
+// NewPoolWithFullConfig creates a new agent pool with both circuit breaker and timeout configuration.
+func NewPoolWithFullConfig(eventBus *events.Bus, cbConfig adapters.CircuitBreakerConfig, timeoutConfig TimeoutConfig) *Pool {
+	return &Pool{
+		agents:               make([]AgentEntry, 0),
+		eventBus:             eventBus,
+		timeout:              timeoutConfig.DefaultAgentTimeout,
+		circuitBreakerConfig: cbConfig,
+		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
+		timeoutStats:         NewTimeoutStats(),
 	}
 }
 
@@ -190,8 +228,14 @@ func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []co
 	agent := entry.Agent
 	adapter := entry.Adapter
 
+	// Get per-agent timeout from handler
+	agentTimeout := p.timeout
+	if p.timeoutHandler != nil {
+		agentTimeout = p.timeoutHandler.GetAgentTimeout(agent.ID)
+	}
+
 	// Create per-agent context with timeout
-	agentCtx, cancel := context.WithTimeout(ctx, p.timeout)
+	agentCtx, cancel := context.WithTimeout(ctx, agentTimeout)
 	defer cancel()
 
 	// Emit typing event
@@ -205,6 +249,7 @@ func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []co
 		"agent_id":   agent.ID,
 		"agent_name": agent.Name,
 		"model":      agent.Model,
+		"timeout":    agentTimeout.String(),
 	}).Debug("executing agent")
 
 	startTime := time.Now()
@@ -216,20 +261,33 @@ func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []co
 	if err != nil {
 		entry.State.SetError(err.Error())
 
+		// Check if this was a timeout error
+		isTimeout := isContextTimeout(err)
+		if isTimeout && p.timeoutStats != nil {
+			p.timeoutStats.RecordTimeout(agent.ID, duration, false, false)
+		}
+
 		// Record failure in circuit breaker
 		if entry.CircuitBreaker != nil {
 			entry.CircuitBreaker.RecordFailure()
 		}
 
-		// Emit error event
+		// Emit error event with enhanced timeout details
 		if p.eventBus != nil {
-			p.eventBus.Publish(core.NewAgentErrorEvent(agent.ID, agent.Name, err.Error()))
+			errMsg := err.Error()
+			if isTimeout {
+				errMsg = fmt.Sprintf("agent timed out after %s (limit: %s)",
+					duration.Round(time.Millisecond), agentTimeout.Round(time.Millisecond))
+			}
+			p.eventBus.Publish(core.NewAgentErrorEvent(agent.ID, agent.Name, errMsg))
 		}
 
 		log.WithFields(map[string]interface{}{
 			"agent_id":   agent.ID,
 			"agent_name": agent.Name,
 			"duration":   duration.String(),
+			"timeout":    agentTimeout.String(),
+			"is_timeout": isTimeout,
 		}).WithError(err).Error("agent execution failed")
 
 		return Response{
@@ -404,4 +462,43 @@ func (p *Pool) GetAvailableAgentCount() int {
 		}
 	}
 	return count
+}
+
+// SetAgentTimeout sets a specific timeout for an agent.
+func (p *Pool) SetAgentTimeout(agentID string, timeout time.Duration) {
+	if p.timeoutHandler != nil {
+		p.timeoutHandler.SetAgentTimeout(agentID, timeout)
+		log.WithFields(map[string]interface{}{
+			"agent_id": agentID,
+			"timeout":  timeout.String(),
+		}).Info("Agent timeout configured")
+	}
+}
+
+// GetAgentTimeout returns the timeout configuration for an agent.
+func (p *Pool) GetAgentTimeout(agentID string) time.Duration {
+	if p.timeoutHandler != nil {
+		return p.timeoutHandler.GetAgentTimeout(agentID)
+	}
+	return p.timeout
+}
+
+// SetAgentTimeouts sets timeouts for multiple agents at once.
+func (p *Pool) SetAgentTimeouts(configs []AgentTimeoutConfig) {
+	if p.timeoutHandler != nil {
+		p.timeoutHandler.SetAgentTimeouts(configs)
+	}
+}
+
+// GetTimeoutStats returns timeout statistics for all agents.
+func (p *Pool) GetTimeoutStats() TimeoutStats {
+	if p.timeoutStats != nil {
+		return p.timeoutStats.GetStats()
+	}
+	return TimeoutStats{TimeoutsByAgent: make(map[string]int)}
+}
+
+// GetTimeoutHandler returns the timeout handler for advanced configuration.
+func (p *Pool) GetTimeoutHandler() *TimeoutHandler {
+	return p.timeoutHandler
 }
