@@ -22,7 +22,7 @@ This phase implements comprehensive error handling, retry logic, and resilience 
   - `WrapError()` for wrapping generic errors with automatic classification
   - 21 comprehensive tests covering all functionality (100% pass)
 
-- [ ] Implement retry logic in `pkg/v2/adapters/retry.go`:
+- [x] Implement retry logic in `pkg/v2/adapters/retry.go`:
   - RetryConfig struct with MaxAttempts, InitialDelay, MaxDelay, BackoffMultiplier
   - DefaultRetryConfig: 3 attempts, 1s initial, 30s max, 2x multiplier
   - WithRetry() wrapper function for adapter methods
@@ -30,6 +30,28 @@ This phase implements comprehensive error handling, retry logic, and resilience 
   - Only retry on IsRetryable() errors
   - Log each retry attempt with attempt number and delay
   - Return last error after all attempts exhausted
+
+  **Completed**: Created comprehensive retry package with:
+  - `RetryConfig` struct with MaxAttempts, InitialDelay, MaxDelay, BackoffMultiplier, JitterFactor
+  - `DefaultRetryConfig()` returns 3 attempts, 1s initial, 30s max, 2x multiplier, 10% jitter
+  - `RetryableAdapter` struct wrapping any AgentAdapter with retry logic
+  - `NewRetryableAdapter()` factory with agentID and agentName for logging
+  - `calculateDelay()` with exponential backoff: delay = InitialDelay * BackoffMultiplier^(attempt-1)
+  - Jitter applied as ±JitterFactor% of calculated delay
+  - `WithRetry[T]()` generic wrapper function for any operation returning (T, error)
+  - `RetryOnError()` for simple void operations with retry
+  - Integration with `errors.IsRetryable()` - only retries network/ratelimit/timeout errors
+  - Logs each retry with structured fields: agent_id, agent_name, attempt, max, delay, error
+  - Context cancellation properly handled during backoff wait
+  - Returns `AgentError` with RetryCount set after all attempts exhausted
+  - 18 comprehensive tests covering all functionality:
+    - TestDefaultRetryConfig, TestRetryConfig_CalculateDelay, TestRetryConfig_CalculateDelayWithJitter
+    - TestRetryableAdapter_SendMessageSuccess, TestRetryableAdapter_SendMessageRetryOnNetworkError
+    - TestRetryableAdapter_SendMessageNoRetryOnAuthError, TestRetryableAdapter_SendMessageExhaustedRetries
+    - TestRetryableAdapter_SendMessageContextCancellation, TestRetryableAdapter_StreamMessageRetry
+    - TestRetryableAdapter_RateLimitHandling, TestWithRetry_Success, TestWithRetry_RetryableError
+    - TestWithRetry_NonRetryableError, TestRetryOnError_Success, TestRetryableAdapter_DelegatesMethods
+    - TestRetryConfig_ZeroMaxAttempts
 
 - [ ] Add retry support to API adapters:
   - Wrap SendMessage() and StreamMessage() with retry logic
