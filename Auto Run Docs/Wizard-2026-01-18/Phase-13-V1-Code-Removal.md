@@ -112,10 +112,21 @@ The pkg/log package is NOT v1-specific. It is shared logging infrastructure used
   - Main packages (pkg/v2/*, internal/*) tests pass
   - Some peripheral packages (pkg/export, pkg/middleware) fail due to v1 dependencies (to be addressed in later task)
 
-- [ ] Remove v1 internal packages:
+- [x] Remove v1 internal packages:
   - ~~Remove internal/bridge/~~ - **KEEP: Streaming bridge is shared, not v1-specific**
   - Update any shared internal/ code
   - **NOTE: All internal/ packages (bridge, branding, providers, registry, version) should be KEPT**
+
+  **Completed 2026-01-18**: Verified all internal/ packages are clean and should be kept.
+
+  **Verified Packages:**
+  - internal/bridge/ - KEEP: Streaming bridge, no v1 dependencies
+  - internal/branding/ - KEEP: Logo/branding assets, no v1 dependencies
+  - internal/providers/ - KEEP: Provider registry, only depends on pkg/log (shared infrastructure)
+  - internal/registry/ - KEEP: Version registry, no v1 dependencies
+  - internal/version/ - KEEP: Version info, no v1 dependencies
+
+  **pkg/log Status:** KEEP as shared logging infrastructure (used by internal/providers and cmd/)
 
 - [ ] Update main.go:
   - Ensure only v2 code paths
