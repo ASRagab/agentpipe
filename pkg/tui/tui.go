@@ -537,9 +537,15 @@ func (m Model) View() string {
 		return m.renderErrorDetailsOverlay()
 	}
 
-	// Calculate available height for main panels
-	// Total height minus: logo (6) + version (1) + status bar (1) + input (5 with border) + padding
-	mainHeight := m.height - LogoHeight - 1 - StatusBarHeight - InputHeight - BorderPadding
+	// Calculate available height for main panels more accurately
+	// Total height minus: logo (6) + version line (1) + status bar (1) + input (3) + borders (4)
+	// Note: InputHeight=3 already, and we need 2 for panel borders top/bottom
+	headerHeight := LogoHeight + 2  // logo + version line + status bar
+	footerHeight := InputHeight + 2 // input + some padding
+	mainHeight := m.height - headerHeight - footerHeight
+	if mainHeight < 10 {
+		mainHeight = 10 // Minimum height for panels
+	}
 
 	var b strings.Builder
 
