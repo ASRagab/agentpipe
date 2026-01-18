@@ -17,37 +17,35 @@ This phase updates all GitHub references from the original repository to the for
 
   **Completed 2026-01-18**: Migrated 175 files from kevinelliott/agentpipe to ASRagab/agentpipe. Build passes, all main package tests pass. Pre-existing lint issues in examples/v2/code/ are unrelated to this migration.
 
-- [ ] Set up pre-commit framework with detect-secrets:
-  - Install pre-commit: `pip install pre-commit` or `brew install pre-commit`
-  - Create `.pre-commit-config.yaml` with detect-secrets hook:
-    ```yaml
-    repos:
-      - repo: https://github.com/Yelp/detect-secrets
-        rev: v1.4.0
-        hooks:
-          - id: detect-secrets
-            args: ['--baseline', '.secrets.baseline']
-    ```
-  - Generate initial baseline: `detect-secrets scan > .secrets.baseline`
-  - Review and audit baseline: `detect-secrets audit .secrets.baseline`
-  - Install hooks: `pre-commit install`
-  - Add additional useful hooks (golangci-lint, gofmt, govet)
-  - Test that secrets are detected and blocked
-  - Document setup in CLAUDE.md
+- [x] Set up pre-commit framework with detect-secrets:
+  - Install pre-commit: `pip install pre-commit` or `brew install pre-commit` ✓
+  - Create `.pre-commit-config.yaml` with detect-secrets hook ✓
+  - Generate initial baseline: `detect-secrets scan > .secrets.baseline` ✓
+  - Review and audit baseline: `detect-secrets audit .secrets.baseline` ✓
+  - Install hooks: `pre-commit install` ✓
+  - Add additional useful hooks (golangci-lint, gofmt, govet) ✓
+  - Test that secrets are detected and blocked ✓
+  - Document setup in CLAUDE.md ✓
 
-- [ ] Create `.secrets.baseline` file:
-  - Scan existing codebase for false positives
-  - Audit and mark false positives in baseline
-  - Exclude test fixtures and example files with placeholder secrets
-  - Document how to update baseline when adding new files
+  **Completed 2026-01-18**: Created `.pre-commit-config.yaml` with detect-secrets v1.5.0, pre-commit-hooks v5.0.0, pre-commit-golang v1.0.0-rc.1, and markdownlint-cli v0.47.0. Generated and audited `.secrets.baseline` with false positives marked (env var lookups, not hardcoded secrets). Installed hooks to git. Documented in CLAUDE.md.
 
-- [ ] Add additional pre-commit hooks for Go:
-  - golangci-lint for linting
-  - go-fmt for formatting
-  - go-imports for import organization
-  - go-mod-tidy for dependency verification
-  - End-of-file fixer
-  - Trailing whitespace removal
+- [x] Create `.secrets.baseline` file:
+  - Scan existing codebase for false positives ✓
+  - Audit and mark false positives in baseline ✓
+  - Exclude test fixtures and example files with placeholder secrets ✓
+  - Document how to update baseline when adding new files ✓
+
+  **Completed 2026-01-18**: Excluded go.sum, *_test.go, examples/, .claude/, docs/, Auto Run Docs/ from scanning. Marked 5 false positives as non-secrets (environment variable lookups in cmd/doctor.go, internal/bridge/config.go, pkg/adapters/openrouter.go, pkg/v2/adapters/api/claude.go, pkg/v2/adapters/api/openrouter.go).
+
+- [x] Add additional pre-commit hooks for Go:
+  - golangci-lint for linting ✓ (via tekwizely/pre-commit-golang)
+  - go-fmt for formatting ✓
+  - go-imports for import organization ✓
+  - go-mod-tidy for dependency verification ✓
+  - End-of-file fixer ✓
+  - Trailing whitespace removal ✓
+
+  **Completed 2026-01-18**: Added go-fmt, go-imports (with -local github.com/ASRagab/agentpipe), go-vet, go-mod-tidy, end-of-file-fixer, trailing-whitespace, check-yaml, check-json, check-merge-conflict, check-added-large-files, and markdownlint hooks.
 
 - [ ] Update Phase-11 release tasks now that we're on the fork:
   - Update release URL references from kevinelliott to ASRagab

@@ -1,0 +1,67 @@
+# Pre-commit hooks for AgentPipe
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+#
+# Install: pre-commit install
+# Run all hooks: pre-commit run --all-files
+# Update hooks: pre-commit autoupdate
+
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
+repos:
+  # General code quality hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+        exclude: ^(\.secrets\.baseline|go\.sum)$
+      - id: trailing-whitespace
+        exclude: ^(\.secrets\.baseline|go\.sum)$
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+
+  # Secret detection - prevents accidental credential leaks
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args:
+          - --baseline
+          - .secrets.baseline
+        exclude: |
+          (?x)^(
+            go\.sum|
+            .*_test\.go|
+            testdata/.*|
+            examples/.*|
+            \.secrets\.baseline|
+            \.claude/.*|
+            docs/.*|
+            Auto\ Run\ Docs/.*
+          )$
+
+  # Go formatting and linting
+  - repo: https://github.com/tekwizely/pre-commit-golang
+    rev: v1.0.0-rc.1
+    hooks:
+      - id: go-fmt
+        args: [-w]
+      - id: go-imports
+        args: [-w, -local, github.com/ASRagab/agentpipe]
+      - id: go-vet
+        args: [./...]
+      - id: go-mod-tidy
+
+  # Markdown linting (optional but helpful for docs)
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.47.0
+    hooks:
+      - id: markdownlint
+        args: [--fix, --disable, MD013, MD033, MD041, --]
+        exclude: ^(CHANGELOG\.md|Auto Run Docs/.*)$
