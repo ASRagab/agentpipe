@@ -34,6 +34,19 @@ Welcome to the AgentPipe v2 documentation. This directory contains comprehensive
 |----------|-------------|
 | [[architecture]] | Technical overview for contributors |
 
+## Example Configurations
+
+Ready-to-use configurations for common use cases (in `examples/v2/`):
+
+| Example | Description |
+|---------|-------------|
+| `minimal.yaml` | Simplest working config with one agent |
+| `two-agents.yaml` | Two agents for side-by-side comparison |
+| `multi-model.yaml` | Compare multiple models from same provider |
+| `code-review.yaml` | Code review with security, performance, maintainability focus |
+| `brainstorm.yaml` | Creative brainstorming with diverse perspectives |
+| `research.yaml` | Research and fact-finding with verification |
+
 ## Quick Links
 
 - **Installation**: See [[quickstart#installation]]

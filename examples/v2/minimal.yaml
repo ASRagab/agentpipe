@@ -1,0 +1,39 @@
+# AgentPipe v2 - Minimal Configuration
+# ===========================================
+# The simplest working v2 config with a single agent.
+# Perfect for testing your setup or quick single-agent queries.
+#
+# Requirements:
+#   - OPENROUTER_API_KEY environment variable set
+#
+# Usage:
+#   export OPENROUTER_API_KEY=your-key-here
+#   agentpipe run --v2 -c examples/v2/minimal.yaml
+#
+# Alternatively, use Claude API:
+#   export ANTHROPIC_API_KEY=your-key-here
+#   (and change type to claude-api, model to claude-3-haiku-20240307)
+
+conversation:
+  timeout: 30s     # Per-agent response timeout
+  mode: parallel   # v2 uses parallel mode by default
+
+agents:
+  # Single agent - Claude 3 Haiku via OpenRouter (fast and cheap)
+  - id: assistant
+    type: openrouter
+    name: Assistant
+    model: anthropic/claude-3-haiku
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: "You are a helpful AI assistant. Be concise and accurate."
+      temperature: 0.7
+      max_tokens: 1000
+
+tui:
+  enabled: true
+  show_metrics: true
+
+# Minimal logging - only show warnings and errors
+logging:
+  level: warn

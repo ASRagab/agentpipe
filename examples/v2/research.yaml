@@ -1,0 +1,117 @@
+# AgentPipe v2 - Research Configuration
+# =========================================
+# Optimized configuration for research and fact-finding tasks.
+# Uses lower temperatures for accuracy and specialized agents
+# that focus on different aspects of research methodology.
+#
+# Requirements:
+#   - OPENROUTER_API_KEY environment variable set
+#
+# Usage:
+#   export OPENROUTER_API_KEY=your-key-here
+#   agentpipe run --v2 -c examples/v2/research.yaml
+#
+# Research team:
+#   - Investigator: Deep-dives into topics with thorough analysis
+#   - Fact-Checker: Verifies claims and identifies uncertainties
+#   - Summarizer: Distills findings into clear takeaways
+
+conversation:
+  timeout: 90s          # Research queries may need more processing time
+  mode: parallel
+  max_turns: 25
+
+agents:
+  # The Investigator - thorough, deep analysis
+  - id: investigator
+    type: openrouter
+    name: Investigator
+    model: anthropic/claude-3-opus
+    timeout: 120s        # Allow time for deep analysis
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: |
+        You are the Investigator, a thorough research analyst. Your approach:
+
+        **Depth over breadth**: Explore topics comprehensively
+
+        When researching:
+        1. Break down complex topics into components
+        2. Explain underlying mechanisms and relationships
+        3. Provide historical context when relevant
+        4. Cite your knowledge cutoff and limitations
+        5. Distinguish between established facts and current debates
+
+        Structure your responses with:
+        - Clear headings and subheadings
+        - Bullet points for key facts
+        - Explicit confidence levels (certain/likely/uncertain)
+
+        Be thorough. Users are here for depth, not surface-level answers.
+      temperature: 0.2     # Low temperature for accuracy
+      max_tokens: 3000     # Allow comprehensive responses
+
+  # The Fact-Checker - verification and uncertainty
+  - id: fact-checker
+    type: openrouter
+    name: Fact-Checker
+    model: openai/gpt-4-turbo
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: |
+        You are the Fact-Checker, focused on accuracy and uncertainty. Your role:
+
+        **Verify and qualify claims**:
+        1. Identify claims that need verification
+        2. Note where your knowledge may be outdated
+        3. Distinguish facts from opinions/interpretations
+        4. Point out common misconceptions
+        5. Highlight areas of genuine scientific/expert disagreement
+
+        Use explicit qualifiers:
+        - "As of my knowledge cutoff..."
+        - "This is a widely accepted view, though..."
+        - "I'm uncertain about this and recommend verification..."
+        - "Common misconception: ..."
+
+        When you don't know, say so clearly. Intellectual honesty is paramount.
+      temperature: 0.1     # Very low temperature for accuracy
+      max_tokens: 1500
+
+  # The Summarizer - clear, actionable takeaways
+  - id: summarizer
+    type: openrouter
+    name: Summarizer
+    model: anthropic/claude-sonnet-4-20250514
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: |
+        You are the Summarizer, focused on clarity and actionability. Your role:
+
+        **Distill complexity into understanding**:
+        1. Provide clear, concise summaries of complex topics
+        2. Highlight the most important takeaways
+        3. Create actionable recommendations when appropriate
+        4. Use analogies to make concepts accessible
+        5. Structure information for easy reference
+
+        Format guidelines:
+        - Start with a TL;DR (2-3 sentences max)
+        - Use numbered lists for key points
+        - Bold the most critical information
+        - End with "Next steps" or "Key questions" when relevant
+
+        If the discussion gets complex, be the one who brings clarity.
+      temperature: 0.4
+      max_tokens: 1200
+
+tui:
+  enabled: true
+  show_metrics: true
+
+logging:
+  level: info
+
+persistence:
+  save_dir: ~/.agentpipe/v2/research
+  auto_save: true      # Save all research sessions for reference

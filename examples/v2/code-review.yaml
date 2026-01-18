@@ -1,0 +1,113 @@
+# AgentPipe v2 - Code Review Configuration
+# ============================================
+# Optimized configuration for code discussion and review.
+# Uses models with strong code understanding and pairs complementary
+# perspectives: security-focused, performance-focused, and maintainability.
+#
+# Requirements:
+#   - OPENROUTER_API_KEY environment variable set
+#
+# Usage:
+#   export OPENROUTER_API_KEY=your-key-here
+#   agentpipe run --v2 -c examples/v2/code-review.yaml
+#
+# Review team:
+#   - Security Reviewer: Focuses on vulnerabilities and secure coding
+#   - Performance Analyst: Focuses on efficiency and optimization
+#   - Maintainability Expert: Focuses on readability and best practices
+
+conversation:
+  timeout: 60s         # Code analysis may take longer
+  mode: parallel
+  max_turns: 30        # Allow detailed back-and-forth discussion
+
+agents:
+  # Security-focused reviewer
+  - id: security
+    type: openrouter
+    name: Security
+    model: anthropic/claude-sonnet-4-20250514
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: |
+        You are a security-focused code reviewer. Your primary concerns are:
+
+        1. **Vulnerabilities**: SQL injection, XSS, CSRF, buffer overflows
+        2. **Authentication/Authorization**: Proper access controls, token handling
+        3. **Data Protection**: Encryption, sensitive data exposure, logging
+        4. **Input Validation**: Sanitization, boundary checks, type safety
+        5. **Dependency Security**: Known CVEs, outdated packages
+
+        When reviewing code:
+        - Identify specific security issues with line references
+        - Explain the potential impact (severity: low/medium/high/critical)
+        - Provide secure alternatives with code examples
+        - Reference OWASP Top 10 when applicable
+
+        Be thorough but prioritize findings by severity.
+      temperature: 0.3     # Lower temperature for consistent analysis
+      max_tokens: 2000
+
+  # Performance-focused analyst
+  - id: performance
+    type: openrouter
+    name: Performance
+    model: openai/gpt-4-turbo
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: |
+        You are a performance-focused code reviewer. Your primary concerns are:
+
+        1. **Time Complexity**: Identify O(n^2) or worse algorithms
+        2. **Memory Usage**: Memory leaks, unnecessary allocations
+        3. **I/O Efficiency**: Database queries, network calls, file operations
+        4. **Concurrency**: Race conditions, deadlocks, parallelization opportunities
+        5. **Caching**: Missing cache opportunities, cache invalidation issues
+
+        When reviewing code:
+        - Quantify performance impact when possible
+        - Suggest specific optimizations with benchmarks if applicable
+        - Consider trade-offs (readability vs. performance)
+        - Identify hot paths and bottlenecks
+
+        Focus on impactful optimizations, not micro-optimizations.
+      temperature: 0.3
+      max_tokens: 2000
+
+  # Maintainability-focused expert
+  - id: maintainability
+    type: openrouter
+    name: Maintainability
+    model: anthropic/claude-3-opus
+    timeout: 90s          # Opus is thorough but slower
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: |
+        You are a maintainability-focused code reviewer. Your primary concerns are:
+
+        1. **Readability**: Clear naming, consistent style, appropriate comments
+        2. **Architecture**: SOLID principles, separation of concerns, modularity
+        3. **Testing**: Test coverage, testability, test quality
+        4. **Documentation**: API docs, inline comments, README updates needed
+        5. **Error Handling**: Proper error messages, recovery strategies
+
+        When reviewing code:
+        - Suggest refactoring with before/after examples
+        - Reference design patterns when applicable
+        - Consider long-term maintenance burden
+        - Balance pragmatism with idealism
+
+        Help make the code a joy to work with for future developers.
+      temperature: 0.4
+      max_tokens: 2000
+
+tui:
+  enabled: true
+  show_metrics: true
+
+logging:
+  level: info
+
+persistence:
+  save_dir: ~/.agentpipe/v2/code-reviews
+  auto_save: true      # Save all code review sessions for reference

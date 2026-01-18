@@ -94,7 +94,7 @@ This phase creates comprehensive documentation and example configurations that e
   - Reporting bugs section with required information
   Updated docs/v2/README.md to include troubleshooting in User Guides table and Document Map.
 
-- [ ] Create example configurations in `examples/v2/`:
+- [x] Create example configurations in `examples/v2/`:
   - `minimal.yaml`: Simplest working config with one agent
   - `two-agents.yaml`: Two agents for comparison
   - `multi-model.yaml`: Multiple models from same provider
@@ -102,6 +102,16 @@ This phase creates comprehensive documentation and example configurations that e
   - `brainstorm.yaml`: Config for creative brainstorming
   - `research.yaml`: Config for research/fact-finding
   - Each with comments explaining the choices
+
+  **Completed 2026-01-18**: Created 6 comprehensive v2 example configurations:
+  - `minimal.yaml`: Single Claude 3 Haiku agent via OpenRouter - simplest working config
+  - `two-agents.yaml`: Claude Sonnet + GPT-4 Turbo for side-by-side comparison
+  - `multi-model.yaml`: 4 agents (Haiku, Sonnet, GPT-4o-mini, Gemini Flash) across price tiers
+  - `code-review.yaml`: 3 specialized reviewers (security, performance, maintainability) with detailed system prompts
+  - `brainstorm.yaml`: 4 creative personas (Innovator, Strategist, Skeptic, Synthesizer) with high temperatures
+  - `research.yaml`: 3 research-focused agents (Investigator, Fact-Checker, Summarizer) with low temperatures for accuracy
+  All configs include detailed comments explaining model choices, temperature settings, and use cases.
+  Updated docs/v2/README.md with new Example Configurations section.
 
 - [ ] Create code examples in `examples/v2/code/`:
   - `custom-adapter/`: Example of implementing a custom adapter

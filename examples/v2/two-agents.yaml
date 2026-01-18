@@ -1,0 +1,60 @@
+# AgentPipe v2 - Two Agents Configuration
+# =============================================
+# A simple configuration with two agents for side-by-side comparison.
+# Both agents receive the same prompt and respond in parallel,
+# letting you compare different models' outputs directly.
+#
+# Requirements:
+#   - OPENROUTER_API_KEY environment variable set
+#
+# Usage:
+#   export OPENROUTER_API_KEY=your-key-here
+#   agentpipe run --v2 -c examples/v2/two-agents.yaml
+#
+# This configuration pairs:
+#   - Claude Sonnet (balanced, thoughtful responses)
+#   - GPT-4 Turbo (fast, comprehensive)
+
+conversation:
+  timeout: 45s        # Allow time for larger models
+  mode: parallel      # Both agents respond simultaneously
+  max_turns: 20       # Limit turns to keep costs manageable
+
+agents:
+  # Claude Sonnet - Good balance of capability and speed
+  - id: claude
+    type: openrouter
+    name: Claude
+    model: anthropic/claude-sonnet-4-20250514
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: |
+        You are Claude, an AI assistant created by Anthropic.
+        Provide thoughtful, well-reasoned responses.
+        When disagreeing with others, do so respectfully and with evidence.
+      temperature: 0.7
+      max_tokens: 1500
+
+  # GPT-4 Turbo - OpenAI's fast production model
+  - id: gpt4
+    type: openrouter
+    name: GPT-4
+    model: openai/gpt-4-turbo
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: |
+        You are GPT-4, OpenAI's advanced language model.
+        Provide helpful, accurate, and detailed responses.
+        Engage constructively with other perspectives in the conversation.
+      temperature: 0.7
+      max_tokens: 1500
+
+tui:
+  enabled: true
+  show_metrics: true   # See token usage and cost for each model
+
+logging:
+  level: info
+
+persistence:
+  auto_save: true      # Save conversations automatically
