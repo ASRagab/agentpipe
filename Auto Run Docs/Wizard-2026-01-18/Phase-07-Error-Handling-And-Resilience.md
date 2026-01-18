@@ -268,12 +268,56 @@ This phase implements comprehensive error handling, retry logic, and resilience 
     - TestPool_SetAgentTimeouts, TestTimeoutResult_Fields
   - All 12 v2 test packages pass (100%) with race detection enabled
 
-- [ ] Add request cancellation:
+- [x] Add request cancellation:
   - Cancel() method on AgentPool to stop all pending requests
   - Cancel individual agent via CancelAgent(agentID)
   - Clean cancellation without goroutine leaks
   - Update agent status to "cancelled" in TUI
   - User can press Ctrl+C during generation to cancel
+
+  **Completed**: Implemented comprehensive request cancellation with:
+  - Created `pkg/v2/pool/cancellation.go` with `CancellationManager`:
+    - Thread-safe tracking of active requests using `sync.RWMutex`
+    - `RegisterRequest(agentID, agentName, cancelFunc)` for tracking active requests
+    - `UnregisterRequest(agentID)` for cleanup after completion
+    - `CancelAgent(agentID)` cancels specific agent's request
+    - `CancelAll()` cancels all pending requests, returns count cancelled
+    - `GetActiveRequests()` returns `[]CancellationInfo` for monitoring
+    - `HasActiveRequest(agentID)` checks if agent has active request
+    - `ActiveRequestCount()` returns count of active (non-cancelled) requests
+    - `IsCancelled(agentID)` checks if specific agent was cancelled
+    - `Clear()` removes all tracked requests (for pool cleanup)
+  - Sentinel errors for cancellation handling:
+    - `ErrAgentCancelled` - Returned when agent request is cancelled
+    - `ErrAgentNotFound` - Returned when cancelling unknown agent
+    - `ErrNoActiveRequests` - Returned when no requests to cancel
+  - `CancellationInfo` struct with AgentID, AgentName, StartTime, Cancelled fields
+  - `EventBusRef` interface for publishing cancellation events
+  - `IsCancellationError()` helper detects both `ErrAgentCancelled` and `context.Canceled`
+  - Updated `pkg/v2/core/agent.go`:
+    - Added `AgentStatusCancelled` status constant
+    - Added `SetCancelled()` method to `AgentState`
+  - Updated `pkg/v2/core/events.go`:
+    - Added `EventAgentCancelled` event type
+    - Added `AgentCancelledData` struct with AgentID, AgentName, Reason
+    - Added `NewAgentCancelledEvent()` constructor
+  - Updated `pkg/v2/pool/pool.go`:
+    - Added `cancellation *CancellationManager` field to Pool
+    - All constructors initialize CancellationManager (NewPool, NewPoolWithCircuitBreaker, etc.)
+    - `executeAgent()` registers/unregisters requests and handles cancellation
+    - Sets agent status to `AgentStatusCancelled` on cancellation
+    - Returns `ErrAgentCancelled` error for cancelled requests
+    - Pool-level methods: `Cancel()`, `CancelAgent()`, `GetActiveRequests()`
+    - `HasActiveRequest()`, `ActiveRequestCount()`, `IsAgentCancelled()`
+  - Created `pkg/v2/pool/cancellation_test.go` with 20+ tests:
+    - TestNewCancellationManager, TestRegisterAndUnregisterRequest
+    - TestCancelAgent, TestCancelAgentNotFound, TestCancelAgentAlreadyCancelled
+    - TestCancelAll, TestCancelAllEmitsEvents, TestGetActiveRequests
+    - TestHasActiveRequest, TestActiveRequestCount, TestIsCancelled
+    - TestClear, TestIsCancellationError, TestConcurrentOperations
+    - TestPoolCancel, TestPoolCancelAgent, TestPoolHasActiveRequest
+    - TestPoolActiveRequestCount, TestPoolIsAgentCancelled
+  - All pool package tests pass (100%) with race detection enabled
 
 - [ ] Write error handling tests:
   - TestRetryOnNetworkError: Verify retry with backoff

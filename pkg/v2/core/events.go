@@ -20,6 +20,8 @@ const (
 	EventAgentDone EventType = "agent.done"
 	// EventAgentError is emitted when an agent encounters an error.
 	EventAgentError EventType = "agent.error"
+	// EventAgentCancelled is emitted when an agent's request is cancelled.
+	EventAgentCancelled EventType = "agent.cancelled"
 	// EventConversationStarted is emitted when a conversation begins.
 	EventConversationStarted EventType = "conversation.started"
 	// EventConversationSaved is emitted when a conversation is persisted.
@@ -96,6 +98,16 @@ type AgentErrorData struct {
 	Error string `json:"error"`
 }
 
+// AgentCancelledData contains information about an agent cancellation.
+type AgentCancelledData struct {
+	// AgentID is the ID of the cancelled agent.
+	AgentID string `json:"agent_id"`
+	// AgentName is the name of the cancelled agent.
+	AgentName string `json:"agent_name"`
+	// Reason is the cancellation reason.
+	Reason string `json:"reason"`
+}
+
 // ConversationStartedData contains information about a conversation starting.
 type ConversationStartedData struct {
 	// ConversationID is the ID of the conversation.
@@ -161,6 +173,15 @@ func NewAgentErrorEvent(agentID, agentName, errMsg string) Event {
 		AgentID:   agentID,
 		AgentName: agentName,
 		Error:     errMsg,
+	})
+}
+
+// NewAgentCancelledEvent creates an event for an agent cancellation.
+func NewAgentCancelledEvent(agentID, agentName, reason string) Event {
+	return NewEvent(EventAgentCancelled, AgentCancelledData{
+		AgentID:   agentID,
+		AgentName: agentName,
+		Reason:    reason,
 	})
 }
 

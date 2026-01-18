@@ -49,6 +49,7 @@ type Pool struct {
 	circuitBreakerConfig adapters.CircuitBreakerConfig
 	timeoutHandler       *TimeoutHandler
 	timeoutStats         *TimeoutStats
+	cancellation         *CancellationManager
 	mu                   sync.RWMutex
 }
 
@@ -68,6 +69,7 @@ func NewPool(eventBus *events.Bus, timeout time.Duration) *Pool {
 		circuitBreakerConfig: adapters.DefaultCircuitBreakerConfig(),
 		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
 		timeoutStats:         NewTimeoutStats(),
+		cancellation:         NewCancellationManager(eventBus),
 	}
 }
 
@@ -87,6 +89,7 @@ func NewPoolWithCircuitBreaker(eventBus *events.Bus, timeout time.Duration, cbCo
 		circuitBreakerConfig: cbConfig,
 		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
 		timeoutStats:         NewTimeoutStats(),
+		cancellation:         NewCancellationManager(eventBus),
 	}
 }
 
@@ -99,6 +102,7 @@ func NewPoolWithTimeoutConfig(eventBus *events.Bus, timeoutConfig TimeoutConfig)
 		circuitBreakerConfig: adapters.DefaultCircuitBreakerConfig(),
 		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
 		timeoutStats:         NewTimeoutStats(),
+		cancellation:         NewCancellationManager(eventBus),
 	}
 }
 
@@ -111,6 +115,7 @@ func NewPoolWithFullConfig(eventBus *events.Bus, cbConfig adapters.CircuitBreake
 		circuitBreakerConfig: cbConfig,
 		timeoutHandler:       NewTimeoutHandler(timeoutConfig, eventBus),
 		timeoutStats:         NewTimeoutStats(),
+		cancellation:         NewCancellationManager(eventBus),
 	}
 }
 
@@ -238,6 +243,12 @@ func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []co
 	agentCtx, cancel := context.WithTimeout(ctx, agentTimeout)
 	defer cancel()
 
+	// Register request with cancellation manager for external cancellation support
+	if p.cancellation != nil {
+		p.cancellation.RegisterRequest(agent.ID, agent.Name, cancel)
+		defer p.cancellation.UnregisterRequest(agent.ID)
+	}
+
 	// Emit typing event
 	if p.eventBus != nil {
 		p.eventBus.Publish(core.NewAgentTypingEvent(agent.ID, agent.Name))
@@ -259,6 +270,25 @@ func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []co
 	duration := time.Since(startTime)
 
 	if err != nil {
+		// Check if this was a cancellation
+		isCancelled := IsCancellationError(err)
+		if isCancelled {
+			entry.State.SetCancelled()
+
+			log.WithFields(map[string]interface{}{
+				"agent_id":   agent.ID,
+				"agent_name": agent.Name,
+				"duration":   duration.String(),
+			}).Info("agent request cancelled")
+
+			// Note: cancellation event already emitted by CancellationManager
+			return Response{
+				AgentID:   agent.ID,
+				AgentName: agent.Name,
+				Error:     ErrAgentCancelled,
+			}
+		}
+
 		entry.State.SetError(err.Error())
 
 		// Check if this was a timeout error
@@ -501,4 +531,55 @@ func (p *Pool) GetTimeoutStats() TimeoutStats {
 // GetTimeoutHandler returns the timeout handler for advanced configuration.
 func (p *Pool) GetTimeoutHandler() *TimeoutHandler {
 	return p.timeoutHandler
+}
+
+// Cancel cancels all pending agent requests.
+// Returns the number of requests that were cancelled.
+// This provides clean cancellation without goroutine leaks.
+func (p *Pool) Cancel() int {
+	if p.cancellation == nil {
+		return 0
+	}
+	return p.cancellation.CancelAll()
+}
+
+// CancelAgent cancels a specific agent's pending request.
+// Returns ErrAgentNotFound if the agent has no active request.
+func (p *Pool) CancelAgent(agentID string) error {
+	if p.cancellation == nil {
+		return ErrAgentNotFound
+	}
+	return p.cancellation.CancelAgent(agentID)
+}
+
+// GetActiveRequests returns information about all currently active agent requests.
+func (p *Pool) GetActiveRequests() []CancellationInfo {
+	if p.cancellation == nil {
+		return nil
+	}
+	return p.cancellation.GetActiveRequests()
+}
+
+// HasActiveRequest checks if a specific agent has an active request in progress.
+func (p *Pool) HasActiveRequest(agentID string) bool {
+	if p.cancellation == nil {
+		return false
+	}
+	return p.cancellation.HasActiveRequest(agentID)
+}
+
+// ActiveRequestCount returns the number of currently active (non-cancelled) agent requests.
+func (p *Pool) ActiveRequestCount() int {
+	if p.cancellation == nil {
+		return 0
+	}
+	return p.cancellation.ActiveRequestCount()
+}
+
+// IsAgentCancelled checks if a specific agent's request was cancelled.
+func (p *Pool) IsAgentCancelled(agentID string) bool {
+	if p.cancellation == nil {
+		return false
+	}
+	return p.cancellation.IsCancelled(agentID)
 }

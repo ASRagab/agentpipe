@@ -78,6 +78,8 @@ const (
 	AgentStatusError AgentStatus = "error"
 	// AgentStatusOffline indicates the agent is not available.
 	AgentStatusOffline AgentStatus = "offline"
+	// AgentStatusCancelled indicates the agent's request was cancelled.
+	AgentStatusCancelled AgentStatus = "cancelled"
 )
 
 // AgentState tracks the runtime state of an agent.
@@ -119,6 +121,12 @@ func (s *AgentState) SetIdle() {
 func (s *AgentState) SetError(err string) {
 	s.Status = AgentStatusError
 	s.LastError = err
+}
+
+// SetCancelled marks the agent as having its request cancelled.
+func (s *AgentState) SetCancelled() {
+	s.Status = AgentStatusCancelled
+	s.LastError = "request cancelled"
 }
 
 // RecordMessage updates the agent state after sending a message.
