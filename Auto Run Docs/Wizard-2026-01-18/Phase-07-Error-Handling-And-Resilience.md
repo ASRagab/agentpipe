@@ -160,12 +160,52 @@ This phase implements comprehensive error handling, retry logic, and resilience 
     - TestMixedAgentsContinueWithOpenCircuit, TestCircuitBreakerHalfOpenRecovery
   - All tests pass (100%) with race detection enabled
 
-- [ ] Implement graceful degradation in ConversationManager:
+- [x] Implement graceful degradation in ConversationManager:
   - Continue conversation even if some agents fail
   - Emit system message when agent fails: "Claude is currently unavailable"
   - Track failed agents and retry on next user message
   - Option to pause conversation if all agents fail
   - Resume with available agents when possible
+
+  **Completed**: Implemented comprehensive graceful degradation in ConversationManager with:
+  - `GracefulDegradationConfig` struct with configurable options:
+    - `Enabled` (default: true) - Enable/disable graceful degradation
+    - `PauseOnAllFailed` (default: true) - Pause conversation when all agents fail
+    - `RetryFailedOnNextMessage` (default: true) - Retry failed agents on next user message
+    - `EmitSystemMessages` (default: true) - Emit user-friendly system messages for failures
+  - `DefaultGracefulDegradationConfig()` factory with sensible defaults
+  - `FailedAgentInfo` struct for tracking failed agents:
+    - AgentID, AgentName, LastError, FailedAt timestamp, RetryCount
+  - Sentinel errors for graceful error handling:
+    - `ErrAllAgentsFailed` - Returned when all agents fail to respond
+    - `ErrConversationPaused` - Returned when conversation is paused
+  - `SendUserMessage()` updated with degradation logic:
+    - Returns `ErrConversationPaused` if paused (user must call Resume first)
+    - Clears failed agents before retrying (if RetryFailedOnNextMessage enabled)
+    - Continues processing even when some agents fail
+    - Pauses conversation when all agents fail (if PauseOnAllFailed enabled)
+  - `processResponsesWithDegradation()` method:
+    - Counts successful vs failed responses
+    - Tracks failed agents with `trackFailedAgent()`
+    - Clears successful agents from failed list with `clearFailedAgent()`
+    - Emits system messages for failed agents via `createUnavailableSystemMessage()`
+    - Uses `core.ErrorTypeFromError()` for user-friendly error classification
+  - New public methods:
+    - `GetFailedAgents()` - Returns map of currently failed agents
+    - `IsPaused()` - Check if conversation is paused
+    - `ResumeConversation(clearFailed bool)` - Resume paused conversation
+    - `ResetCircuitBreakers()` - Reset all circuit breakers via pool
+    - `GetAvailableAgentCount()` - Get count of available agents
+  - 17 comprehensive tests covering all functionality:
+    - TestDefaultGracefulDegradationConfig, TestGracefulDegradation_ContinuesWithSomeAgentsFailing
+    - TestGracefulDegradation_TracksFailedAgents, TestGracefulDegradation_IsPausedAndResume
+    - TestGracefulDegradation_SendMessageWhenPaused, TestGracefulDegradation_ResetCircuitBreakers
+    - TestGracefulDegradation_SystemMessageFormat, TestGracefulDegradation_FailedAgentRetryTracking
+    - TestGracefulDegradation_DisabledEmitsNoSystemMessages, TestGracefulDegradation_DisabledPauseOnAllFailed
+    - TestGracefulDegradation_ConfigDefaults, TestGracefulDegradation_FailedAgentInfoFields
+    - TestGracefulDegradation_MultipleAgentsPartialFailure
+    - TestErrAllAgentsFailed_ErrorMessage, TestErrConversationPaused_ErrorMessage
+  - All 32 manager package tests pass (100%) with race detection enabled
 
 - [ ] Implement timeout handling:
   - Per-agent timeout in config (default: 30s)

@@ -455,3 +455,413 @@ func TestMockAdapterIsRegistered(t *testing.T) {
 		t.Fatal("mock adapter should be registered")
 	}
 }
+
+// ============================================
+// Graceful Degradation Tests
+// ============================================
+
+func TestDefaultGracefulDegradationConfig(t *testing.T) {
+	config := DefaultGracefulDegradationConfig()
+
+	if !config.Enabled {
+		t.Error("expected Enabled to be true by default")
+	}
+	if !config.PauseOnAllFailed {
+		t.Error("expected PauseOnAllFailed to be true by default")
+	}
+	if !config.RetryFailedOnNextMessage {
+		t.Error("expected RetryFailedOnNextMessage to be true by default")
+	}
+	if !config.EmitSystemMessages {
+		t.Error("expected EmitSystemMessages to be true by default")
+	}
+}
+
+func TestGracefulDegradation_ContinuesWithSomeAgentsFailing(t *testing.T) {
+	// Create a custom registry for this test to control adapter behavior
+	agents := []core.Agent{
+		core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock"),
+		core.NewAgent("agent-2", "mock", "Agent 2", "model", "mock"),
+	}
+
+	bus := events.NewBus()
+	defer bus.Close()
+
+	// Track error events
+	var agentErrors []string
+	var mu sync.Mutex
+	bus.Subscribe(core.EventAgentError, func(event core.Event) {
+		mu.Lock()
+		if data, ok := event.Data.(core.AgentErrorData); ok {
+			agentErrors = append(agentErrors, data.AgentName)
+		}
+		mu.Unlock()
+	})
+
+	manager, err := NewConversationManager(DefaultConfig(), agents, bus)
+	if err != nil {
+		t.Fatalf("NewConversationManager returned error: %v", err)
+	}
+	defer manager.Close()
+
+	ctx := context.Background()
+	agentMessages, err := manager.SendUserMessage(ctx, "Hello")
+
+	// Both agents should respond (mock adapter doesn't fail by default)
+	if err != nil {
+		t.Fatalf("SendUserMessage returned error: %v", err)
+	}
+	if len(agentMessages) != 2 {
+		t.Errorf("expected 2 messages, got %d", len(agentMessages))
+	}
+}
+
+func TestGracefulDegradation_TracksFailedAgents(t *testing.T) {
+	agents := []core.Agent{
+		core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock"),
+	}
+
+	config := DefaultConfig()
+	manager, err := NewConversationManager(config, agents, nil)
+	if err != nil {
+		t.Fatalf("NewConversationManager returned error: %v", err)
+	}
+	defer manager.Close()
+
+	// Initially no failed agents
+	failed := manager.GetFailedAgents()
+	if len(failed) != 0 {
+		t.Errorf("expected 0 failed agents initially, got %d", len(failed))
+	}
+
+	// Verify IsPaused is false initially
+	if manager.IsPaused() {
+		t.Error("expected conversation to not be paused initially")
+	}
+}
+
+func TestGracefulDegradation_IsPausedAndResume(t *testing.T) {
+	agents := []core.Agent{
+		core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock"),
+	}
+
+	manager, err := NewConversationManager(DefaultConfig(), agents, nil)
+	if err != nil {
+		t.Fatalf("NewConversationManager returned error: %v", err)
+	}
+	defer manager.Close()
+
+	if manager.IsPaused() {
+		t.Error("expected conversation to not be paused initially")
+	}
+
+	// Simulate pausing (normally happens when all agents fail)
+	manager.mu.Lock()
+	manager.paused = true
+	manager.failedAgents["agent-1"] = &FailedAgentInfo{
+		AgentID:   "agent-1",
+		AgentName: "Agent 1",
+		LastError: "test error",
+		FailedAt:  time.Now(),
+	}
+	manager.mu.Unlock()
+
+	if !manager.IsPaused() {
+		t.Error("expected conversation to be paused")
+	}
+
+	// Test ResumeConversation without clearing failed
+	manager.ResumeConversation(false)
+	if manager.IsPaused() {
+		t.Error("expected conversation to be resumed")
+	}
+
+	failed := manager.GetFailedAgents()
+	if len(failed) != 1 {
+		t.Errorf("expected 1 failed agent (not cleared), got %d", len(failed))
+	}
+
+	// Pause again and resume with clearing
+	manager.mu.Lock()
+	manager.paused = true
+	manager.mu.Unlock()
+
+	manager.ResumeConversation(true)
+	if manager.IsPaused() {
+		t.Error("expected conversation to be resumed")
+	}
+
+	failed = manager.GetFailedAgents()
+	if len(failed) != 0 {
+		t.Errorf("expected 0 failed agents (cleared), got %d", len(failed))
+	}
+}
+
+func TestGracefulDegradation_SendMessageWhenPaused(t *testing.T) {
+	agents := []core.Agent{
+		core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock"),
+	}
+
+	manager, err := NewConversationManager(DefaultConfig(), agents, nil)
+	if err != nil {
+		t.Fatalf("NewConversationManager returned error: %v", err)
+	}
+	defer manager.Close()
+
+	// Pause the conversation
+	manager.mu.Lock()
+	manager.paused = true
+	manager.mu.Unlock()
+
+	// Try to send a message while paused
+	ctx := context.Background()
+	_, err = manager.SendUserMessage(ctx, "Hello")
+
+	if err != ErrConversationPaused {
+		t.Errorf("expected ErrConversationPaused, got %v", err)
+	}
+}
+
+func TestGracefulDegradation_ResetCircuitBreakers(t *testing.T) {
+	agents := []core.Agent{
+		core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock"),
+	}
+
+	manager, err := NewConversationManager(DefaultConfig(), agents, nil)
+	if err != nil {
+		t.Fatalf("NewConversationManager returned error: %v", err)
+	}
+	defer manager.Close()
+
+	// Should not panic
+	manager.ResetCircuitBreakers()
+
+	// Verify available count
+	count := manager.GetAvailableAgentCount()
+	if count != 1 {
+		t.Errorf("expected 1 available agent, got %d", count)
+	}
+}
+
+func TestGracefulDegradation_SystemMessageFormat(t *testing.T) {
+	agents := []core.Agent{
+		core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock"),
+	}
+
+	manager, err := NewConversationManager(DefaultConfig(), agents, nil)
+	if err != nil {
+		t.Fatalf("NewConversationManager returned error: %v", err)
+	}
+	defer manager.Close()
+
+	// Test different error types
+	testCases := []struct {
+		errorMsg      string
+		expectedPart  string
+	}{
+		{"connection timeout", "request timed out"},
+		{"rate limit exceeded", "rate limit exceeded"},
+		{"connection refused", "connection error"},
+		{"authentication failed", "authentication error"},
+		{"unknown error", "currently unavailable"},
+	}
+
+	for _, tc := range testCases {
+		msg := manager.createUnavailableSystemMessage("TestAgent", tc.errorMsg)
+		if msg.Role != core.RoleSystem {
+			t.Errorf("expected RoleSystem, got %s", msg.Role)
+		}
+		if msg.Content == "" {
+			t.Error("expected non-empty content")
+		}
+		// Content should mention the agent name
+		if !containsString(msg.Content, "TestAgent") {
+			t.Errorf("expected content to contain agent name, got %q", msg.Content)
+		}
+	}
+}
+
+func TestGracefulDegradation_FailedAgentRetryTracking(t *testing.T) {
+	agents := []core.Agent{
+		core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock"),
+	}
+
+	manager, err := NewConversationManager(DefaultConfig(), agents, nil)
+	if err != nil {
+		t.Fatalf("NewConversationManager returned error: %v", err)
+	}
+	defer manager.Close()
+
+	// Track first failure
+	manager.trackFailedAgent("agent-1", "Agent 1", "error 1")
+
+	failed := manager.GetFailedAgents()
+	if len(failed) != 1 {
+		t.Fatalf("expected 1 failed agent, got %d", len(failed))
+	}
+	if failed[0].RetryCount != 1 {
+		t.Errorf("expected retry count 1, got %d", failed[0].RetryCount)
+	}
+
+	// Track second failure (should increment)
+	manager.trackFailedAgent("agent-1", "Agent 1", "error 2")
+
+	failed = manager.GetFailedAgents()
+	if len(failed) != 1 {
+		t.Fatalf("expected 1 failed agent, got %d", len(failed))
+	}
+	if failed[0].RetryCount != 2 {
+		t.Errorf("expected retry count 2, got %d", failed[0].RetryCount)
+	}
+	if failed[0].LastError != "error 2" {
+		t.Errorf("expected last error 'error 2', got %q", failed[0].LastError)
+	}
+
+	// Clear the failure
+	manager.clearFailedAgent("agent-1")
+
+	failed = manager.GetFailedAgents()
+	if len(failed) != 0 {
+		t.Errorf("expected 0 failed agents after clear, got %d", len(failed))
+	}
+}
+
+func TestGracefulDegradation_DisabledEmitsNoSystemMessages(t *testing.T) {
+	agents := []core.Agent{
+		core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock"),
+	}
+
+	config := DefaultConfig()
+	config.GracefulDegradation.EmitSystemMessages = false
+
+	manager, err := NewConversationManager(config, agents, nil)
+	if err != nil {
+		t.Fatalf("NewConversationManager returned error: %v", err)
+	}
+	defer manager.Close()
+
+	// Verify config is applied
+	if manager.config.GracefulDegradation.EmitSystemMessages {
+		t.Error("expected EmitSystemMessages to be false")
+	}
+}
+
+func TestGracefulDegradation_DisabledPauseOnAllFailed(t *testing.T) {
+	agents := []core.Agent{
+		core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock"),
+	}
+
+	config := DefaultConfig()
+	config.GracefulDegradation.PauseOnAllFailed = false
+
+	manager, err := NewConversationManager(config, agents, nil)
+	if err != nil {
+		t.Fatalf("NewConversationManager returned error: %v", err)
+	}
+	defer manager.Close()
+
+	// Verify config is applied
+	if manager.config.GracefulDegradation.PauseOnAllFailed {
+		t.Error("expected PauseOnAllFailed to be false")
+	}
+}
+
+func TestGracefulDegradation_ConfigDefaults(t *testing.T) {
+	config := DefaultConfig()
+
+	// Verify graceful degradation is included in default config
+	if !config.GracefulDegradation.Enabled {
+		t.Error("expected GracefulDegradation.Enabled to be true in DefaultConfig")
+	}
+	if !config.GracefulDegradation.PauseOnAllFailed {
+		t.Error("expected GracefulDegradation.PauseOnAllFailed to be true in DefaultConfig")
+	}
+	if !config.GracefulDegradation.RetryFailedOnNextMessage {
+		t.Error("expected GracefulDegradation.RetryFailedOnNextMessage to be true in DefaultConfig")
+	}
+	if !config.GracefulDegradation.EmitSystemMessages {
+		t.Error("expected GracefulDegradation.EmitSystemMessages to be true in DefaultConfig")
+	}
+}
+
+func TestGracefulDegradation_FailedAgentInfoFields(t *testing.T) {
+	info := FailedAgentInfo{
+		AgentID:    "test-id",
+		AgentName:  "Test Agent",
+		LastError:  "test error",
+		FailedAt:   time.Now(),
+		RetryCount: 3,
+	}
+
+	if info.AgentID != "test-id" {
+		t.Errorf("expected AgentID 'test-id', got %q", info.AgentID)
+	}
+	if info.AgentName != "Test Agent" {
+		t.Errorf("expected AgentName 'Test Agent', got %q", info.AgentName)
+	}
+	if info.LastError != "test error" {
+		t.Errorf("expected LastError 'test error', got %q", info.LastError)
+	}
+	if info.RetryCount != 3 {
+		t.Errorf("expected RetryCount 3, got %d", info.RetryCount)
+	}
+}
+
+func TestGracefulDegradation_MultipleAgentsPartialFailure(t *testing.T) {
+	agents := []core.Agent{
+		core.NewAgent("agent-1", "mock", "Agent 1", "model", "mock"),
+		core.NewAgent("agent-2", "mock", "Agent 2", "model", "mock"),
+		core.NewAgent("agent-3", "mock", "Agent 3", "model", "mock"),
+	}
+
+	manager, err := NewConversationManager(DefaultConfig(), agents, nil)
+	if err != nil {
+		t.Fatalf("NewConversationManager returned error: %v", err)
+	}
+	defer manager.Close()
+
+	// Send message - all should succeed with mock adapter
+	ctx := context.Background()
+	agentMessages, err := manager.SendUserMessage(ctx, "Hello all")
+	if err != nil {
+		t.Fatalf("SendUserMessage returned error: %v", err)
+	}
+
+	// All 3 agents should respond
+	if len(agentMessages) != 3 {
+		t.Errorf("expected 3 agent messages, got %d", len(agentMessages))
+	}
+
+	// Conversation should not be paused
+	if manager.IsPaused() {
+		t.Error("expected conversation to not be paused")
+	}
+}
+
+func TestErrAllAgentsFailed_ErrorMessage(t *testing.T) {
+	expected := "all agents failed to respond"
+	if ErrAllAgentsFailed.Error() != expected {
+		t.Errorf("expected error message %q, got %q", expected, ErrAllAgentsFailed.Error())
+	}
+}
+
+func TestErrConversationPaused_ErrorMessage(t *testing.T) {
+	expected := "conversation is paused due to all agents failing"
+	if ErrConversationPaused.Error() != expected {
+		t.Errorf("expected error message %q, got %q", expected, ErrConversationPaused.Error())
+	}
+}
+
+// Helper function to check if a string contains a substring
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
