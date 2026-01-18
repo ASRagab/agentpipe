@@ -237,7 +237,8 @@ golangci-lint run --timeout=5m
   - **Fixed**: Modified `handleEvent()` in `pkg/tui/tui.go` to skip adding agent messages via `EventMessageCreated` since they are already added via `EventAgentDone -> CompleteStreaming()`. This prevents duplicate message display.
 - [x] Agent responds - appears exactly once
   - **Fixed**: Same fix as above. Agent messages are now only added once via the `EventAgentDone` handler which calls `CompleteStreaming()`.
-- [ ] Version shows "dev" not "vdev"
+- [x] Version shows "dev" not "vdev"
+  - **Fixed**: Modified line 568-572 in `pkg/tui/tui.go` to check if version is "dev" or already starts with "v" before prepending the "v" prefix. Now displays "dev" correctly instead of "vdev".
 - [ ] Full logo visible (all 6 lines)
 - [ ] No INF log messages visible in TUI
 - [ ] Single status bar (not two)

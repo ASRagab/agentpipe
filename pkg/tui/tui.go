@@ -565,7 +565,11 @@ func (m Model) View() string {
 	}
 
 	// Version below logo (1 line), centered
-	versionStr := fmt.Sprintf("v%s", version.GetShortVersion())
+	// Don't add 'v' prefix if version is 'dev' or already starts with 'v'
+	versionStr := version.GetShortVersion()
+	if versionStr != "dev" && !strings.HasPrefix(versionStr, "v") {
+		versionStr = "v" + versionStr
+	}
 	versionStyle := lipgloss.NewStyle().
 		Width(m.width).
 		Align(lipgloss.Center).
