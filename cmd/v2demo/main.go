@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/kevinelliott/agentpipe/pkg/v2/core"
 	"github.com/kevinelliott/agentpipe/pkg/v2/events"
 	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
+	"github.com/kevinelliott/agentpipe/pkg/v2/persistence"
 
 	// Import adapters to register them
 	_ "github.com/kevinelliott/agentpipe/pkg/v2/adapters/api"
@@ -28,11 +30,24 @@ func main() {
 	configPath := flag.String("config", "examples/v2/demo-config.yaml", "Path to configuration file")
 	message := flag.String("message", "Explain async/await in JavaScript in one sentence.", "Message to send to agents")
 	debug := flag.Bool("debug", false, "Enable debug logging")
+
+	// Persistence flags
+	save := flag.Bool("save", false, "Save conversation after completion")
+	resume := flag.String("resume", "", "Resume from conversation ID, file path, or 'latest'")
+	export := flag.String("export", "", "Export completed conversation to Markdown file")
+	listSaved := flag.Bool("list", false, "List saved conversations and exit")
+
 	flag.Parse()
 
 	// Configure logging
 	if *debug {
 		log.SetGlobalLevel(log.ParseLevel("debug"))
+	}
+
+	// Handle list command
+	if *listSaved {
+		listConversations()
+		return
 	}
 
 	// Load configuration
@@ -64,21 +79,33 @@ func main() {
 		displayEvent(event)
 	})
 
-	// Create conversation manager
+	// Create conversation manager with persistence enabled if saving
 	timeout, saveDir := cfg.GetManagerConfig()
-	mgr, err := manager.NewConversationManager(
-		manager.Config{
-			Timeout: timeout,
-			SaveDir: saveDir,
+	mgrConfig := manager.Config{
+		Timeout: timeout,
+		SaveDir: saveDir,
+		Persistence: manager.PersistenceConfig{
+			Enabled: *save,
+			SaveDir: persistence.DefaultSaveDir(),
 		},
-		agents,
-		eventBus,
-	)
+	}
+
+	mgr, err := manager.NewConversationManager(mgrConfig, agents, eventBus)
 	if err != nil {
 		fmt.Printf("❌ Failed to create conversation manager: %v\n", err)
 		os.Exit(1)
 	}
 	defer mgr.Close()
+
+	// Handle resume if specified
+	if *resume != "" {
+		fmt.Printf("📂 Resuming conversation: %s\n", *resume)
+		if err := mgr.Resume(*resume); err != nil {
+			fmt.Printf("❌ Failed to resume conversation: %v\n", err)
+			os.Exit(1)
+		}
+		printResumedSummary(mgr)
+	}
 
 	// Setup signal handling
 	ctx, cancel := context.WithCancel(context.Background())
@@ -137,6 +164,27 @@ func main() {
 	fmt.Printf("   • Total Duration: %v\n", totalDuration.Round(time.Millisecond))
 	fmt.Printf("   • Parallel Speedup: Executed %d agents in %v\n", len(agents), totalDuration.Round(time.Millisecond))
 
+	// Save conversation if requested
+	if *save {
+		fmt.Println("\n💾 Saving conversation...")
+		filePath, err := mgr.Save()
+		if err != nil {
+			fmt.Printf("❌ Failed to save conversation: %v\n", err)
+		} else {
+			fmt.Printf("✅ Conversation saved to: %s\n", filePath)
+		}
+	}
+
+	// Export to Markdown if requested
+	if *export != "" {
+		fmt.Println("\n📝 Exporting to Markdown...")
+		if err := mgr.ExportToMarkdown(*export); err != nil {
+			fmt.Printf("❌ Failed to export conversation: %v\n", err)
+		} else {
+			fmt.Printf("✅ Conversation exported to: %s\n", *export)
+		}
+	}
+
 	fmt.Println("\n✅ Demo complete!")
 }
 
@@ -166,5 +214,82 @@ func displayEvent(event core.Event) {
 			fmt.Printf("[%s] 🏁 Conversation completed: %d messages, %d tokens\n",
 				timestamp, data.Summary.MessageCount, data.Summary.TotalTokens)
 		}
+	case core.EventConversationSaved:
+		if data, ok := event.Data.(core.ConversationSavedData); ok {
+			fmt.Printf("[%s] 💾 Conversation saved: %s\n", timestamp, filepath.Base(data.FilePath))
+		}
 	}
+}
+
+// listConversations lists all saved conversations.
+func listConversations() {
+	fmt.Println("📂 Saved Conversations:")
+	fmt.Println(strings.Repeat("─", 60))
+
+	metadata, err := persistence.ListConversations("")
+	if err != nil {
+		fmt.Printf("❌ Failed to list conversations: %v\n", err)
+		return
+	}
+
+	if len(metadata) == 0 {
+		fmt.Println("   No saved conversations found.")
+		return
+	}
+
+	for _, m := range metadata {
+		fmt.Printf("\n   📝 %s\n", m.ID[:8])
+		fmt.Printf("      Started: %s\n", m.Started.Format(time.RFC3339))
+		fmt.Printf("      Messages: %d | Agents: %d\n", m.MessageCount, m.AgentCount)
+		fmt.Printf("      Participants: %s\n", strings.Join(m.AgentNames, ", "))
+		fmt.Printf("      Status: %s\n", m.Status)
+		fmt.Printf("      File: %s\n", filepath.Base(m.FilePath))
+	}
+
+	fmt.Println()
+	fmt.Println(strings.Repeat("─", 60))
+	fmt.Printf("Total: %d conversations\n", len(metadata))
+}
+
+// printResumedSummary prints a summary of the resumed conversation.
+func printResumedSummary(mgr *manager.ConversationManager) {
+	fmt.Println("\n📋 Resumed Conversation Summary:")
+	fmt.Println(strings.Repeat("─", 60))
+
+	conv := mgr.GetConversation()
+	fmt.Printf("   ID: %s\n", conv.ID)
+	fmt.Printf("   Started: %s\n", conv.Started.Format(time.RFC3339))
+	fmt.Printf("   Messages: %d\n", len(conv.Messages))
+	fmt.Printf("   Agents: %d\n", len(conv.Agents))
+
+	// Show agent names
+	var agentNames []string
+	for _, agent := range conv.Agents {
+		agentNames = append(agentNames, agent.Name)
+	}
+	fmt.Printf("   Participants: %s\n", strings.Join(agentNames, ", "))
+
+	// Show last few messages
+	fmt.Println("\n   Recent Messages:")
+	messages := conv.Messages
+	start := 0
+	if len(messages) > 3 {
+		start = len(messages) - 3
+	}
+	for i := start; i < len(messages); i++ {
+		msg := messages[i]
+		content := msg.Content
+		if len(content) > 50 {
+			content = content[:50] + "..."
+		}
+		switch msg.Role {
+		case core.RoleUser:
+			fmt.Printf("      👤 User: %s\n", content)
+		case core.RoleAgent:
+			fmt.Printf("      🤖 %s: %s\n", msg.AgentName, content)
+		case core.RoleSystem:
+			fmt.Printf("      ⚙️  System: %s\n", content)
+		}
+	}
+	fmt.Println(strings.Repeat("─", 60))
 }

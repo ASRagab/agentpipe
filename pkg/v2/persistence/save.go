@@ -12,73 +12,72 @@ import (
 	"github.com/kevinelliott/agentpipe/pkg/v2/core"
 )
 
+// DefaultSaveDir returns the default directory for saving conversations.
+func DefaultSaveDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".agentpipe/v2/conversations"
+	}
+	return filepath.Join(home, ".agentpipe", "v2", "conversations")
+}
+
 // SaveConversation saves a conversation to a JSON file.
+// Returns the path to the saved file.
 func SaveConversation(conversation *core.Conversation, saveDir string) (string, error) {
+	if conversation == nil {
+		return "", fmt.Errorf("conversation cannot be nil")
+	}
+
+	// Use default directory if not specified
+	if saveDir == "" {
+		saveDir = DefaultSaveDir()
+	}
+
 	// Ensure directory exists
 	if err := os.MkdirAll(saveDir, 0750); err != nil {
 		return "", fmt.Errorf("failed to create save directory: %w", err)
 	}
 
-	// Generate filename
+	// Generate filename: {id_first8}_{timestamp}.json
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	filename := fmt.Sprintf("conversation_%s_%s.json", conversation.ID[:8], timestamp)
-	filepath := filepath.Join(saveDir, filename)
+	idPrefix := conversation.ID
+	if len(idPrefix) > 8 {
+		idPrefix = idPrefix[:8]
+	}
+	filename := fmt.Sprintf("conversation_%s_%s.json", idPrefix, timestamp)
+	savePath := filepath.Join(saveDir, filename)
 
-	// Marshal conversation
+	// Marshal conversation with indentation for readability
 	data, err := json.MarshalIndent(conversation, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal conversation: %w", err)
 	}
 
-	// Write file
-	if err := os.WriteFile(filepath, data, 0600); err != nil {
+	// Write file with secure permissions (owner read/write only)
+	if err := os.WriteFile(savePath, data, 0600); err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
 	log.WithFields(map[string]interface{}{
 		"conversation_id": conversation.ID,
-		"file_path":       filepath,
+		"file_path":       savePath,
+		"message_count":   len(conversation.Messages),
 	}).Info("conversation saved")
 
-	return filepath, nil
+	return savePath, nil
 }
 
-// LoadConversation loads a conversation from a JSON file.
-func LoadConversation(filepath string) (*core.Conversation, error) {
-	data, err := os.ReadFile(filepath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
+// ValidateConversation checks that a conversation has the required fields.
+func ValidateConversation(conversation *core.Conversation) error {
+	if conversation == nil {
+		return fmt.Errorf("conversation is nil")
 	}
-
-	var conversation core.Conversation
-	if err := json.Unmarshal(data, &conversation); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal conversation: %w", err)
+	if conversation.ID == "" {
+		return fmt.Errorf("conversation ID is required")
 	}
-
-	log.WithFields(map[string]interface{}{
-		"conversation_id": conversation.ID,
-		"file_path":       filepath,
-	}).Info("conversation loaded")
-
-	return &conversation, nil
-}
-
-// ListConversations lists all saved conversations in a directory.
-func ListConversations(saveDir string) ([]string, error) {
-	entries, err := os.ReadDir(saveDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []string{}, nil
-		}
-		return nil, fmt.Errorf("failed to read directory: %w", err)
+	if conversation.Started.IsZero() {
+		return fmt.Errorf("conversation Started time is required")
 	}
-
-	var files []string
-	for _, entry := range entries {
-		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".json" {
-			files = append(files, filepath.Join(saveDir, entry.Name()))
-		}
-	}
-
-	return files, nil
+	// Messages can be empty for a new conversation
+	return nil
 }
