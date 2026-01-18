@@ -1,192 +1,191 @@
-// Package orchestrator implements the multi-agent collaboration workflow.
-// This sketch is based on the design defined in:
-// agentpipe-artifacts/Architect/architecture-design.md
-package orchestrator
+package main
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+)
 
-// ---
-// Core Types (from "Agent Roles" and "Artifact Management" sections)
-// ---
-
-// Agent represents a participant in the collaboration.
-// Corresponds to the 'agents' section in the AgentPipe configuration.
-type Agent struct {
-	Name string
-	Role string
-	Type string // e.g., "gemini-2-5-pro", determines which LLM client to use
+// [Ref: architecture-design.md:AgentInterface]
+// Agent defines the interface for any collaborative agent.
+// It must be able to receive a task, context, and produce a result.
+type Agent interface {
+	// ExecuteTask performs the agent's primary function.
+	// It receives the current conversation state and a set of artifacts
+	// and is expected to return new artifacts or an error.
+	ExecuteTask(ctx context.Context, conv *Conversation, inputArtifacts []*Artifact) ([]*Artifact, error)
+	Role() string // e.g., "architect", "coder", "reviewer"
 }
 
-// Artifact represents a file created or modified by an agent.
-// Its structure supports the 'Artifact Management' and 'Naming Convention' rules.
+// [Ref: architecture-design.md:ArtifactMetadata]
+// Artifact represents a piece of generated content by an agent.
+// It includes metadata about its origin and content.
 type Artifact struct {
-	Path    string // e.g., "docs/design/feature-name-architecture.md"
-	Content []byte
-	Owner   *Agent // The agent that created/modified it
+	// [Ref: architecture-design.md:ArtifactPaths]
+	Path        string            // Relative path within the artifact storage
+	Content     []byte            // The raw content of the artifact
+	AgentRole   string            // Role of the agent that created this artifact
+	Timestamp   time.Time         // Time of creation
+	Metadata    map[string]string // Additional metadata, e.g., version, dependencies
+	IsTemporary bool              // Flag for intermediate artifacts needing cleanup
 }
 
-// ConversationState tracks the entire interaction history and all created artifacts.
-type ConversationState struct {
-	History   []Message
-	Artifacts map[string]*Artifact // A map of artifact paths to their content
+// [Ref: architecture-design.md:ConversationLog]
+// [Ref: architecture-design.md:ConversationHistory]
+// Conversation tracks the sequence of turns and created artifacts.
+// This provides the necessary context for agents to perform their tasks.
+type Conversation struct {
+	ID           string
+	Turns        []*Turn
+	Artifacts    []*Artifact // All artifacts produced during the conversation
+	InitialPrompt string
+	mu           sync.RWMutex
 }
 
-// Message is a single turn in the conversation.
-type Message struct {
-	Author *Agent
-	Text   string
+// Turn represents a single agent's execution within the conversation.
+type Turn struct {
+	AgentRole      string
+	InputArtifacts []*Artifact
+	Output         string // The textual output from the LLM
+	ResultingArtifacts []*Artifact
+	Error          error
 }
 
-// ---
-// Orchestrator (from "Orchestration Flow" and "Conversation Modes")
-// ---
+// [Ref: architecture-design.md:ArtifactStorage]
+// ArtifactStore manages the persistence of artifacts.
+// It ensures safe, concurrent access and handles path construction.
+type ArtifactStore struct {
+	basePath string
+	mu       sync.Mutex // [Ref: architecture-design.md:ConcurrencyModel] - Simple mutex for write safety
+}
 
-// Orchestrator manages the agent workflow according to the defined mode.
+func NewArtifactStore(basePath string) (*ArtifactStore, error) {
+	// TODO: Ensure basePath exists and is writable.
+	return &ArtifactStore{basePath: basePath}, nil
+}
+
+// [Ref: architecture-design.md:ArtifactPaths]
+// Save securely writes an artifact to the configured storage path.
+func (s *ArtifactStore) Save(artifact *Artifact) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Prevent path traversal attacks.
+	// TODO: Implement robust path sanitization.
+	safePath := filepath.Join(s.basePath, artifact.AgentRole, artifact.Path)
+
+	// TODO: Ensure directory exists.
+	// os.MkdirAll(filepath.Dir(safePath), 0755)
+
+	// TODO: Write file content.
+	// os.WriteFile(safePath, artifact.Content, 0644)
+
+	fmt.Printf("SKETCH: Saving artifact to %s\n", safePath)
+	return nil // Placeholder
+}
+
+// [Ref: architecture-design.md:AgentLifecycle]
+// Orchestrator manages the overall workflow of the multi-agent collaboration.
 type Orchestrator struct {
-	Agents   []*Agent
-	Mode     string // "sequential", "reactive", "free-form"
-	State    *ConversationState
-	MaxTurns int
+	Agents          []Agent         // The pool of available agents
+	Conversation    *Conversation   // The state of the ongoing conversation
+	ArtifactStore   *ArtifactStore  // The storage backend for artifacts
+	MaxTurns        int             // Maximum number of turns to prevent infinite loops
+	// [Ref: architecture-design.md:TaskScheduling]
+	TaskExecutionPlan []string        // Defines the order of agent execution, e.g., ["architect", "coder", "reviewer"]
 }
 
-// NewOrchestrator loads configuration and initializes the system.
-func NewOrchestrator(configPath string) (*Orchestrator, error) {
-	// 1. Load and parse the YAML configuration (e.g., agentpipe.yaml).
-	//    - config.mode
-	//    - config.agents
-	//    - config.max-turns
+// NewOrchestrator sets up the orchestrator with its components.
+func NewOrchestrator(agents []Agent, plan []string, prompt string) *Orchestrator {
+	// [Ref: architecture-design.md:ArtifactRetention]
+	// TODO: base dir should be configurable and have a cleanup policy.
+	store, _ := NewArtifactStore("./artifacts/run_xyz")
 
-	// 2. Initialize Agent structs based on the loaded configuration.
-	//    agents := make([]*Agent, ...)
-
-	// 3. Initialize the starting conversation state.
-	//    state := &ConversationState{ Artifacts: make(map[string]*Artifact) }
-
-	fmt.Println("Orchestrator initialized based on config.")
-	// return &Orchestrator{...}, nil
-	return nil, nil // Placeholder
-}
-
-// Run starts the main orchestration loop.
-func (o *Orchestrator) Run(initialPrompt string) error {
-	// This loop implements the logic from the "Orchestration Flow" diagram.
-	fmt.Printf("Starting orchestration in '%s' mode.\n", o.Mode)
-
-	// Phase 1: Requirements Analysis (Architect-led).
-	// The first turn is always handled by the first agent in the sequence (Architect).
-	currentAgent := o.getAgentByTurn(0)
-	prompt := o.buildPromptFor(currentAgent, initialPrompt)
-
-	// Execute the first turn.
-	response, newArtifacts, err := o.executeTurn(currentAgent, prompt)
-	if err != nil {
-		return err
+	return &Orchestrator{
+		Agents:          agents,
+		ArtifactStore:   store,
+		TaskExecutionPlan: plan,
+		Conversation: &Conversation{
+			ID: "conv-123",
+			InitialPrompt: prompt,
+		},
+		MaxTurns: 9, // 3 agents, 3 cycles max
 	}
-	o.updateState(currentAgent, response, newArtifacts)
+}
 
-	// --- Main Loop: Phases 2-6 ---
-	for turn := 1; turn < o.MaxTurns; turn++ {
-		// Determine the next agent based on the conversation mode.
-		currentAgent = o.getAgentByTurn(turn)
-		prompt = o.buildPromptFor(currentAgent, "") // Subsequent prompts are derived from history.
+// [Ref: architecture-design.md:TaskDependencies]
+// [Ref: architecture-design.md:AgentRouting]
+// Run executes the multi-agent workflow based on the defined plan.
+func (o *Orchestrator) Run(ctx context.Context) error {
+	fmt.Println("Orchestrator starting...")
 
-		// Execute the agent's turn.
-		response, newArtifacts, err := o.executeTurn(currentAgent, prompt)
+	for i := 0; i < o.MaxTurns; i++ {
+		agentRole := o.TaskExecutionPlan[i%len(o.TaskExecutionPlan)]
+		agent := o.findAgentByRole(agentRole)
+		if agent == nil {
+			return fmt.Errorf("agent with role '%s' not found", agentRole)
+		}
+
+		fmt.Printf("\n--- Turn %d: Executing Agent: %s ---\n", i+1, agent.Role())
+
+		// [Ref: architecture-design.md:LLMIntegration]
+		// The agent's ExecuteTask method would contain the (mocked or real) LLM call.
+		// It uses the conversation history as context.
+		
+		// [Ref: architecture-design.md:ErrorHandling]
+		// Errors from agents are propagated up to the orchestrator.
+		newArtifacts, err := agent.ExecuteTask(ctx, o.Conversation, o.Conversation.Artifacts)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "Agent %s failed: %v\n", agent.Role(), err)
+			// TODO: Add more sophisticated error handling (e.g., retry, pivot).
 			return err
 		}
-		o.updateState(currentAgent, response, newArtifacts)
 
-		// Check against "Success Criteria" to see if the loop can terminate.
-		if o.isFeatureComplete() {
-			fmt.Println("Feature is complete. Ending orchestration.")
-			break
+		// Save and record the new artifacts
+		for _, art := range newArtifacts {
+			o.ArtifactStore.Save(art)
+			o.Conversation.Artifacts = append(o.Conversation.Artifacts, art)
 		}
-	}
 
+		// [Ref: architecture-design.md:ConversationHistory]
+		// Record the turn in the durable conversation log.
+		// TODO: This should be persisted to disk to support replayability.
+		o.Conversation.Turns = append(o.Conversation.Turns, &Turn{
+			AgentRole: agent.Role(),
+			// ... other turn data
+		})
+	}
+	
+	fmt.Println("\nOrchestration complete.")
 	return nil
 }
 
-// ---
-// Helper Functions (Implementation Details)
-// ---
-
-// executeTurn simulates invoking an agent and parsing its output.
-func (o *Orchestrator) executeTurn(agent *Agent, prompt string) (string, []*Artifact, error) {
-	// 1. Get the appropriate LLM client for the agent's type (e.g., Gemini, GPT).
-	//    client := client.Factory(agent.Type)
-
-	// 2. Send the prompt to the LLM API, including conversation history and artifacts.
-	//    llmResponse, err := client.Generate(prompt, o.State)
-	fmt.Printf("Executing turn for '%s'...\n", agent.Name)
-
-	// 3. Parse the LLM response to separate text from artifacts.
-	//    - The parser would look for fenced code blocks with filenames, as per instructions.
-	//    responseText, artifacts := artifact.Parse(llmResponse)
-	//    fmt.Printf("Agent %s created %d artifacts.\n", agent.Name, len(artifacts))
-
-	return "...", nil, nil // Placeholders
-}
-
-// getAgentByTurn determines the next actor based on the "Conversation Modes" logic.
-func (o *Orchestrator) getAgentByTurn(currentTurn int) *Agent {
-	switch o.Mode {
-	case "sequential":
-		// Architect -> Coder -> Reviewer -> Architect ...
-		agentIndex := currentTurn % len(o.Agents)
-		return o.Agents[agentIndex]
-	case "reactive", "free-form":
-		// For a sketch, we'll simplify. A real implementation would analyze the
-		// conversation history to determine the most relevant agent.
-		fmt.Println("Reactive mode not fully sketched. Defaulting to sequential.")
-		return o.Agents[currentTurn%len(o.Agents)]
-	default:
-		// Default to sequential flow if mode is unknown.
-		return o.Agents[currentTurn%len(o.Agents)]
+func (o *Orchestrator) findAgentByRole(role string) Agent {
+	// [Ref: architecture-design.md:AgentImplementations]
+	// TODO: Implement actual agents. This is a placeholder.
+	for _, a := range o.Agents {
+		if a.Role() == role {
+			return a
+		}
 	}
+	return nil
 }
 
-// buildPromptFor constructs the input for an agent's turn, providing necessary context.
-func (o *Orchestrator) buildPromptFor(agent *Agent, initialPrompt string) string {
-	// 1. Add the agent's specific role and instructions.
-	//    prompt := "You are " + agent.Name + ". Your role is: " + agent.Role
+// Main entry point to demonstrate the sketch.
+func main() {
+	// Placeholder agents
+	agents := []Agent{
+		// newArchitectAgent(),
+		// newCoderAgent(),
+		// newReviewerAgent(),
+	}
 
-	// 2. Add the initial user request on the first turn.
-	//    if initialPrompt != "" { ... }
+	executionPlan := []string{"architect", "coder", "reviewer"}
+	initialPrompt := "Design and implement a feature for multi-agent orchestration."
 
-	// 3. Add conversation history for context.
-	//    prompt += "\nCONVERSATION SO FAR:\n" + o.State.FormatHistory()
-
-	// 4. List relevant artifacts for the agent to reference, as per the architecture's
-	//    "Cross-References" section. For example, the Coder needs the design doc.
-	//    prompt += "\nRefer to the attached artifacts: [architecture.md]"
-
-	return "..." // Placeholder
-}
-
-// isFeatureComplete checks against the "Success Criteria" from the architecture doc.
-func (o *Orchestrator) isFeatureComplete() bool {
-	// 1. Check if the architecture artifact is approved by the Reviewer.
-	//    This could be inferred by a specific message or a completed checklist artifact.
-	//    reviewChecklist := o.State.Artifacts["docs/reviews/feature-name-review.md"]
-
-	// 2. Check if a CI/test system reports success (requires external integration).
-	//    (This highlights where AgentPipe might integrate with other DevOps tools).
-
-	// 3. Check for explicit confirmation from all agents.
-	//    This could be a simple "I approve" message from each agent in the final turns.
-
-	return false // Placeholder for sketch
-}
-
-// updateState logs the latest message and saves any new or modified artifacts.
-func (o *Orchestrator) updateState(author *Agent, responseText string, newArtifacts []*Artifact) {
-	// 1. Append the new message to the conversation history.
-	// o.State.History = append(o.State.History, Message{...})
-
-	// 2. Add/overwrite artifacts in the state map.
-	// for _, art := range newArtifacts {
-	//    o.State.Artifacts[art.Path] = art
-	// }
-	fmt.Printf("Updating state with response from '%s'.\n", author.Name)
+	orchestrator := NewOrchestrator(agents, executionPlan, initialPrompt)
+	orchestrator.Run(context.Background())
 }

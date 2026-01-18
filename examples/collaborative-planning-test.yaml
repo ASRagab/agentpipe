@@ -48,7 +48,7 @@ agents:
 
 orchestrator:
   mode: round-robin
-  max_turns: 5
+  max_turns: 12
   turn_timeout: 180s
   initial_prompt: "Design how AgentPipe could orchestrate 3 agents (architect, coder, reviewer) to collaboratively build a new feature end-to-end. Each of you has a role - work together and create artifacts showing your perspective."
 

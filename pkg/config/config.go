@@ -26,6 +26,18 @@ type Config struct {
 	Logging LoggingConfig `yaml:"logging"`
 	// Bridge defines streaming bridge settings
 	Bridge BridgeConfig `yaml:"bridge"`
+	// Artifacts defines artifact collection settings
+	Artifacts ArtifactsConfig `yaml:"artifacts"`
+}
+
+// ArtifactsConfig defines artifact collection behavior.
+type ArtifactsConfig struct {
+	// Enabled determines if artifact collection is active (default: true)
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// OutputDir is the directory where artifacts are saved (default: "./agentpipe-artifacts")
+	OutputDir string `yaml:"output_dir" json:"output_dir"`
+	// InstructAgents determines if agents receive artifact creation instructions in their prompts (default: true)
+	InstructAgents bool `yaml:"instruct_agents" json:"instruct_agents"`
 }
 
 // OrchestratorConfig defines how the orchestrator manages conversations.
@@ -62,6 +74,32 @@ type LoggingConfig struct {
 	LogFormat string `yaml:"log_format"`
 	// ShowMetrics determines if token/cost metrics are logged
 	ShowMetrics bool `yaml:"show_metrics"`
+	enabledSet  bool `yaml:"-"`
+}
+
+// UnmarshalYAML tracks whether logging.enabled was explicitly set.
+func (l *LoggingConfig) UnmarshalYAML(value *yaml.Node) error {
+	var aux struct {
+		Enabled     *bool  `yaml:"enabled"`
+		ChatLogDir  string `yaml:"chat_log_dir"`
+		LogFormat   string `yaml:"log_format"`
+		ShowMetrics bool   `yaml:"show_metrics"`
+	}
+
+	if err := value.Decode(&aux); err != nil {
+		return err
+	}
+
+	if aux.Enabled != nil {
+		l.Enabled = *aux.Enabled
+		l.enabledSet = true
+	}
+
+	l.ChatLogDir = aux.ChatLogDir
+	l.LogFormat = aux.LogFormat
+	l.ShowMetrics = aux.ShowMetrics
+
+	return nil
 }
 
 // BridgeConfig defines streaming bridge configuration for real-time conversation updates.
@@ -107,6 +145,11 @@ func NewDefaultConfig() *Config {
 			ChatLogDir:  defaultLogDir,
 			LogFormat:   "text",
 			ShowMetrics: false,
+		},
+		Artifacts: ArtifactsConfig{
+			Enabled:        true,
+			OutputDir:      "./agentpipe-artifacts",
+			InstructAgents: true,
 		},
 	}
 }
@@ -218,6 +261,9 @@ func (c *Config) applyDefaults() {
 	}
 
 	// Logging defaults
+	if !c.Logging.enabledSet {
+		c.Logging.Enabled = true
+	}
 	if c.Logging.ChatLogDir == "" {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
@@ -240,6 +286,15 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Bridge.LogLevel == "" {
 		c.Bridge.LogLevel = "info"
+	}
+
+	// Artifacts defaults
+	// Note: Enabled defaults to true (opt-out with --no-artifacts)
+	if c.Artifacts.OutputDir == "" {
+		c.Artifacts.OutputDir = "./agentpipe-artifacts"
+		// Default enabled and instruct_agents to true for new configs
+		c.Artifacts.Enabled = true
+		c.Artifacts.InstructAgents = true
 	}
 
 	for i := range c.Agents {

@@ -556,8 +556,15 @@ func (a *AmpAgent) buildPrompt(messages []agent.Message, isInitialThread bool) s
 	if a.Config.Prompt != "" {
 		prompt.WriteString("YOUR ROLE AND INSTRUCTIONS:\n")
 		prompt.WriteString(a.Config.Prompt)
-		prompt.WriteString("\n")
+		prompt.WriteString("\n\n")
 	}
+
+	prompt.WriteString("ARTIFACT CREATION:\n")
+	prompt.WriteString("To create a saveable artifact, use fenced code blocks with a filename:\n")
+	prompt.WriteString("  ```language:path/to/filename.ext\n")
+	prompt.WriteString("  content here\n")
+	prompt.WriteString("  ```\n")
+	prompt.WriteString("Artifacts will be saved to the workspace automatically.\n")
 	prompt.WriteString(strings.Repeat("=", 60))
 	prompt.WriteString("\n\n")
 

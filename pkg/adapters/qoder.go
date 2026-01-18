@@ -268,6 +268,13 @@ func (q *QoderAgent) buildPrompt(messages []agent.Message, isInitialSession bool
 		prompt.WriteString("\n\n")
 	}
 
+	prompt.WriteString("ARTIFACT CREATION:\n")
+	prompt.WriteString("To create a saveable artifact, use fenced code blocks with a filename:\n")
+	prompt.WriteString("  ```language:path/to/filename.ext\n")
+	prompt.WriteString("  content here\n")
+	prompt.WriteString("  ```\n")
+	prompt.WriteString("Artifacts will be saved to the workspace automatically.\n\n")
+
 	// PART 2: CONVERSATION CONTEXT
 	if len(messages) > 0 {
 		var initialPrompt string

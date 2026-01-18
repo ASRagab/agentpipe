@@ -40,5 +40,8 @@ agentpipe.yaml
 tmp/
 temp/
 
+# Artifact output directory
+agentpipe-artifacts/
+
 # Build artifacts
 dist/

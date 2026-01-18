@@ -57,9 +57,11 @@ type EnhancedModel struct {
 	running       bool
 	userTurn      bool
 	err           error
-	msgChan       <-chan agent.Message
-	msgSendChan   chan<- agent.Message // Send-only channel for sending messages
-	logChan       <-chan string
+	msgChan          <-chan agent.Message
+	msgSendChan      chan<- agent.Message // Send-only channel for sending messages
+	logChan          <-chan string
+	artifactChan     <-chan ArtifactSavedMsg
+	artifactSendChan chan<- ArtifactSavedMsg // Send-only channel for external artifact notifications
 	turnCount     int
 	initialized   bool
 	initializing  bool
@@ -74,8 +76,9 @@ type EnhancedModel struct {
 	configPath         string // Path to config file if used
 
 	// Polling state - prevent duplicate goroutines
-	waitingForMessage bool
-	waitingForLog     bool
+	waitingForMessage  bool
+	waitingForLog      bool
+	waitingForArtifact bool
 
 	// Styles
 	agentColors map[string]lipgloss.Color
@@ -156,6 +159,28 @@ var agentColors = []lipgloss.Color{
 	lipgloss.Color("51"),  // Cyan
 	lipgloss.Color("226"), // Yellow
 	lipgloss.Color("201"), // Magenta
+}
+
+// globalArtifactChan is the package-level artifact channel for external notifications
+var globalArtifactChan chan<- ArtifactSavedMsg
+
+// NotifyArtifactSaved sends an artifact save notification to the TUI.
+// This can be called from the orchestrator or other external code.
+// Returns false if the TUI is not running or the channel is full.
+func NotifyArtifactSaved(agentName, filename, savedPath string) bool {
+	if globalArtifactChan == nil {
+		return false
+	}
+	select {
+	case globalArtifactChan <- ArtifactSavedMsg{
+		AgentName: agentName,
+		Filename:  filename,
+		SavedPath: savedPath,
+	}:
+		return true
+	default:
+		return false
+	}
 }
 
 type agentItem struct {
@@ -315,6 +340,12 @@ func RunEnhanced(ctx context.Context, cfg *config.Config, agents []agent.Agent, 
 	// Create a log channel for capturing log messages
 	logChan := make(chan string, 100)
 
+	// Create an artifact channel for artifact save notifications
+	artifactChan := make(chan ArtifactSavedMsg, 100)
+
+	// Set the global artifact channel for external notifications
+	globalArtifactChan = artifactChan
+
 	// Initialize log writer to capture log messages for TUI
 	logWriter := &logWriter{
 		logChan: logChan,
@@ -356,9 +387,11 @@ func RunEnhanced(ctx context.Context, cfg *config.Config, agents []agent.Agent, 
 		logMessages:        make([]string, 0),
 		activePanel:        conversationPanel,
 		agentColors:        agentColorMap,
-		msgChan:            msgChan,
-		msgSendChan:        msgChan, // Same channel, but as send-only for internal use
-		logChan:            logChan,
+		msgChan:          msgChan,
+		msgSendChan:      msgChan, // Same channel, but as send-only for internal use
+		logChan:          logChan,
+		artifactChan:     artifactChan,
+		artifactSendChan: artifactChan, // Same channel, but as send-only for external use
 		initialized:        len(agents) > 0,
 		skipHealthCheck:    skipHealthCheck,
 		healthCheckTimeout: healthCheckTimeout,
@@ -375,6 +408,10 @@ func RunEnhanced(ctx context.Context, cfg *config.Config, agents []agent.Agent, 
 	// Close the log channel
 	close(logChan)
 
+	// Close the artifact channel and clear global reference
+	globalArtifactChan = nil
+	close(artifactChan)
+
 	// Close the logger if it exists
 	if chatLogger != nil {
 		chatLogger.Close()
@@ -387,6 +424,7 @@ func (m EnhancedModel) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		textarea.Blink,
 		m.waitForLog(),
+		m.waitForArtifact(),
 	}
 
 	if !m.initialized {
@@ -474,9 +512,22 @@ func (m EnhancedModel) waitForLog() tea.Cmd {
 	}
 }
 
+// waitForArtifact polls for artifact save notifications
+func (m EnhancedModel) waitForArtifact() tea.Cmd {
+	return func() tea.Msg {
+		select {
+		case msg := <-m.artifactChan:
+			return msg
+		case <-time.After(100 * time.Millisecond):
+			return artifactTickMsg{}
+		}
+	}
+}
+
 type tickMsg struct{}
-type msgTickMsg struct{} // Tick from waitForMessage timeout
-type logTickMsg struct{} // Tick from waitForLog timeout
+type msgTickMsg struct{}      // Tick from waitForMessage timeout
+type logTickMsg struct{}      // Tick from waitForLog timeout
+type artifactTickMsg struct{} // Tick from waitForArtifact timeout
 
 type agentInitMsg struct {
 	message string
@@ -490,6 +541,16 @@ type agentInitComplete struct {
 type logUpdate struct {
 	message string
 }
+
+// ArtifactSavedMsg is sent when an agent saves an artifact file
+type ArtifactSavedMsg struct {
+	AgentName string
+	Filename  string
+	SavedPath string
+}
+
+// artifactSavedMsg is the internal message type (wraps ArtifactSavedMsg for tea.Msg)
+type artifactSavedMsg = ArtifactSavedMsg
 
 func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
@@ -778,6 +839,36 @@ func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// DON'T spawn waitForLog here - let tickMsg handle continuations
+
+	case artifactSavedMsg:
+		// Artifact received - waiter completed, spawn next one
+		m.waitingForArtifact = false
+		m.waitingForArtifact = true
+		cmds = append(cmds, m.waitForArtifact())
+
+		// Create a system message for the artifact notification
+		artifactMsg := agent.Message{
+			AgentID:   "artifact",
+			AgentName: "System",
+			Content:   fmt.Sprintf("[Artifact saved: %s/%s]", msg.AgentName, msg.Filename),
+			Timestamp: time.Now().Unix(),
+			Role:      "system",
+		}
+		m.messages = append(m.messages, artifactMsg)
+
+		// Log the artifact if logging is enabled
+		if m.chatLogger != nil {
+			m.chatLogger.LogMessage(artifactMsg)
+		}
+
+		m.conversation.SetContent(m.renderConversation())
+		m.conversation.GotoBottom()
+
+	case artifactTickMsg:
+		// Artifact poll timeout - spawn only artifact waiter
+		m.waitingForArtifact = false
+		m.waitingForArtifact = true
+		cmds = append(cmds, m.waitForArtifact())
 
 	case conversationDone:
 		m.running = false
@@ -1172,6 +1263,8 @@ func (m *EnhancedModel) renderConversation() string {
 				displayName = "System Error"
 			} else if msg.AgentID == "info" {
 				displayName = "System Info"
+			} else if msg.AgentID == "artifact" {
+				displayName = "Artifact"
 			} else {
 				displayName = "System Info" // Changed from "System" to "System Info"
 			}
@@ -1204,6 +1297,10 @@ func (m *EnhancedModel) renderConversation() string {
 					infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("33")) // Blue
 					b.WriteString(fmt.Sprintf("[%s] ", timestamp))
 					b.WriteString(infoStyle.Render(displayName))
+				} else if msg.AgentID == "artifact" {
+					artifactStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("82")) // Green
+					b.WriteString(fmt.Sprintf("[%s] ", timestamp))
+					b.WriteString(artifactStyle.Render(displayName))
 				} else {
 					systemStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244")) // Grey
 					b.WriteString(fmt.Sprintf("[%s] ", timestamp))
@@ -1247,6 +1344,9 @@ func (m *EnhancedModel) renderConversation() string {
 			} else if msg.AgentID == "info" {
 				infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("33"))
 				b.WriteString(infoStyle.Render(wrappedContent))
+			} else if msg.AgentID == "artifact" {
+				artifactStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("82"))
+				b.WriteString(artifactStyle.Render(wrappedContent))
 			} else {
 				b.WriteString(wrappedContent)
 			}

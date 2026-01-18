@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -101,5 +103,32 @@ func TestConfigValidate(t *testing.T) {
 				t.Errorf("Validate() error message = %v, want to contain %v", err.Error(), tt.errMsg)
 			}
 		})
+	}
+}
+
+func TestLoadConfigDefaultsLoggingEnabled(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	yamlData := `version: "1.0"
+agents:
+  - id: agent1
+    type: claude
+    name: Agent 1
+orchestrator:
+  mode: round-robin
+`
+
+	if err := os.WriteFile(path, []byte(yamlData), 0600); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig error: %v", err)
+	}
+
+	if !cfg.Logging.Enabled {
+		t.Errorf("Expected logging enabled when not specified in config")
 	}
 }
