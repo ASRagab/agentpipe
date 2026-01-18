@@ -92,9 +92,36 @@ This phase implements CLI-based adapters for agents that operate through command
   - Include comment pointing to v2 config format
   - **Completed 2026-01-18**: Created comprehensive example with 4 agents (claude, gemini, qwen), full deprecation notice, migration behavior documentation
 
-- [ ] Test CLI adapters with real CLIs (manual):
+- [x] Test CLI adapters with real CLIs (manual):
   - Test with Claude CLI if installed
   - Test with Gemini CLI if installed
   - Verify streaming works correctly
   - Verify error handling for network failures
   - Document any CLI-specific quirks discovered
+  - **Completed 2026-01-18**: Created integration tests in `pkg/v2/adapters/cli/cli_integration_test.go`. All tests pass with real CLIs:
+    - Claude CLI v2.1.12 (Claude Code): Health check, SendMessage, and StreamMessage verified
+    - Gemini CLI v0.23.0: Health check, SendMessage, and StreamMessage verified
+    - Timeout/error handling verified with mock slow CLIs
+    - CLI quirks documented below
+
+## CLI-Specific Quirks Discovered
+
+### Claude CLI Quirks
+1. **Non-interactive mode flag**: Uses `-p` flag for non-interactive prompt mode (piped stdin)
+2. **Exit code tolerance**: Sometimes exits non-zero but still produces valid output; adapter gracefully accepts responses >50 chars without "error" in content
+3. **Stdin for conversation history**: Requires stdin for multi-message conversation context
+4. **Version output format**: Returns multi-line output like "2.1.12 (Claude Code)"
+
+### Gemini CLI Quirks
+1. **Credentials noise**: Outputs "Loaded cached credentials" noise that must be filtered from responses
+2. **Error trace pollution**: May include GaxiosError stack traces in output on API errors; cleanOutput() method strips these
+3. **Model flag**: Uses `--model` flag for model selection
+4. **Stdin input mode**: Reads prompt from stdin by default (piped input)
+5. **Deprecated -p flag**: The `-p/--prompt` flag is deprecated; now uses positional arguments for prompts
+6. **Artifact generation**: May wrap simple responses in code blocks (e.g., ````text:filename.txt`) when generating content
+
+### General CLI Adapter Considerations
+1. **Timeout handling**: Context timeout properly cancels subprocesses; error message indicates "cancelled or timed out"
+2. **Token estimation**: CLI outputs don't provide actual token counts; adapters use character-based estimation (~4 chars/token)
+3. **Cost estimation**: Uses model-specific pricing tables (Haiku/Sonnet/Opus for Claude, Pro/Flash/Nano for Gemini)
+4. **Streaming support**: Both CLIs support streaming via stdout pipe reading with line-by-line buffering
