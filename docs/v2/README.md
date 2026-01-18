@@ -18,7 +18,6 @@ Welcome to the AgentPipe v2 documentation. This directory contains comprehensive
 |----------|-------------|
 | [[quickstart]] | 5-minute guide to get up and running |
 | [[configuration]] | Complete configuration reference |
-| [[migration]] | Migrate from v1 to v2 |
 
 ## User Guides
 
@@ -58,6 +57,7 @@ Working Go code examples for extending and integrating AgentPipe v2 (in `example
 | [webhook/](../../examples/v2/code/webhook/) | Forward events to webhooks for analytics and integration |
 
 Each example includes:
+
 - Complete, runnable Go code
 - Detailed README with explanations
 - Best practices and patterns from the v2 codebase

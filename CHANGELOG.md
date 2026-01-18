@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Removed
+
+- **Complete V1 Code Removal**
+  - Removed all legacy v1 packages from `pkg/` (adapters, agent, client, config, orchestrator, tui, etc.)
+  - Removed `--v2` flag - v2 is now the only engine
+  - Removed v1-specific CLI commands (`init`, `export`, `resume`)
+  - Removed v1 documentation files (architecture.md, troubleshooting.md, development.md, etc.)
+  - Removed migration-related documentation (v2-migration-guide.md, refactoring-roadmap.md)
+  - Kept `pkg/log` as shared logging infrastructure
+  - Kept `internal/` packages (bridge, branding, providers, registry, version)
+
+### Changed
+
+- Updated documentation to focus on current architecture
+- Updated README.md to remove v1/v2 comparison sections
+- Updated project structure references to reflect v2-only codebase
+- Documentation now lives primarily in `docs/v2/`
 
 ## [2.0.0-mvp] - 2026-01-18
 

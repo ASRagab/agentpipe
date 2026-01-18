@@ -157,11 +157,45 @@ The pkg/log package is NOT v1-specific. It is shared logging infrastructure used
 
   **Build & Tests:** All passing
 
-- [ ] Remove v1 documentation:
+- [x] Remove v1 documentation:
   - Remove docs/ files specific to v1 architecture
   - Keep docs/v2/ documentation
   - Update README.md to remove v1 references
   - Update CHANGELOG.md to note v1 removal
+
+  **Completed 2026-01-18**: Removed v1-specific documentation and updated remaining files.
+
+  **Files Removed (17 files):**
+  - docs/architecture.md - Referenced v1 pkg/orchestrator, pkg/agent
+  - docs/troubleshooting.md - v1 troubleshooting
+  - docs/development.md - Referenced v1 project structure
+  - docs/architectural-pain-points.md - v1 pain points analysis
+  - docs/performance-analysis.md - v1 performance metrics
+  - docs/v2-*.md (12 files) - v2 migration/proposal docs now obsolete
+  - docs/architecture-*.md - Architecture research for v2 migration
+  - docs/refactoring-*.md - v1→v2 refactoring guides
+  - docs/v2/migration.md - v1→v2 migration guide (no longer needed)
+
+  **Files Updated:**
+  - docs/README.md - Complete rewrite pointing to docs/v2/ as main documentation
+  - README.md - Removed "What's New in v2" section, v1/v2 comparisons, --v2 flags
+  - README.md - Updated project structure to reflect v2-only codebase
+  - README.md - Updated code examples to use pkg/v2/core instead of pkg/agent
+  - CHANGELOG.md - Added "Unreleased" section documenting v1 removal
+  - docs/contributing.md - Removed v1/v2 testing note
+  - docs/v2/README.md - Removed migration reference
+
+  **Files Kept:**
+  - docs/v2/ (7 files) - Main documentation
+  - docs/plans/ - Implementation plans
+  - docs/SECURITY-*.md - Security documentation
+  - docs/contributing.md - Updated
+  - docs/docker.md - General-purpose
+  - docs/competitive-analysis.md - General analysis
+  - docs/CODE_QUALITY_ASSESSMENT.md - Quality docs
+  - docs/CLAUDE.md - Claude Code configuration
+
+  **Build & Tests:** All passing
 
 - [ ] Remove v1 example configurations:
   - Remove examples/ that use v1 format

@@ -40,11 +40,12 @@ Thank you for your interest in contributing to AgentPipe! This document provides
 - **golangci-lint v1.x**: For code linting (v2.x config format differs)
 - **make**: For build automation (optional)
 
-> **Note**: As of v2.0, AgentPipe recommends using the v2 engine (`--v2` flag or `AGENTPIPE_V2=true`). When developing, test both v1 and v2 code paths.
+> **Note**: AgentPipe v2 is the current architecture. The codebase is organized with core packages in `pkg/v2/` and shared infrastructure in `pkg/log/` and `internal/`.
 
 ### Development Setup
 
 1. **Fork the repository**
+
    ```bash
    # Click "Fork" on GitHub, then clone your fork
    git clone https://github.com/YOUR_USERNAME/agentpipe.git
@@ -52,16 +53,19 @@ Thank you for your interest in contributing to AgentPipe! This document provides
    ```
 
 2. **Add upstream remote**
+
    ```bash
    git remote add upstream https://github.com/ASRagab/agentpipe.git
    ```
 
 3. **Install dependencies**
+
    ```bash
    go mod download
    ```
 
 4. **Install development tools**
+
    ```bash
    # Install golangci-lint
    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
@@ -71,6 +75,7 @@ Thank you for your interest in contributing to AgentPipe! This document provides
    ```
 
 5. **Verify setup**
+
    ```bash
    go test ./...
    golangci-lint run
@@ -189,28 +194,34 @@ pkg/
 ### Naming Conventions
 
 **Packages:**
+
 - All lowercase
 - Short, descriptive names
 - No underscores
 
 **Files:**
+
 - Lowercase with underscores
 - `agent.go`, `orchestrator_test.go`
 
 **Types:**
+
 - PascalCase for exported types
 - camelCase for unexported types
 
 **Functions:**
+
 - PascalCase for exported functions
 - camelCase for unexported functions
 - Descriptive verb names: `GetMessages`, `SendMessage`
 
 **Constants:**
+
 - PascalCase for exported constants
 - camelCase for unexported constants
 
 **Variables:**
+
 - camelCase for all variables
 - Short names in small scopes
 - Descriptive names in large scopes
@@ -489,6 +500,7 @@ v2 supports both CLI-based and API-based adapters. API-based adapters communicat
 
 1. Create adapter in `pkg/v2/adapters/`
 2. Implement `AgentAdapter` interface:
+
    ```go
    type AgentAdapter interface {
        Initialize(config AgentConfig) error
@@ -498,6 +510,7 @@ v2 supports both CLI-based and API-based adapters. API-based adapters communicat
        GetInfo() AdapterInfo
    }
    ```
+
 3. Use `pkg/client/` for HTTP communication
 4. Add comprehensive tests with mock HTTP responses
 5. Register factory in adapter registry
@@ -552,6 +565,7 @@ type Agent interface {
 ### README Updates
 
 Update `README.md` when adding:
+
 - New features
 - New configuration options
 - New commands
@@ -560,12 +574,14 @@ Update `README.md` when adding:
 ### CHANGELOG Updates
 
 Add entries to `CHANGELOG.md` for:
+
 - New features
 - Bug fixes
 - Breaking changes
 - Deprecations
 
 Format:
+
 ```markdown
 ## [Unreleased]
 
@@ -605,12 +621,13 @@ We follow [Semantic Versioning](https://semver.org/):
 
 - **Questions**: Open a GitHub Discussion
 - **Bugs**: Open a GitHub Issue
-- **Security**: Email security@example.com
+- **Security**: Email <security@example.com>
 - **Chat**: Join our Discord/Slack
 
 ## Recognition
 
 Contributors are recognized in:
+
 - `CONTRIBUTORS.md`
 - Release notes
 - GitHub contributors page
