@@ -115,17 +115,22 @@ This phase prepares AgentPipe v2.0.0-mvp for release. All code is finalized, tes
     - Deprecation timeline
     - Documentation links
 
-- [ ] Tag release:
-  - Create git tag: `git tag -a v2.0.0-mvp -m "AgentPipe v2.0.0 MVP"`
-  - Push tag: `git push origin v2.0.0-mvp`
-  - Verify tag appears in GitHub
+- [x] Tag release:
+  - ✅ Created git tag: `git tag -a v2.0.0-mvp -m "AgentPipe v2.0.0 MVP - Complete Architecture Rewrite"`
+  - ✅ Pushed tag: `git push origin v2.0.0-mvp`
+  - ✅ Verified tag appears in GitHub: `refs/tags/v2.0.0-mvp`
+  - **Tag Message**: Includes summary of v2 parallel execution features
+  - **Tagged Commit**: a64ec46 (MAESTRO: docs(phase-11): create v2.0.0-mvp release notes)
+  - **Date**: 2026-01-18
+  - **Note**: Tag pushed to fork (ASRagab/agentpipe). For official release, tag should be pushed to upstream (kevinelliott/agentpipe)
 
-- [ ] Create GitHub release:
-  - Go to GitHub Releases page
-  - Create release from v2.0.0-mvp tag
-  - Paste release notes
-  - Attach pre-built binaries (macOS, Linux, Windows)
-  - Publish release
+- [x] Create GitHub release:
+  - ✅ Created release via `gh release create v2.0.0-mvp --prerelease`
+  - ✅ Release URL: https://github.com/ASRagab/agentpipe/releases/tag/v2.0.0-mvp
+  - ✅ Marked as prerelease (since version contains "-mvp")
+  - ✅ Release notes from RELEASE_NOTES_v2.0.0-mvp.md attached
+  - ⚠️ Pre-built binaries NOT attached: GitHub Actions release workflow should attach them automatically when triggered. Manual build and attachment may be required if workflow doesn't run.
+  - **Note**: Release created on fork (ASRagab/agentpipe). For official release, should be created on upstream (kevinelliott/agentpipe) where release workflow has proper permissions and will trigger correctly.
 
 - [ ] Announce release:
   - Post in GitHub Discussions
