@@ -21,12 +21,13 @@ This phase enhances the TUI with real-time streaming response display and compre
   - Show error icon with tooltip on agent error
   - **COMPLETED**: Added AgentErrorInfo struct, typingStartMap and errorMap for tracking, AdvanceAnimationFrame() for 200ms animation cycles (., .., ...), renderTypingIndicator() with elapsed time display (ms/s/m formats), error display with truncation, TypingIndicatorStyle() in styles, typingAnimTickMsg handling in main TUI loop, and comprehensive tests (12 test cases covering animation, tracking, status transitions, and error handling)
 
-- [ ] Implement metrics display in conversation view:
+- [x] Implement metrics display in conversation view:
   - Format metrics as subtle inline badge: `[Claude | 145ms | 234t | $0.012]`
   - Show input tokens, output tokens, total tokens on expand
   - Calculate and show cost using model-specific pricing
   - Show duration in human-readable format (ms, s, or m)
   - Right-align metrics badge in message box
+  - **COMPLETED**: Enhanced `formatMetrics()` with shorter 't' suffix for tokens, added `formatMetricsWithAgent()` for badge format `[Claude | 145ms | 234t | $0.012]`, added `formatMetricsExpanded()` for detailed view `[Claude | 145ms | 100in/134out (234t) | $0.012]`, implemented `formatDuration()` for human-readable format (ms <1s, s <60s, m >=60s), implemented `formatCost()` with adaptive decimal places, added `MetricsBadgeStyle()`, `MetricsBadgeExpandedStyle()`, `CostHighStyle()`, and `CostLowStyle()` to styles package, comprehensive tests (10 new test cases covering formatting, edge cases, nil handling, and partial data)
 
 - [ ] Create status bar component in `pkg/v2/tui/components/status_bar.go`:
   - Show at top of TUI

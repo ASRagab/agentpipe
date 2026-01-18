@@ -177,3 +177,32 @@ func TypingIndicatorStyle() lipgloss.Style {
 		Italic(true).
 		PaddingLeft(1)
 }
+
+// MetricsBadgeStyle returns the style for metrics badges.
+// Designed for subtle inline display with right-alignment support.
+func MetricsBadgeStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245")). // Subtle gray
+		Italic(true)
+}
+
+// MetricsBadgeExpandedStyle returns the style for expanded metrics with more detail.
+func MetricsBadgeExpandedStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("249")). // Slightly brighter for expanded view
+		Italic(true)
+}
+
+// CostHighStyle returns the style for high-cost indicators.
+func CostHighStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("208")). // Orange for attention
+		Bold(true)
+}
+
+// CostLowStyle returns the style for low-cost indicators.
+func CostLowStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("34")). // Green for good
+		Italic(true)
+}

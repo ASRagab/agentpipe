@@ -253,6 +253,7 @@ func (m ConversationModel) renderMessage(b *strings.Builder, msg core.Message) {
 }
 
 // formatMetrics formats metrics for inline display.
+// Format: [145ms | 234t | $0.012]
 func (m ConversationModel) formatMetrics(metrics *core.Metrics) string {
 	if metrics == nil {
 		return ""
@@ -261,15 +262,15 @@ func (m ConversationModel) formatMetrics(metrics *core.Metrics) string {
 	parts := make([]string, 0, 3)
 
 	if metrics.Duration > 0 {
-		parts = append(parts, fmt.Sprintf("%dms", metrics.Duration.Milliseconds()))
+		parts = append(parts, formatDuration(metrics.Duration))
 	}
 
 	if metrics.TotalTokens > 0 {
-		parts = append(parts, fmt.Sprintf("%d tokens", metrics.TotalTokens))
+		parts = append(parts, fmt.Sprintf("%dt", metrics.TotalTokens))
 	}
 
 	if metrics.Cost > 0 {
-		parts = append(parts, fmt.Sprintf("$%.4f", metrics.Cost))
+		parts = append(parts, formatCost(metrics.Cost))
 	}
 
 	if len(parts) == 0 {
@@ -277,6 +278,99 @@ func (m ConversationModel) formatMetrics(metrics *core.Metrics) string {
 	}
 
 	return "[" + strings.Join(parts, " | ") + "]"
+}
+
+// formatMetricsWithAgent formats metrics with agent name for inline display.
+// Format: [Claude | 145ms | 234t | $0.012]
+func (m ConversationModel) formatMetricsWithAgent(agentName string, metrics *core.Metrics) string {
+	if metrics == nil {
+		return ""
+	}
+
+	parts := make([]string, 0, 4)
+
+	if agentName != "" {
+		parts = append(parts, agentName)
+	}
+
+	if metrics.Duration > 0 {
+		parts = append(parts, formatDuration(metrics.Duration))
+	}
+
+	if metrics.TotalTokens > 0 {
+		parts = append(parts, fmt.Sprintf("%dt", metrics.TotalTokens))
+	}
+
+	if metrics.Cost > 0 {
+		parts = append(parts, formatCost(metrics.Cost))
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return "[" + strings.Join(parts, " | ") + "]"
+}
+
+// formatMetricsExpanded formats metrics with full detail including input/output breakdown.
+// Format: [Claude | 145ms | 100in/134out (234t) | $0.012]
+func (m ConversationModel) formatMetricsExpanded(agentName string, metrics *core.Metrics) string {
+	if metrics == nil {
+		return ""
+	}
+
+	parts := make([]string, 0, 4)
+
+	if agentName != "" {
+		parts = append(parts, agentName)
+	}
+
+	if metrics.Duration > 0 {
+		parts = append(parts, formatDuration(metrics.Duration))
+	}
+
+	// Show input/output breakdown if available
+	if metrics.InputTokens > 0 || metrics.OutputTokens > 0 {
+		tokenPart := fmt.Sprintf("%din/%dout", metrics.InputTokens, metrics.OutputTokens)
+		if metrics.TotalTokens > 0 {
+			tokenPart += fmt.Sprintf(" (%dt)", metrics.TotalTokens)
+		}
+		parts = append(parts, tokenPart)
+	} else if metrics.TotalTokens > 0 {
+		parts = append(parts, fmt.Sprintf("%dt", metrics.TotalTokens))
+	}
+
+	if metrics.Cost > 0 {
+		parts = append(parts, formatCost(metrics.Cost))
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return "[" + strings.Join(parts, " | ") + "]"
+}
+
+// formatDuration formats a duration in human-readable format.
+// Returns: "145ms" for < 1s, "2.3s" for < 60s, "1.5m" for >= 60s
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	} else if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	return fmt.Sprintf("%.1fm", d.Minutes())
+}
+
+// formatCost formats a cost value for display.
+// Uses fewer decimal places for larger costs.
+func formatCost(cost float64) string {
+	if cost >= 1.0 {
+		return fmt.Sprintf("$%.2f", cost)
+	} else if cost >= 0.01 {
+		return fmt.Sprintf("$%.3f", cost)
+	}
+	return fmt.Sprintf("$%.4f", cost)
 }
 
 // getAgentColorIndex returns the color index for an agent.

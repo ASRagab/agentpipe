@@ -283,10 +283,96 @@ func TestMetricsDisplay(t *testing.T) {
 	if formatted == "" {
 		t.Error("Expected non-empty metrics string")
 	}
-	// Check format
-	expected := "[150ms | 234 tokens | $0.0120]"
+	// Check format - uses shorter 't' suffix now
+	expected := "[150ms | 234t | $0.012]"
 	if formatted != expected {
 		t.Errorf("Expected '%s', got '%s'", expected, formatted)
+	}
+}
+
+func TestMetricsWithAgentDisplay(t *testing.T) {
+	model := NewConversationModel()
+
+	metrics := &core.Metrics{
+		Duration:     150 * time.Millisecond,
+		TotalTokens:  234,
+		InputTokens:  100,
+		OutputTokens: 134,
+		Cost:         0.012,
+	}
+
+	formatted := model.formatMetricsWithAgent("Claude", metrics)
+
+	// Check format includes agent name
+	expected := "[Claude | 150ms | 234t | $0.012]"
+	if formatted != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, formatted)
+	}
+}
+
+func TestMetricsExpandedDisplay(t *testing.T) {
+	model := NewConversationModel()
+
+	metrics := &core.Metrics{
+		Duration:     150 * time.Millisecond,
+		TotalTokens:  234,
+		InputTokens:  100,
+		OutputTokens: 134,
+		Cost:         0.012,
+	}
+
+	formatted := model.formatMetricsExpanded("Claude", metrics)
+
+	// Check format includes input/output breakdown
+	expected := "[Claude | 150ms | 100in/134out (234t) | $0.012]"
+	if formatted != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, formatted)
+	}
+}
+
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		duration time.Duration
+		expected string
+	}{
+		{150 * time.Millisecond, "150ms"},
+		{999 * time.Millisecond, "999ms"},
+		{1 * time.Second, "1.0s"},
+		{1500 * time.Millisecond, "1.5s"},
+		{45 * time.Second, "45.0s"},
+		{59 * time.Second, "59.0s"},
+		{60 * time.Second, "1.0m"},
+		{90 * time.Second, "1.5m"},
+		{5 * time.Minute, "5.0m"},
+	}
+
+	for _, tt := range tests {
+		result := formatDuration(tt.duration)
+		if result != tt.expected {
+			t.Errorf("formatDuration(%v): expected '%s', got '%s'", tt.duration, tt.expected, result)
+		}
+	}
+}
+
+func TestFormatCost(t *testing.T) {
+	tests := []struct {
+		cost     float64
+		expected string
+	}{
+		{0.0001, "$0.0001"},
+		{0.001, "$0.0010"},
+		{0.0123, "$0.012"},
+		{0.1234, "$0.123"},
+		{1.0, "$1.00"},
+		{1.234, "$1.23"},
+		{10.0, "$10.00"},
+	}
+
+	for _, tt := range tests {
+		result := formatCost(tt.cost)
+		if result != tt.expected {
+			t.Errorf("formatCost(%v): expected '%s', got '%s'", tt.cost, tt.expected, result)
+		}
 	}
 }
 
@@ -297,6 +383,18 @@ func TestNilMetricsDisplay(t *testing.T) {
 	if formatted != "" {
 		t.Errorf("Expected empty string for nil metrics, got '%s'", formatted)
 	}
+
+	// Also test nil for with-agent version
+	formattedWithAgent := model.formatMetricsWithAgent("Claude", nil)
+	if formattedWithAgent != "" {
+		t.Errorf("Expected empty string for nil metrics with agent, got '%s'", formattedWithAgent)
+	}
+
+	// And for expanded version
+	formattedExpanded := model.formatMetricsExpanded("Claude", nil)
+	if formattedExpanded != "" {
+		t.Errorf("Expected empty string for nil metrics expanded, got '%s'", formattedExpanded)
+	}
 }
 
 func TestEmptyMetricsDisplay(t *testing.T) {
@@ -306,6 +404,86 @@ func TestEmptyMetricsDisplay(t *testing.T) {
 	formatted := model.formatMetrics(metrics)
 	if formatted != "" {
 		t.Errorf("Expected empty string for empty metrics, got '%s'", formatted)
+	}
+}
+
+func TestMetricsWithEmptyAgentName(t *testing.T) {
+	model := NewConversationModel()
+
+	metrics := &core.Metrics{
+		Duration:    150 * time.Millisecond,
+		TotalTokens: 234,
+		Cost:        0.012,
+	}
+
+	// Empty agent name should still work
+	formatted := model.formatMetricsWithAgent("", metrics)
+	expected := "[150ms | 234t | $0.012]"
+	if formatted != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, formatted)
+	}
+}
+
+func TestMetricsPartialData(t *testing.T) {
+	model := NewConversationModel()
+
+	// Only duration
+	metrics1 := &core.Metrics{Duration: 100 * time.Millisecond}
+	if f := model.formatMetrics(metrics1); f != "[100ms]" {
+		t.Errorf("Duration only: expected '[100ms]', got '%s'", f)
+	}
+
+	// Only tokens
+	metrics2 := &core.Metrics{TotalTokens: 100}
+	if f := model.formatMetrics(metrics2); f != "[100t]" {
+		t.Errorf("Tokens only: expected '[100t]', got '%s'", f)
+	}
+
+	// Only cost
+	metrics3 := &core.Metrics{Cost: 0.5}
+	if f := model.formatMetrics(metrics3); f != "[$0.500]" {
+		t.Errorf("Cost only: expected '[$0.500]', got '%s'", f)
+	}
+
+	// Duration and tokens only
+	metrics4 := &core.Metrics{Duration: 200 * time.Millisecond, TotalTokens: 50}
+	if f := model.formatMetrics(metrics4); f != "[200ms | 50t]" {
+		t.Errorf("Duration+tokens: expected '[200ms | 50t]', got '%s'", f)
+	}
+}
+
+func TestMetricsExpandedWithOnlyTotalTokens(t *testing.T) {
+	model := NewConversationModel()
+
+	// If no input/output breakdown, just show total
+	metrics := &core.Metrics{
+		Duration:    100 * time.Millisecond,
+		TotalTokens: 100,
+		Cost:        0.001,
+	}
+
+	formatted := model.formatMetricsExpanded("Test", metrics)
+	expected := "[Test | 100ms | 100t | $0.0010]"
+	if formatted != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, formatted)
+	}
+}
+
+func TestMetricsExpandedWithInputOutputNoTotal(t *testing.T) {
+	model := NewConversationModel()
+
+	// Input/output but no total (should still show breakdown)
+	metrics := &core.Metrics{
+		Duration:     100 * time.Millisecond,
+		InputTokens:  50,
+		OutputTokens: 60,
+		Cost:         0.001,
+	}
+
+	formatted := model.formatMetricsExpanded("Test", metrics)
+	expected := "[Test | 100ms | 50in/60out | $0.0010]"
+	if formatted != expected {
+		t.Errorf("Expected '%s', got '%s'", expected, formatted)
 	}
 }
 
