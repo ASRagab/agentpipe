@@ -1426,6 +1426,62 @@ func (m *EnhancedModel) renderConversation() string {
 	return b.String()
 }
 
+// renderAgentMessages renders messages for a specific agent
+func (m *EnhancedModel) renderAgentMessages(agentName string) string {
+	var b strings.Builder
+
+	messages, exists := m.agentMessages[agentName]
+	if !exists || len(messages) == 0 {
+		return lipgloss.NewStyle().
+			Foreground(lipgloss.Color("244")).
+			Render("(no messages yet)")
+	}
+
+	// Get viewport width for text wrapping
+	textWidth := 80
+	if m.ready {
+		textWidth = m.width - 50 // Account for sidebar
+		if textWidth < 40 {
+			textWidth = 40
+		}
+	}
+
+	for i, msg := range messages {
+		timestamp := time.Unix(msg.Timestamp, 0).Format("15:04:05")
+
+		// Get color for this agent
+		color := m.agentColors[agentName]
+		if color == "" {
+			color = lipgloss.Color("244")
+		}
+
+		// Header with timestamp
+		headerStyle := lipgloss.NewStyle().Foreground(color).Bold(true)
+		b.WriteString(fmt.Sprintf("[%s] ", timestamp))
+		b.WriteString(headerStyle.Render(agentName))
+
+		// Add metrics if available
+		if m.config.Logging.ShowMetrics && msg.Metrics != nil {
+			metricsStr := fmt.Sprintf(" (%.1fs, %d tokens, $%.4f)",
+				msg.Metrics.Duration.Seconds(),
+				msg.Metrics.TotalTokens,
+				msg.Metrics.Cost)
+			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(metricsStr))
+		}
+		b.WriteString("\n")
+
+		// Message content
+		wrappedContent := wrapText(msg.Content, textWidth)
+		b.WriteString(wrappedContent)
+
+		if i < len(messages)-1 {
+			b.WriteString("\n\n")
+		}
+	}
+
+	return b.String()
+}
+
 // wrapText wraps text to fit within the specified width
 func wrapText(text string, width int) string {
 	if width <= 0 {
