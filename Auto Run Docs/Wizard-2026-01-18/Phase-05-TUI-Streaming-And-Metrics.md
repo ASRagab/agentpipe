@@ -94,12 +94,25 @@ This phase enhances the TUI with real-time streaming response display and compre
     - Added `TokenEstimateStyle()` and `TokenEstimateHighlightStyle()` to styles package
     - Comprehensive test coverage (14 test cases covering estimation, formatting, model state, and view rendering)
 
-- [ ] Write tests for streaming display:
+- [x] Write tests for streaming display:
   - TestStreamingChunks: Mock chunks arrive, verify display updates
   - TestMultipleAgentsStreaming: Two agents stream simultaneously, verify both displayed
   - TestScrollBehavior: Auto-scroll when at bottom, no scroll when user scrolled up
   - TestMetricsDisplay: Verify metrics formatted correctly
   - TestStatusBarUpdate: Verify totals update after each message
+  - **COMPLETED**: Created comprehensive streaming display test file `pkg/v2/tui/components/streaming_display_test.go` with:
+    - `TestStreamingChunksDisplayUpdate`: Verifies chunk arrival updates display content, shows cursor, streaming indicator
+    - `TestMultipleAgentsStreamingDisplay`: Verifies two agents streaming simultaneously, proper ordering by start time, both displayed with names/content
+    - `TestScrollBehaviorAutoScroll`: Verifies auto-scroll when at bottom, no new messages indicator
+    - `TestScrollBehaviorUserScrolledUp`: Verifies no auto-scroll when user scrolled up, new messages indicator appears
+    - `TestScrollBehaviorJumpToBottom`: Verifies End key clears indicators and scrolls to bottom
+    - `TestMetricsDisplayFormatting`: Verifies metrics badge format `[1.5s | 234t | $0.012]`
+    - `TestMetricsDisplayVariousFormats`: Table-driven tests for ms/s/m durations, various cost formats
+    - `TestStatusBarUpdateAfterMessage`: Verifies totals accumulate after each message
+    - `TestStatusBarRealTimeUpdate`: Verifies all status bar sections render correctly
+    - `TestStreamingWithProgressBar`: Verifies progress bar appears during streaming
+    - `TestStreamingCompletionClearsProgressBar`: Verifies progress bar removed after completion
+    - All 13 new test cases pass with race detection enabled
 
 - [ ] Manual testing checklist:
   - Send message to multiple agents
