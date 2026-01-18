@@ -723,6 +723,24 @@ func (m EnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.userInput.SetWidth(leftWidth - 4)
 		}
 
+		// Initialize or update per-agent viewports
+		if m.agentViewports == nil {
+			m.agentViewports = make(map[string]viewport.Model)
+		}
+		for _, agentName := range m.agentOrder {
+			if _, exists := m.agentViewports[agentName]; !exists {
+				vp := viewport.New(leftWidth-2, convHeight)
+				vp.SetContent(m.renderAgentMessages(agentName))
+				m.agentViewports[agentName] = vp
+			} else {
+				vp := m.agentViewports[agentName]
+				vp.Width = leftWidth - 2
+				vp.Height = convHeight
+				vp.SetContent(m.renderAgentMessages(agentName))
+				m.agentViewports[agentName] = vp
+			}
+		}
+
 	case agentInitMsg:
 		// Add initialization message to chat
 		initMsg := agent.Message{
