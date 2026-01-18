@@ -275,10 +275,25 @@ The pkg/log package is NOT v1-specific. It is shared logging infrastructure used
   - `go build` - Build successful
   - No v1 test files remaining that import deleted v1 packages
 
-- [ ] Update go.mod and dependencies:
+- [x] Update go.mod and dependencies:
   - Run go mod tidy to remove unused dependencies
   - Verify no v1 package imports remain
   - Check for orphaned dependencies
+
+  **Completed 2026-01-18**: Verified go.mod is clean and all dependencies are valid.
+
+  **Steps Performed:**
+  - `go mod tidy` - No changes needed (already tidy)
+  - Verified no v1 package imports remain (pkg/adapters, pkg/agent, pkg/client, etc.)
+  - Remaining pkg/log and pkg/utils imports are intentional (shared infrastructure)
+
+  **Dependency Verification:**
+  - All direct dependencies verified as used:
+    - charmbracelet/bubbles - Used by pkg/v2/tui/components
+    - prometheus/client_golang - Used by pkg/metrics
+    - All other dependencies properly referenced
+
+  **Build & Tests:** All passing
 
 - [ ] Restructure pkg/v2 to pkg/:
   - Move pkg/v2/adapters/ to pkg/adapters/
