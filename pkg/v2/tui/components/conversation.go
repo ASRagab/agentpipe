@@ -435,41 +435,6 @@ func (m ConversationModel) renderErrorStatusMessage(b *strings.Builder, msg core
 	b.WriteString("\n")
 }
 
-// renderInlineError renders a detailed error message with type badge and retry hint.
-func (m ConversationModel) renderInlineError(b *strings.Builder, errMsg ErrorMessage) {
-	timestamp := errMsg.Timestamp.Format("15:04:05")
-
-	// Error type badge
-	typeBadge := m.formatErrorTypeBadge(errMsg.ErrorType)
-
-	// Header with error icon, type badge, and agent name
-	var header string
-	if errMsg.AgentName != "" {
-		header = fmt.Sprintf("[%s] %s %s %s:",
-			timestamp,
-			styles.ErrorIconStyle().Render("✗"),
-			typeBadge,
-			styles.ErrorAgentStyle().Render(errMsg.AgentName+" failed to respond"))
-	} else {
-		header = fmt.Sprintf("[%s] %s %s",
-			timestamp,
-			styles.ErrorIconStyle().Render("✗"),
-			typeBadge)
-	}
-	b.WriteString(header)
-	b.WriteString("\n")
-
-	// Error message content
-	b.WriteString(styles.ErrorMessageStyle().Render(errMsg.Message))
-	b.WriteString("\n")
-
-	// Retry hint for recoverable errors
-	if errMsg.Recoverable && errMsg.RetryHint != "" {
-		b.WriteString(styles.ErrorRetryHintStyle().Render("→ " + errMsg.RetryHint))
-		b.WriteString("\n")
-	}
-}
-
 // formatErrorTypeBadge formats an error type as a styled badge.
 func (m ConversationModel) formatErrorTypeBadge(errType core.ErrorType) string {
 	var label string
@@ -629,7 +594,7 @@ func (m *ConversationModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
 	if m.ready {
-		m.viewport.Width = width - 4  // Account for borders
+		m.viewport.Width = width - 4   // Account for borders
 		m.viewport.Height = height - 6 // Account for borders and header
 	}
 }

@@ -68,11 +68,11 @@ func DefaultCircuitBreakerConfig() CircuitBreakerConfig {
 type CircuitBreaker struct {
 	mu sync.RWMutex
 
-	config       CircuitBreakerConfig
-	state        CircuitState
-	failureCount int
-	successCount int // consecutive successes in half-open state
-	lastFailure  time.Time
+	config          CircuitBreakerConfig
+	state           CircuitState
+	failureCount    int
+	successCount    int // consecutive successes in half-open state
+	lastFailure     time.Time
 	lastStateChange time.Time
 
 	// Metadata for logging
@@ -287,10 +287,10 @@ func (cb *CircuitBreaker) TimeUntilRetry() time.Duration {
 
 // CircuitBreakerAdapter wraps an AgentAdapter with circuit breaker protection.
 type CircuitBreakerAdapter struct {
-	adapter       AgentAdapter
+	adapter        AgentAdapter
 	circuitBreaker *CircuitBreaker
-	agentID       string
-	agentName     string
+	agentID        string
+	agentName      string
 }
 
 // NewCircuitBreakerAdapter creates a new adapter with circuit breaker protection.

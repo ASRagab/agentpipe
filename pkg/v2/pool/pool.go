@@ -228,10 +228,10 @@ func (p *Pool) ExecuteParallel(ctx context.Context, messages []core.Message) []R
 				timeUntil := e.CircuitBreaker.TimeUntilRetry()
 
 				log.WithFields(map[string]interface{}{
-					"agent_id":       e.Agent.ID,
-					"agent_name":     e.Agent.Name,
-					"circuit_state":  e.CircuitBreaker.State().String(),
-					"retry_in":       timeUntil.String(),
+					"agent_id":      e.Agent.ID,
+					"agent_name":    e.Agent.Name,
+					"circuit_state": e.CircuitBreaker.State().String(),
+					"retry_in":      timeUntil.String(),
 				}).Warn("Skipping agent due to open circuit breaker")
 
 				// Emit error event for circuit open
@@ -440,12 +440,12 @@ func (p *Pool) GetAgentState(agentID string) (*core.AgentState, bool) {
 
 // CircuitBreakerInfo contains circuit breaker status for an agent.
 type CircuitBreakerInfo struct {
-	AgentID       string
-	AgentName     string
-	State         adapters.CircuitState
-	FailureCount  int
+	AgentID        string
+	AgentName      string
+	State          adapters.CircuitState
+	FailureCount   int
 	TimeUntilRetry time.Duration
-	LastFailure   time.Time
+	LastFailure    time.Time
 }
 
 // GetCircuitBreakerStatus returns the circuit breaker status for a specific agent.

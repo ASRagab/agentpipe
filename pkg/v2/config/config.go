@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/kevinelliott/agentpipe/pkg/log"
 	"github.com/kevinelliott/agentpipe/pkg/v2/adapters"
 	"github.com/kevinelliott/agentpipe/pkg/v2/core"
-	"gopkg.in/yaml.v3"
 )
 
 // Config represents the complete v2 configuration file.

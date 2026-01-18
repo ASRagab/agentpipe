@@ -260,7 +260,7 @@ func StatusErrorStyle() lipgloss.Style {
 // Uses a visually distinct style to draw attention without being distracting.
 func NewMessagesIndicatorStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color("33")). // Blue
+		Foreground(lipgloss.Color("33")).  // Blue
 		Background(lipgloss.Color("235")). // Dark background
 		Bold(true).
 		Padding(0, 1)

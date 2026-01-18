@@ -29,10 +29,10 @@ const (
 
 // Model is the main TUI model containing all components.
 type Model struct {
-	manager   *manager.ConversationManager
-	eventBus  *events.Bus
-	ctx       context.Context
-	cancelFn  context.CancelFunc
+	manager  *manager.ConversationManager
+	eventBus *events.Bus
+	ctx      context.Context
+	cancelFn context.CancelFunc
 
 	// Components
 	statusBar    components.StatusBarModel
@@ -56,10 +56,9 @@ type Model struct {
 	showErrorDetails bool
 
 	// Event handling
-	eventMu      sync.Mutex
-	eventQueue   []core.Event
-	lastRender   time.Time
-	renderTicker *time.Ticker
+	eventMu    sync.Mutex
+	eventQueue []core.Event
+	lastRender time.Time
 
 	// Error handling
 	lastError string

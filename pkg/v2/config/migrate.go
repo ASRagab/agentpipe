@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinelliott/agentpipe/pkg/log"
 	"gopkg.in/yaml.v3"
+
+	"github.com/kevinelliott/agentpipe/pkg/log"
 )
 
 // V1Config represents the legacy v1 configuration format.
@@ -30,7 +31,7 @@ type V1AgentSpec struct {
 	ID           string  `yaml:"id"`
 	Type         string  `yaml:"type"`
 	Name         string  `yaml:"name"`
-	Prompt       string  `yaml:"prompt,omitempty"`      // v1 uses "prompt" instead of nested "config.system_prompt"
+	Prompt       string  `yaml:"prompt,omitempty"` // v1 uses "prompt" instead of nested "config.system_prompt"
 	Model        string  `yaml:"model,omitempty"`
 	Announcement string  `yaml:"announcement,omitempty"`
 	Temperature  float64 `yaml:"temperature,omitempty"`
@@ -39,11 +40,11 @@ type V1AgentSpec struct {
 
 // V1OrchestratorConfig represents v1-style orchestrator settings.
 type V1OrchestratorConfig struct {
-	Mode           string        `yaml:"mode,omitempty"`
-	MaxTurns       int           `yaml:"max_turns,omitempty"`
-	TurnTimeout    time.Duration `yaml:"turn_timeout,omitempty"`
-	ResponseDelay  time.Duration `yaml:"response_delay,omitempty"`
-	InitialPrompt  string        `yaml:"initial_prompt,omitempty"`
+	Mode          string        `yaml:"mode,omitempty"`
+	MaxTurns      int           `yaml:"max_turns,omitempty"`
+	TurnTimeout   time.Duration `yaml:"turn_timeout,omitempty"`
+	ResponseDelay time.Duration `yaml:"response_delay,omitempty"`
+	InitialPrompt string        `yaml:"initial_prompt,omitempty"`
 }
 
 // V1LoggingConfig represents v1-style logging settings.

@@ -19,19 +19,18 @@ import (
 	"github.com/kevinelliott/agentpipe/pkg/v2/core"
 	"github.com/kevinelliott/agentpipe/pkg/v2/events"
 	"github.com/kevinelliott/agentpipe/pkg/v2/manager"
-	"github.com/kevinelliott/agentpipe/pkg/v2/persistence"
 	v2tui "github.com/kevinelliott/agentpipe/pkg/v2/tui"
 )
 
 // V2 flags
 var (
-	v2Enabled      bool
-	v2Parallel     bool
-	v2Timeout      int
-	v2SaveDir      string
-	v2Resume       string
-	v2Export       string
-	v2AutoSave     bool
+	v2Enabled       bool
+	v2Parallel      bool
+	v2Timeout       int
+	v2SaveDir       string
+	v2Resume        string
+	v2Export        string
+	v2AutoSave      bool
 	v2MigrateConfig bool
 )
 
@@ -125,8 +124,8 @@ func runV2Conversation(cmd *cobra.Command, configPath string) error {
 		Timeout: cfg.Conversation.Timeout,
 		SaveDir: cfg.Persistence.SaveDir,
 		Persistence: manager.PersistenceConfig{
-			Enabled:  cfg.Persistence.AutoSave,
-			SaveDir:  cfg.Persistence.SaveDir,
+			Enabled: cfg.Persistence.AutoSave,
+			SaveDir: cfg.Persistence.SaveDir,
 		},
 		GracefulDegradation: manager.DefaultGracefulDegradationConfig(),
 	}
@@ -552,33 +551,4 @@ func printV2Help() {
 	fmt.Fprintln(os.Stderr, "/summary        Show conversation summary")
 	fmt.Fprintln(os.Stderr, "/quit           Exit conversation")
 	fmt.Fprintln(os.Stderr, "/help           Show this help")
-}
-
-// listV2Conversations lists saved v2 conversations.
-func listV2Conversations(saveDir string) error {
-	if saveDir == "" {
-		saveDir = persistence.DefaultSaveDir()
-	}
-
-	conversations, err := persistence.ListConversations(saveDir)
-	if err != nil {
-		return fmt.Errorf("failed to list conversations: %w", err)
-	}
-
-	if len(conversations) == 0 {
-		fmt.Println("No saved conversations found.")
-		return nil
-	}
-
-	fmt.Println("Saved Conversations:")
-	fmt.Println(strings.Repeat("-", 60))
-
-	for _, conv := range conversations {
-		fmt.Printf("  %s  %s  (%d messages)\n",
-			conv.ID[:8],
-			conv.Started.Format("2006-01-02 15:04"),
-			conv.MessageCount)
-	}
-
-	return nil
 }

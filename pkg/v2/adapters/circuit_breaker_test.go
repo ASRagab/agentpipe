@@ -348,7 +348,7 @@ func TestCircuitBreakerStateChangeCallback(t *testing.T) {
 	// Trigger transitions: closed -> open -> half-open -> closed
 	cb.RecordFailure() // closed -> open
 	time.Sleep(20 * time.Millisecond)
-	cb.AllowRequest() // open -> half-open
+	cb.AllowRequest()  // open -> half-open
 	cb.RecordSuccess() // half-open -> closed
 
 	if len(transitions) != 3 {

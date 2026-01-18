@@ -20,10 +20,10 @@ type InputModel struct {
 	focused           bool
 	placeholder       string
 	maxChars          int
-	showTokenEstimate bool     // Whether to show token/cost estimate
-	targetModel       string   // Model used for cost estimation
-	lastTokenEstimate int      // Cached token estimate
-	lastCostEstimate  float64  // Cached cost estimate
+	showTokenEstimate bool    // Whether to show token/cost estimate
+	targetModel       string  // Model used for cost estimation
+	lastTokenEstimate int     // Cached token estimate
+	lastCostEstimate  float64 // Cached cost estimate
 }
 
 // InputSubmittedMsg is sent when the user submits input.

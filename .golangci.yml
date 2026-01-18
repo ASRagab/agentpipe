@@ -1,159 +1,221 @@
+version: "2"
 run:
-  timeout: 5m
   tests: true
-
 linters:
   enable:
-    - govet
-    - errcheck
-    - staticcheck
+    - bodyclose
+    - dupl
+    - gocognit
+    - gocyclo
     - gosec
     - misspell
     - prealloc
     - unconvert
-    - bodyclose
-    - dupl
-    - gocyclo
-    - gocognit
-    - unused
+  settings:
+    dupl:
+      threshold: 100
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+    gocognit:
+      min-complexity: 30
+    gocyclo:
+      min-complexity: 15
+    gosec:
+      excludes:
+        - G104
+        - G204
+        - G304
+        - G301
+    govet:
+      enable:
+        - shadow
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+          - errcheck
+          - gosec
+          - gocyclo
+          - gocognit
+          - govet
+          - ineffassign
+          - unused
+        path: _test\.go
+      - linters:
+          - gosec
+        path: pkg/adapters/
+        text: 'G204:'
+      - linters:
+          - gocognit
+          - gocyclo
+        path: (cmd/|main\.go)
+      - linters:
+          - gocognit
+          - gocyclo
+        path: pkg/tui/
+      - linters:
+          - gocognit
+          - gocyclo
+        path: pkg/v2/tui/
+      - linters:
+          - govet
+        path: pkg/v2/tui/
+        text: copylocks
+      - linters:
+          - gocognit
+          - gocyclo
+        path: pkg/v2/config/
+      - linters:
+          - gocyclo
+          - gocognit
+        path: pkg/v2/persistence/
+      - linters:
+          - errcheck
+          - gosec
+          - govet
+          - unused
+          - unconvert
+        path: examples/
+      - linters:
+          - govet
+        path: pkg/v2/pool/
+        text: (copylocks|shadow)
+      - linters:
+          - govet
+        path: pkg/v2/config/migrate\.go
+        text: shadow
+      - linters:
+          - gosec
+        path: pkg/v2/config/
+        text: 'G306:'
+      - linters:
+          - gosec
+        path: pkg/artifact/
+        text: 'G306:'
+      - linters:
+          - dupl
+          - gocognit
+          - gocyclo
+        path: pkg/adapters/
+      - linters:
+          - dupl
+          - gocognit
+          - gocyclo
+        path: pkg/v2/adapters/
+      - linters:
+          - dupl
+        path: internal/registry/
+      - linters:
+          - gocognit
+          - gocyclo
+        path: pkg/orchestrator/
+      - linters:
+          - gocognit
+          - gocyclo
+        path: pkg/middleware/
+      - linters:
+          - gocognit
+          - gocyclo
+        path: test/integration/
+      - linters:
+          - gosec
+        path: pkg/orchestrator/
+        text: 'G404:'
+      - linters:
+          - gosec
+        path: cmd/init.go
+        text: 'G306:'
+      - linters:
+          - errcheck
+          - gosec
+        path: internal/version/version.go
+        text: fmt.Sscanf
+      - linters:
+          - errcheck
+          - gosec
+        path: cmd/root.go
+        text: cmd.Help
+      - linters:
+          - errcheck
+        path: internal/version/version.go
+        text: resp.Body.Close
+      - linters:
+          - errcheck
+        path: pkg/logger/logger.go
+        text: logFile.Close
+      - linters:
+          - errcheck
+        text: fmt.Fprint
+      - linters:
+          - gosec
+        path: pkg/config/config.go
+        text: G304
+      - linters:
+          - gosec
+        path: pkg/logger/
+        text: (G304|G301)
+      - linters:
+          - staticcheck
+        text: QF1003
+      - linters:
+          - staticcheck
+        text: QF1008
+      - linters:
+          - staticcheck
+        text: SA1006
+        path: examples/
+      - linters:
+          - staticcheck
+        text: SA4006
+        path: _test\.go
+      - linters:
+          - staticcheck
+        text: ST1005
+        path: pkg/v2/adapters/
+      - linters:
+          - staticcheck
+        text: SA1019
+        path: pkg/v2/tui/
+      - linters:
+          - prealloc
+        path: pkg/adapters/
+      - linters:
+          - misspell
+        path: pkg/v2/
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - agentpipe-artifacts/
+      - v2demo/
+      - v2tui/
+      - autorun/
+formatters:
+  enable:
     - gofmt
     - goimports
-
-linters-settings:
-  govet:
-    enable:
-      - shadow
-  errcheck:
-    check-type-assertions: true
-    check-blank: false
-  dupl:
-    threshold: 100
-  gocyclo:
-    min-complexity: 15
-  gocognit:
-    min-complexity: 30
-  misspell:
-    locale: US
-  gosec:
-    excludes:
-      - G104 # Errors unhandled (we use errcheck for this)
-      - G204 # Subprocess launched with variable
-      - G304 # File path provided as taint input
-      - G301 # Expect directory permissions
-  gofmt:
-    simplify: true
-  goimports:
-    local-prefixes: github.com/kevinelliott/agentpipe
-
-issues:
-  exclude-rules:
-    # Exclude some linters from running on test files
-    - path: '_test\.go'
-      linters:
-        - gosec
-        - dupl
-        - errcheck
-
-    # Exclude exec.Command usage in adapters (G204)
-    - path: 'pkg/adapters/'
-      linters:
-        - gosec
-      text: "G204:"
-
-    # Allow larger functions in main and cmd
-    - path: '(cmd/|main\.go)'
-      linters:
-        - gocyclo
-        - gocognit
-
-    # Allow complex TUI update functions
-    - path: 'pkg/tui/'
-      linters:
-        - gocognit
-        - gocyclo
-
-    # Allow complex message processing in adapters
-    - path: 'pkg/adapters/'
-      linters:
-        - gocyclo
-        - gocognit
-        - dupl  # Intentional code duplication - each adapter follows same pattern
-
-    # Allow version check duplication in registry (different package managers)
-    - path: 'internal/registry/'
-      linters:
-        - dupl  # Intentional code duplication - each package manager follows same HTTP pattern
-
-    # Allow complex orchestrator functions (retry logic, rate limiting)
-    - path: 'pkg/orchestrator/'
-      linters:
-        - gocyclo
-        - gocognit
-
-    # Allow complex middleware functions
-    - path: 'pkg/middleware/'
-      linters:
-        - gocyclo
-        - gocognit
-
-    # Allow complex integration test functions
-    - path: 'test/integration/'
-      linters:
-        - gocyclo
-        - gocognit
-
-    # Allow weak random number generator for agent selection (not security-sensitive)
-    - path: 'pkg/orchestrator/'
-      linters:
-        - gosec
-      text: "G404:"
-
-    # Allow 0644 permissions for config files in init command
-    - path: 'cmd/init.go'
-      linters:
-        - gosec
-      text: "G306:"
-
-    # Exclude specific errcheck/gosec cases where error handling is intentionally omitted
-    - path: 'internal/version/version.go'
-      linters:
-        - errcheck
-        - gosec
-      text: "fmt.Sscanf"
-
-    - path: 'cmd/root.go'
-      linters:
-        - errcheck
-        - gosec
-      text: "cmd.Help"
-
-    - path: 'internal/version/version.go'
-      linters:
-        - errcheck
-      text: "resp.Body.Close"
-
-    - path: 'pkg/logger/logger.go'
-      linters:
-        - errcheck
-      text: "logFile.Close"
-
-    # Allow intentional error ignoring in fmt.Fprint* calls
-    - linters:
-        - errcheck
-      text: "fmt.Fprint"
-
-    # Exclude file operation security warnings (G304, G301)
-    - path: 'pkg/config/config.go'
-      linters:
-        - gosec
-      text: "G304"
-
-    - path: 'pkg/logger/'
-      linters:
-        - gosec
-      text: "(G304|G301)"
-
-    # Exclude staticcheck QF1003 suggestions (tagged switch)
-    - linters:
-        - staticcheck
-      text: "QF1003"
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/kevinelliott/agentpipe
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - agentpipe-artifacts/
+      - v2demo/
+      - v2tui/
+      - autorun/

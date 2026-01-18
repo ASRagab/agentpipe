@@ -51,10 +51,10 @@ type AgentTimeoutConfig struct {
 // TimeoutHandler manages timeouts for agent execution with support for
 // per-agent timeouts, global conversation timeout, and partial response preservation.
 type TimeoutHandler struct {
-	config          TimeoutConfig
-	agentTimeouts   map[string]time.Duration
-	eventBus        *events.Bus
-	mu              sync.RWMutex
+	config        TimeoutConfig
+	agentTimeouts map[string]time.Duration
+	eventBus      *events.Bus
+	mu            sync.RWMutex
 }
 
 // NewTimeoutHandler creates a new timeout handler with the given configuration.
@@ -294,12 +294,12 @@ func (h *TimeoutHandler) handleTimeout(
 
 	// Log the timeout
 	logFields := map[string]interface{}{
-		"agent_id":           agentID,
-		"agent_name":         agentName,
-		"timeout":            timeout.String(),
-		"elapsed":            elapsed.String(),
-		"has_partial":        len(partialContent) > 0,
-		"is_global_timeout":  isGlobal,
+		"agent_id":          agentID,
+		"agent_name":        agentName,
+		"timeout":           timeout.String(),
+		"elapsed":           elapsed.String(),
+		"has_partial":       len(partialContent) > 0,
+		"is_global_timeout": isGlobal,
 	}
 	if len(partialContent) > 0 {
 		logFields["partial_length"] = len(partialContent)

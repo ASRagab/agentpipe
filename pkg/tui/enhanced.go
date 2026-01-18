@@ -45,30 +45,30 @@ type EnhancedModel struct {
 	userInput    textarea.Model
 
 	// State
-	messages      []agent.Message
-	logMessages   []string
-	activePanel   panel
-	showModal     bool
-	modalContent  string
-	selectedAgent int
-	width         int
-	height        int
-	ready         bool
-	running       bool
-	userTurn      bool
-	err           error
+	messages         []agent.Message
+	logMessages      []string
+	activePanel      panel
+	showModal        bool
+	modalContent     string
+	selectedAgent    int
+	width            int
+	height           int
+	ready            bool
+	running          bool
+	userTurn         bool
+	err              error
 	msgChan          <-chan agent.Message
 	msgSendChan      chan<- agent.Message // Send-only channel for sending messages
 	logChan          <-chan string
 	artifactChan     <-chan ArtifactSavedMsg
 	artifactSendChan chan<- ArtifactSavedMsg // Send-only channel for external artifact notifications
-	turnCount     int
-	initialized   bool
-	initializing  bool
-	activeAgent   string             // Track which agent is currently responding
-	chatLogger    *logger.ChatLogger // For logging conversations
-	totalCost     float64            // Track total cost of conversation
-	totalTime     time.Duration      // Track total time of agent requests
+	turnCount        int
+	initialized      bool
+	initializing     bool
+	activeAgent      string             // Track which agent is currently responding
+	chatLogger       *logger.ChatLogger // For logging conversations
+	totalCost        float64            // Track total cost of conversation
+	totalTime        time.Duration      // Track total time of agent requests
 
 	// Initialization params
 	skipHealthCheck    bool
@@ -387,11 +387,11 @@ func RunEnhanced(ctx context.Context, cfg *config.Config, agents []agent.Agent, 
 		logMessages:        make([]string, 0),
 		activePanel:        conversationPanel,
 		agentColors:        agentColorMap,
-		msgChan:          msgChan,
-		msgSendChan:      msgChan, // Same channel, but as send-only for internal use
-		logChan:          logChan,
-		artifactChan:     artifactChan,
-		artifactSendChan: artifactChan, // Same channel, but as send-only for external use
+		msgChan:            msgChan,
+		msgSendChan:        msgChan, // Same channel, but as send-only for internal use
+		logChan:            logChan,
+		artifactChan:       artifactChan,
+		artifactSendChan:   artifactChan, // Same channel, but as send-only for external use
 		initialized:        len(agents) > 0,
 		skipHealthCheck:    skipHealthCheck,
 		healthCheckTimeout: healthCheckTimeout,

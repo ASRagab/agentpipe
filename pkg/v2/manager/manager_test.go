@@ -656,8 +656,8 @@ func TestGracefulDegradation_SystemMessageFormat(t *testing.T) {
 
 	// Test different error types
 	testCases := []struct {
-		errorMsg      string
-		expectedPart  string
+		errorMsg     string
+		expectedPart string
 	}{
 		{"connection timeout", "request timed out"},
 		{"rate limit exceeded", "rate limit exceeded"},

@@ -68,10 +68,10 @@ type AgentListModel struct {
 	agents         []core.Agent
 	statusMap      map[string]AgentStatus
 	metricsMap     map[string]AgentMetrics
-	typingStartMap map[string]time.Time     // When each agent started typing
-	errorMap       map[string]AgentErrorInfo // Error info for each agent
+	typingStartMap map[string]time.Time       // When each agent started typing
+	errorMap       map[string]AgentErrorInfo  // Error info for each agent
 	healthMap      map[string]AgentHealthInfo // Health info for each agent
-	animFrame      int                       // Current frame for typing animation (0-2)
+	animFrame      int                        // Current frame for typing animation (0-2)
 	selectedIndex  int
 	width          int
 	height         int
