@@ -319,7 +319,7 @@ This phase implements comprehensive error handling, retry logic, and resilience 
     - TestPoolActiveRequestCount, TestPoolIsAgentCancelled
   - All pool package tests pass (100%) with race detection enabled
 
-- [ ] Write error handling tests:
+- [x] Write error handling tests:
   - TestRetryOnNetworkError: Verify retry with backoff
   - TestNoRetryOnAuthError: Verify immediate failure
   - TestRateLimitHandling: Verify retry-after respected
@@ -328,6 +328,47 @@ This phase implements comprehensive error handling, retry logic, and resilience 
   - TestGracefulDegradation: Some agents fail, conversation continues
   - TestTimeout: Verify context cancellation works
   - TestCancellation: Verify clean cancellation
+
+  **Completed**: All 8 comprehensive error handling integration tests implemented in `pkg/v2/error_handling_test.go`:
+  - `TestRetryOnNetworkError` (lines 25-75): Verifies retry with exponential backoff on network errors
+    - Uses mock adapter that fails with network errors for first 2 attempts, succeeds on 3rd
+    - Validates 3 attempts made (2 retries + success) with proper retry config (5 max, 10ms initial, 2x backoff)
+    - Confirms success response and metrics after retries
+  - `TestNoRetryOnAuthError` (lines 77-127): Verifies immediate failure for auth errors (non-retryable)
+    - Uses mock adapter returning 401 auth error
+    - Validates only 1 attempt made (no retries despite 5 max configured)
+    - Confirms AgentError with ErrTypeAuth and HTTP 401 status code
+  - `TestRateLimitHandling` (lines 129-185): Verifies retry-after duration is respected
+    - Uses mock adapter returning rate limit with 50ms retry-after, then succeeds
+    - Validates timing between retries approaches the retry-after duration
+    - Confirms 2 attempts made (rate limit + success)
+  - `TestCircuitBreakerOpens` (lines 187-256): Verifies circuit breaker opens after consecutive failures
+    - Configures circuit breaker with FailureThreshold: 3, CooldownPeriod: 1s
+    - Uses always-failing adapter to trigger circuit open
+    - Validates CircuitOpen state after 3 failures
+    - Confirms available agent count is 0 with open circuit
+  - `TestCircuitBreakerRecovers` (lines 258-326): Verifies half-open transition and circuit close on recovery
+    - Configures circuit breaker with short 50ms cooldown for testing
+    - Uses adapter that fails first 2 times, then succeeds
+    - Validates circuit opens after failures, transitions to half-open after cooldown
+    - Confirms circuit closes to CircuitClosed state on successful probe
+  - `TestGracefulDegradation` (lines 328-391): Verifies conversation continues when some agents fail
+    - Creates 2 agents with graceful degradation enabled
+    - Validates at least 1 response received even if some agents fail
+    - Confirms conversation not paused if some agents responded
+    - Verifies GetFailedAgents() and GetAvailableAgentCount() work correctly
+  - `TestTimeout` (lines 393-459): Verifies context cancellation on timeout
+    - Configures 100ms per-agent timeout with slow adapter (500ms delay)
+    - Validates response completed faster than adapter delay due to timeout
+    - Confirms timeout error returned with proper error type classification
+    - Verifies is_timeout=true in execution logs
+  - `TestCancellation` (lines 461-542): Verifies clean request cancellation
+    - Uses slow adapter (2s delay) and cancels after 100ms
+    - Validates agent cancelled via pool.Cancel()
+    - Confirms cancellation error returned and agent status set to "cancelled"
+    - Verifies no active requests remain after cancellation (0 goroutine leaks)
+    - Confirms EventAgentCancelled event emitted
+  - All 8 integration tests pass (100%) with race detection enabled
 
 - [ ] Update TUI for error display:
   - Show error icon in agent list for failed agents
