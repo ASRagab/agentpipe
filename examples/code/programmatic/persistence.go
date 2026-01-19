@@ -215,7 +215,8 @@ func RunAutoSaveExample() {
 
 	// Configure with auto-save enabled
 	config := manager.Config{
-		Timeout: 30 * time.Second,
+		Timeout:          30 * time.Second,
+		ConversationMode: "parallel",
 		Persistence: manager.PersistenceConfig{
 			Enabled:      true, // Enable auto-save
 			SaveDir:      tempDir,

@@ -72,12 +72,14 @@ env | grep API_KEY
 Your API key is invalid, expired, or doesn't have the required permissions.
 
 **Symptoms:**
+
 - HTTP status code 401 or 403
 - Error message mentioning "unauthorized" or "forbidden"
 
 **Solutions:**
 
 1. **Verify the API key is correct:**
+
    ```bash
    # For OpenRouter
    curl https://openrouter.ai/api/v1/auth/key \
@@ -87,6 +89,7 @@ Your API key is invalid, expired, or doesn't have the required permissions.
    ```
 
 2. **Check for typos or extra whitespace:**
+
    ```bash
    # Look for hidden characters
    echo -n "$OPENROUTER_API_KEY" | xxd | head
@@ -107,6 +110,7 @@ Your API key is invalid, expired, or doesn't have the required permissions.
 AgentPipe cannot connect to the API server.
 
 **Causes:**
+
 - No internet connection
 - Firewall blocking outbound requests
 - VPN/proxy issues
@@ -115,6 +119,7 @@ AgentPipe cannot connect to the API server.
 **Solutions:**
 
 1. **Check internet connectivity:**
+
    ```bash
    ping google.com
    curl -I https://api.anthropic.com
@@ -122,6 +127,7 @@ AgentPipe cannot connect to the API server.
    ```
 
 2. **Check firewall/proxy settings:**
+
    ```bash
    # If using a proxy, set environment variables
    export HTTP_PROXY=http://proxy:port
@@ -137,6 +143,7 @@ AgentPipe cannot connect to the API server.
 The request took too long to complete.
 
 **Causes:**
+
 - Slow network connection
 - Large response being generated
 - Server under heavy load
@@ -145,6 +152,7 @@ The request took too long to complete.
 **Solutions:**
 
 1. **Increase timeout in config:**
+
    ```yaml
    conversation:
      timeout: 60s        # Increase from default 30s
@@ -157,6 +165,7 @@ The request took too long to complete.
    ```
 
 2. **Reduce response length:**
+
    ```yaml
    agents:
      - id: claude
@@ -169,6 +178,7 @@ The request took too long to complete.
    - GPT-3.5 Turbo instead of GPT-4
 
 4. **Check your network latency:**
+
    ```bash
    # Measure latency to API endpoints
    time curl -o /dev/null -s https://api.anthropic.com/v1/messages
@@ -179,6 +189,7 @@ The request took too long to complete.
 You've hit the API provider's rate limit.
 
 **Symptoms:**
+
 - Error message containing "rate limit" or "too many requests"
 - HTTP status code 429
 - `Retry-After` header in response
@@ -196,6 +207,7 @@ You've hit the API provider's rate limit.
    - Contact your provider for limit increases
 
 4. **Use multiple API keys** (if your provider allows):
+
    ```yaml
    agents:
      - id: claude1
@@ -233,6 +245,7 @@ agents:
 Every agent must have a unique `id` field.
 
 **Incorrect:**
+
 ```yaml
 agents:
   - type: openrouter      # Missing id!
@@ -240,6 +253,7 @@ agents:
 ```
 
 **Correct:**
+
 ```yaml
 agents:
   - id: claude            # Required
@@ -252,12 +266,14 @@ agents:
 The adapter type specified doesn't exist.
 
 **Valid adapter names:**
+
 - `openrouter` - OpenRouter API
 - `claude-api` - Anthropic Claude API
 - `claude` - Claude CLI
 - `gemini` - Gemini CLI
 
 **Check your config:**
+
 ```yaml
 agents:
   - id: my-agent
@@ -269,6 +285,7 @@ agents:
 Duration values must use Go duration format.
 
 **Incorrect:**
+
 ```yaml
 conversation:
   timeout: 30           # Missing unit!
@@ -276,6 +293,7 @@ conversation:
 ```
 
 **Correct:**
+
 ```yaml
 conversation:
   timeout: 30s          # seconds
@@ -288,15 +306,18 @@ conversation:
 The model identifier is incorrect or not available.
 
 **OpenRouter models:** Use format `provider/model-name`
+
 - `openai/gpt-4-turbo`
 - `anthropic/claude-3-opus`
 - `google/gemini-pro`
 
 **Claude API models:** Use full model ID
+
 - `claude-sonnet-4-20250514`
 - `claude-3-opus-20240229`
 
 **Check available models:**
+
 - OpenRouter: [openrouter.ai/models](https://openrouter.ai/models)
 - Anthropic: [docs.anthropic.com/en/docs/models-overview](https://docs.anthropic.com/en/docs/models-overview)
 
@@ -309,6 +330,7 @@ The model identifier is incorrect or not available.
 The terminal window is smaller than the minimum required size (80x24).
 
 **Solution:**
+
 - Resize your terminal window
 - Use a terminal emulator with adjustable size
 - Try fullscreen mode
@@ -320,6 +342,7 @@ Unicode characters aren't displaying correctly.
 **Solutions:**
 
 1. **Check terminal Unicode support:**
+
    ```bash
    echo "Unicode test: ✅ ❌ 🟢 🔴"
    # Should display colored icons
@@ -331,6 +354,7 @@ Unicode characters aren't displaying correctly.
    - Linux: GNOME Terminal, Konsole, Kitty
 
 3. **Set proper locale:**
+
    ```bash
    export LANG=en_US.UTF-8
    export LC_ALL=en_US.UTF-8
@@ -343,12 +367,14 @@ Colors aren't displaying correctly.
 **Solutions:**
 
 1. **Check terminal color support:**
+
    ```bash
    echo $TERM
    # Should be xterm-256color or similar
    ```
 
 2. **Enable 256-color mode:**
+
    ```bash
    export TERM=xterm-256color
    ```
@@ -378,6 +404,7 @@ The input panel doesn't accept keyboard input.
 Pressing Enter doesn't send the message.
 
 **Solution:**
+
 - Use `Ctrl+Enter` to send, not just `Enter`
 - `Enter` creates a new line for multi-line input
 
@@ -392,6 +419,7 @@ Responses take too long to appear.
 **Solutions:**
 
 1. **Use API adapters instead of CLI:**
+
    ```yaml
    # Faster (API)
    type: claude-api
@@ -407,12 +435,14 @@ Responses take too long to appear.
    - GPT-3.5 Turbo is faster than GPT-4
 
 3. **Reduce response length:**
+
    ```yaml
    config:
      max_tokens: 500
    ```
 
 4. **Check network latency:**
+
    ```bash
    time curl -I https://api.anthropic.com
    ```
@@ -422,22 +452,26 @@ Responses take too long to appear.
 AgentPipe using excessive CPU.
 
 **Normal behavior:**
+
 - High CPU during streaming (processing incoming chunks)
 - Should idle between messages
 
 **If constantly high:**
 
 1. **Check for runaway processes:**
+
    ```bash
    ps aux | grep agentpipe
    ```
 
 2. **Update to latest version:**
+
    ```bash
    go install github.com/ASRagab/agentpipe@latest
    ```
 
 3. **Try headless mode to eliminate TUI overhead:**
+
    ```bash
    agentpipe run --v2 --no-tui -c config.yaml
    ```
@@ -449,6 +483,7 @@ AgentPipe using too much memory.
 **Solutions:**
 
 1. **Limit conversation history:**
+
    ```yaml
    conversation:
      max_turns: 50  # Limit conversation length
@@ -519,6 +554,7 @@ CLI binary not found: claude
 **Solutions:**
 
 1. **Install Claude CLI:**
+
    ```bash
    # macOS
    brew install anthropic/tap/claude
@@ -528,12 +564,14 @@ CLI binary not found: claude
    ```
 
 2. **Verify installation:**
+
    ```bash
    which claude
    claude --version
    ```
 
 3. **Authenticate:**
+
    ```bash
    claude login
    ```
@@ -545,17 +583,20 @@ CLI adapters may fail health checks due to authentication issues.
 **Solutions:**
 
 1. **Run the CLI directly to test:**
+
    ```bash
    claude "Hello, world"
    ```
 
 2. **Re-authenticate:**
+
    ```bash
    claude logout
    claude login
    ```
 
 3. **Increase health check timeout:**
+
    ```bash
    agentpipe doctor --v2 -c config.yaml
    # Health check uses 10s timeout

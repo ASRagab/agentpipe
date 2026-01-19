@@ -9,38 +9,50 @@ AgentPipe v2.0.0-mvp is a **complete architecture rewrite** that introduces para
 ## 🚀 What's New
 
 ### Parallel Agent Execution
+
 All agents can now respond **simultaneously** instead of taking turns:
+
 - **2-3x faster conversations** - Time equals the slowest agent, not the sum of all
 - Configurable via `conversation.mode: parallel`
 - Reduces wait time dramatically for multi-agent setups
 
 ### Real-Time Token Streaming
+
 Watch responses as they're generated:
+
 - Word-level streaming with 60fps TUI updates
 - Server-Sent Events (SSE) support for API adapters
 - Streaming chunks emitted via event bus
 
 ### Event-Driven Architecture
+
 New `pkg/v2/events/` package with publish-subscribe pattern:
+
 - Event types: `message.created`, `message.chunk`, `agent.typing`, `agent.done`, `agent.error`
 - Loose coupling for extensibility
 - Subscribe to specific events with unsubscribe functions
 
 ### API-First Adapters
+
 Direct API integration without CLI dependencies:
+
 - New `claude-api` adapter for Anthropic API
 - OpenRouter integration for 400+ models
 - Lower latency than CLI-based adapters
 - CLI adapters remain as fallbacks
 
 ### Auto-Save & Resume
+
 Never lose conversation progress:
+
 - Conversations auto-saved on exit
 - `--resume latest` continues last conversation
 - `--resume <id>` for specific conversations
 
 ### Circuit Breaker Pattern
+
 Intelligent failure handling:
+
 - Automatic circuit opening after repeated failures
 - Half-open state for recovery testing
 - Prevents cascade failures across agents
@@ -76,6 +88,7 @@ agentpipe run --v2 --migrate-config -c my-config.yaml
 | First response visible | After complete | Immediately | **Streaming** |
 
 ### Benchmark Results (Apple M3 Max)
+
 - **Single Message Latency**: ~54μs (target: <100ms) ✅
 - **Event Bus Throughput**: 1,501,172 events/s ✅
 - **Pool Execution**: 63ns/op ✅
@@ -99,19 +112,23 @@ agentpipe run --v2 --migrate-config -c my-config.yaml
 ## 🔄 Upgrade Instructions
 
 ### 1. Backup Your v1 Config
+
 ```bash
 cp my-config.yaml my-config.yaml.backup
 ```
 
 ### 2. Use Auto-Migration
+
 ```bash
 agentpipe run --v2 --migrate-config -c my-config.yaml
 ```
+
 This creates a backup (`*.v1.backup`) and converts to v2 format.
 
 ### 3. Manual Migration (Optional)
 
 **Before (v1):**
+
 ```yaml
 orchestrator:
   mode: round-robin
@@ -124,6 +141,7 @@ agents:
 ```
 
 **After (v2):**
+
 ```yaml
 conversation:
   mode: parallel
@@ -137,6 +155,7 @@ agents:
 ```
 
 ### 4. Test Before Committing
+
 ```bash
 # Test with v2 flag before setting as default
 agentpipe run --v2 -c my-config.yaml
@@ -211,9 +230,9 @@ Thank you to everyone who made this release possible:
 
 ## 🔗 Links
 
-- **GitHub Repository**: https://github.com/ASRagab/agentpipe
-- **Full Changelog**: https://github.com/ASRagab/agentpipe/blob/main/CHANGELOG.md
-- **Issue Tracker**: https://github.com/ASRagab/agentpipe/issues
+- **GitHub Repository**: <https://github.com/ASRagab/agentpipe>
+- **Full Changelog**: <https://github.com/ASRagab/agentpipe/blob/main/CHANGELOG.md>
+- **Issue Tracker**: <https://github.com/ASRagab/agentpipe/issues>
 
 ---
 

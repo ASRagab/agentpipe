@@ -58,11 +58,13 @@ Displays conversation-level information:
 Shows each agent's status and metrics:
 
 **Status Indicators:**
+
 - 🟢 **Ready** - Agent is idle, ready to respond
 - 🟡 **Typing** - Agent is generating a response (animated dots)
 - 🔴 **Error** - Agent encountered an error
 
 **Metrics Display:**
+
 - Response duration (e.g., `2.3s`)
 - Cost for last response (e.g., `$0.02`)
 - Token count when available
@@ -145,6 +147,7 @@ When streaming completes, the cursor disappears and metrics appear.
 ### Parallel Agent Responses
 
 All agents respond simultaneously. You'll see:
+
 1. Status indicators change to "typing" (🟡)
 2. Responses stream in concurrently
 3. Status returns to "ready" (🟢) as each agent finishes
@@ -158,11 +161,13 @@ When an agent encounters an error:
 3. Error details available via agent list
 
 **Viewing Error Details:**
+
 1. Focus the agent list (`Tab` to cycle)
 2. Select the errored agent (`↑`/`↓`)
 3. Press `Enter` to view details
 
 **Retrying Failed Agents:**
+
 1. Select the errored agent
 2. Press `r` to retry
 
@@ -235,6 +240,7 @@ agentpipe run --v2 -c config.yaml --no-tui
 ### Headless Mode
 
 When TUI is disabled, AgentPipe runs in headless mode:
+
 - Input via stdin
 - Output via stdout
 - Suitable for scripts and automation
@@ -259,11 +265,13 @@ Current size: 60x20
 ### Terminal Features
 
 For best experience:
+
 - **True color support** - For proper color coding
 - **Unicode support** - For status indicators and borders
 - **256-color minimum** - Falls back gracefully if true color unavailable
 
 Recommended terminals:
+
 - iTerm2 (macOS)
 - Windows Terminal
 - Kitty
@@ -294,6 +302,7 @@ Recommended terminals:
 ### Multi-Agent Comparisons
 
 When comparing agent responses:
+
 1. Ask the same question to all agents
 2. Use agent list to track which have responded
 3. Scroll conversation to compare answers
@@ -304,35 +313,42 @@ When comparing agent responses:
 ### Display Issues
 
 **Garbled output:**
+
 - Ensure your terminal supports Unicode
 - Try a different terminal emulator
 - Check `TERM` environment variable
 
 **Missing colors:**
+
 - Verify terminal supports 256 colors or true color
 - Try `export TERM=xterm-256color`
 
 **Wrong layout:**
+
 - Resize terminal to at least 80x24
 - Restart AgentPipe after resizing
 
 ### Input Issues
 
 **Can't type:**
+
 - Make sure input panel is focused (use `Tab`)
 - Check if help overlay is open (press `Esc`)
 
 **Message not sending:**
+
 - Use `Ctrl+Enter`, not just `Enter`
 - Verify input panel is focused
 
 ### Performance Issues
 
 **Slow updates:**
+
 - TUI renders at 60fps, should be smooth
 - Check if terminal is in compatibility mode
 - Try a faster terminal emulator
 
 **High CPU:**
+
 - Normal during streaming (processing chunks)
 - Should idle between messages

@@ -241,7 +241,7 @@ func TestPoolCancel(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		responses = pool.ExecuteParallel(ctx, messages)
+		responses = pool.ExecuteParallel(ctx, messages, nil)
 	}()
 
 	// Wait for agents to start
@@ -303,7 +303,7 @@ func TestPoolCancelAgent(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		responses = pool.ExecuteParallel(ctx, messages)
+		responses = pool.ExecuteParallel(ctx, messages, nil)
 	}()
 
 	// Wait for agents to start
@@ -374,7 +374,7 @@ func TestPoolHasActiveRequest(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}()
 
 	// Wait for agent to start
@@ -419,7 +419,7 @@ func TestPoolGetActiveRequests(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
@@ -485,7 +485,7 @@ func TestPoolCancelledStatusSet(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
@@ -530,7 +530,7 @@ func TestCancellationEventEmitted(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}()
 
 	time.Sleep(100 * time.Millisecond)

@@ -13,12 +13,10 @@ import (
 	"github.com/ASRagab/agentpipe/pkg/log"
 )
 
-// GeminiCLIAdapter implements the AgentAdapter interface for Gemini CLI.
 type GeminiCLIAdapter struct {
 	BaseCLIAdapter
 }
 
-// NewGeminiCLIAdapter creates a new Gemini CLI adapter instance.
 func NewGeminiCLIAdapter() adapters.AgentAdapter {
 	return &GeminiCLIAdapter{
 		BaseCLIAdapter: BaseCLIAdapter{
@@ -27,7 +25,6 @@ func NewGeminiCLIAdapter() adapters.AgentAdapter {
 	}
 }
 
-// Initialize configures the adapter with the agent configuration.
 func (g *GeminiCLIAdapter) Initialize(agent core.Agent) error {
 	path, err := FindCLIPath("gemini")
 	if err != nil {
@@ -63,8 +60,7 @@ func (g *GeminiCLIAdapter) Initialize(agent core.Agent) error {
 	return nil
 }
 
-// SendMessage sends messages to Gemini CLI and returns the response.
-func (g *GeminiCLIAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (g *GeminiCLIAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	if len(messages) == 0 {
 		return "", nil, nil
 	}
@@ -74,66 +70,37 @@ func (g *GeminiCLIAdapter) SendMessage(ctx context.Context, messages []core.Mess
 		"message_count": len(messages),
 	}).Debug("Sending message to Gemini CLI")
 
-	// Filter out this agent's own messages
 	relevantMessages := FilterRelevantMessages(messages, g.agentID, g.agentName)
+	prompt := BuildConversationPrompt(g.agentName, g.systemPrompt, relevantMessages, conversation)
 
-	// Build the prompt
-	prompt := BuildConversationPrompt(g.agentName, g.systemPrompt, relevantMessages)
-
-	// Build command args
 	var args []string
-
-	// Add model flag if specified
 	if g.model != "" {
 		args = append(args, "--model", g.model)
 	}
-
-	// Add any extra flags
 	args = append(args, g.extraFlags...)
 
 	startTime := time.Now()
 	stdout, stderr, err := ExecuteCommand(ctx, g.cliPath, args, strings.NewReader(prompt))
 	duration := time.Since(startTime)
 
-	outputStr := string(stdout)
-
-	// Check for API errors in output
-	if strings.Contains(outputStr, "404") || strings.Contains(outputStr, "NOT_FOUND") {
-		log.WithFields(map[string]interface{}{
-			"agent_name": g.agentName,
-			"model":      g.model,
-			"duration":   duration.String(),
-		}).Error("Gemini model not found")
-		return "", nil, fmt.Errorf("Gemini model not found - check model name in config: %s", g.model)
-	}
-	if strings.Contains(outputStr, "401") || strings.Contains(outputStr, "UNAUTHENTICATED") {
-		log.WithFields(map[string]interface{}{
-			"agent_name": g.agentName,
-			"duration":   duration.String(),
-		}).Error("Gemini authentication failed")
-		return "", nil, fmt.Errorf("Gemini authentication failed - check API keys")
-	}
-
-	// Gemini CLI sometimes exits non-zero but produces valid output
-	hasValidOutput := len(outputStr) > 0 && !strings.Contains(outputStr, "error")
-
 	if err != nil {
-		if hasValidOutput {
-			log.WithFields(map[string]interface{}{
-				"agent_name": g.agentName,
-				"duration":   duration.String(),
-				"exit_error": err.Error(),
-			}).Debug("Gemini had exit error but produced valid output, accepting response")
-		} else {
-			return "", nil, HandleCLIError("Gemini", err, stderr)
+		if output := strings.TrimSpace(string(stdout)); output != "" {
+			metrics := &core.Metrics{
+				Duration:     duration,
+				InputTokens:  EstimateTokens(prompt),
+				OutputTokens: EstimateTokens(output),
+				TotalTokens:  EstimateTokens(prompt) + EstimateTokens(output),
+				Model:        g.model,
+				Cost:         g.estimateCost(EstimateTokens(prompt), EstimateTokens(output)),
+			}
+			return output, metrics, nil
 		}
+		return "", nil, HandleCLIError("Gemini", err, stderr)
 	}
 
-	response := g.cleanOutput(outputStr)
-
-	// Estimate metrics (Gemini CLI doesn't provide token counts)
+	content := ParseCLIOutput(string(stdout))
 	inputTokens := EstimateTokens(prompt)
-	outputTokens := EstimateTokens(response)
+	outputTokens := EstimateTokens(content)
 
 	metrics := &core.Metrics{
 		Duration:     duration,
@@ -144,94 +111,52 @@ func (g *GeminiCLIAdapter) SendMessage(ctx context.Context, messages []core.Mess
 		Cost:         g.estimateCost(inputTokens, outputTokens),
 	}
 
-	log.WithFields(map[string]interface{}{
-		"agent_name":    g.agentName,
-		"duration":      duration.String(),
-		"response_size": len(response),
-	}).Info("Gemini CLI message sent successfully")
-
-	return response, metrics, nil
+	return content, metrics, nil
 }
 
-// cleanOutput removes Gemini-specific noise from the output.
-func (g *GeminiCLIAdapter) cleanOutput(output string) string {
-	lines := strings.Split(output, "\n")
-	cleanedLines := make([]string, 0, len(lines))
-	inErrorTrace := false
+type geminiFilterWriter struct {
+	writer io.Writer
+}
 
-	for _, line := range lines {
-		// Skip common Gemini status messages
-		if strings.Contains(line, "Loaded cached credentials") ||
-			strings.Contains(line, "To authenticate") ||
-			strings.HasPrefix(line, "Gemini CLI") {
-			continue
-		}
-
-		// Detect start of error trace
-		if strings.Contains(line, "Attempt") && strings.Contains(line, "failed with status") {
-			inErrorTrace = true
-			continue
-		}
-		if strings.Contains(line, "GaxiosError:") || strings.Contains(line, "at Gaxios._request") {
-			inErrorTrace = true
-			continue
-		}
-		if strings.HasPrefix(strings.TrimSpace(line), "at ") || strings.HasPrefix(strings.TrimSpace(line), "at async") {
-			inErrorTrace = true
-			continue
-		}
-
-		// Skip lines that are part of error traces
-		if inErrorTrace {
-			if strings.TrimSpace(line) == "" {
-				continue
-			}
-			// Check if this looks like actual content
-			if !strings.HasPrefix(strings.TrimSpace(line), "{") &&
-				!strings.HasPrefix(strings.TrimSpace(line), "[") &&
-				!strings.HasPrefix(strings.TrimSpace(line), "}") &&
-				!strings.HasPrefix(strings.TrimSpace(line), "]") &&
-				!strings.Contains(line, "config:") &&
-				!strings.Contains(line, "response:") &&
-				!strings.Contains(line, "Symbol(") &&
-				len(strings.TrimSpace(line)) > 20 {
-				inErrorTrace = false
-			} else {
-				continue
-			}
-		}
-
-		cleanedLines = append(cleanedLines, line)
+func (f *geminiFilterWriter) Write(p []byte) (n int, err error) {
+	line := string(p)
+	if strings.Contains(line, "Loaded cached credentials") {
+		line = strings.ReplaceAll(line, "Loaded cached credentials", "")
+	}
+	if strings.Contains(line, "To authenticate") {
+		line = strings.ReplaceAll(line, "To authenticate", "")
 	}
 
-	return strings.TrimSpace(strings.Join(cleanedLines, "\n"))
+	lines := strings.Split(line, "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, l := range lines {
+		if strings.HasPrefix(strings.TrimSpace(l), "Gemini CLI") {
+			continue
+		}
+		filtered = append(filtered, l)
+	}
+
+	output := strings.TrimLeft(strings.Join(filtered, "\n"), "\n")
+	if strings.TrimSpace(output) == "" {
+		return len(p), nil
+	}
+	return f.writer.Write([]byte(output))
 }
 
-// StreamMessage sends messages and streams the response to the writer.
-func (g *GeminiCLIAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (g *GeminiCLIAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	if len(messages) == 0 {
 		return nil, nil
 	}
 
-	log.WithFields(map[string]interface{}{
-		"agent_name":    g.agentName,
-		"message_count": len(messages),
-	}).Debug("Starting Gemini CLI streaming message")
-
-	// Filter out this agent's own messages
 	relevantMessages := FilterRelevantMessages(messages, g.agentID, g.agentName)
+	prompt := BuildConversationPrompt(g.agentName, g.systemPrompt, relevantMessages, conversation)
 
-	// Build the prompt
-	prompt := BuildConversationPrompt(g.agentName, g.systemPrompt, relevantMessages)
-
-	// Build command args
 	var args []string
 	if g.model != "" {
 		args = append(args, "--model", g.model)
 	}
 	args = append(args, g.extraFlags...)
 
-	// Create a filtering writer to skip noise lines
 	filterWriter := &geminiFilterWriter{writer: writer}
 
 	startTime := time.Now()
@@ -242,9 +167,8 @@ func (g *GeminiCLIAdapter) StreamMessage(ctx context.Context, messages []core.Me
 		return nil, HandleCLIError("Gemini", err, nil)
 	}
 
-	// Estimate metrics
 	inputTokens := EstimateTokens(prompt)
-	outputTokens := 100 // Rough estimate for streaming
+	outputTokens := 100
 
 	metrics := &core.Metrics{
 		Duration:     duration,
@@ -263,23 +187,6 @@ func (g *GeminiCLIAdapter) StreamMessage(ctx context.Context, messages []core.Me
 	return metrics, nil
 }
 
-// geminiFilterWriter filters out Gemini-specific noise during streaming.
-type geminiFilterWriter struct {
-	writer io.Writer
-}
-
-func (f *geminiFilterWriter) Write(p []byte) (n int, err error) {
-	line := string(p)
-	// Filter out noise lines
-	if strings.Contains(line, "Loaded cached credentials") ||
-		strings.Contains(line, "To authenticate") ||
-		strings.HasPrefix(strings.TrimSpace(line), "Gemini CLI") {
-		return len(p), nil // Pretend we wrote it
-	}
-	return f.writer.Write(p)
-}
-
-// HealthCheck verifies the Gemini CLI is accessible and working.
 func (g *GeminiCLIAdapter) HealthCheck(ctx context.Context) error {
 	if g.cliPath == "" {
 		log.WithField("agent_name", g.agentName).Error("Gemini health check failed: not initialized")
@@ -319,7 +226,6 @@ func (g *GeminiCLIAdapter) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-// GetCLIVersion returns the version of the Gemini CLI.
 func (g *GeminiCLIAdapter) GetCLIVersion() string {
 	if g.cliPath == "" {
 		return "unknown"

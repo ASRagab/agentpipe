@@ -59,7 +59,7 @@ func TestMockAdapter_SendMessage(t *testing.T) {
 		core.NewUserMessage("Hi there"),
 	}
 
-	response, metrics, err := m.SendMessage(ctx, messages)
+	response, metrics, err := m.SendMessage(ctx, messages, nil)
 	if err != nil {
 		t.Fatalf("SendMessage returned error: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestMockAdapter_SendMessage_WithDelay(t *testing.T) {
 	ctx := context.Background()
 
 	start := time.Now()
-	_, _, err := m.SendMessage(ctx, nil)
+	_, _, err := m.SendMessage(ctx, nil, nil)
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -101,7 +101,7 @@ func TestMockAdapter_SendMessage_WithError(t *testing.T) {
 	m.Error = expectedErr
 	ctx := context.Background()
 
-	_, _, err := m.SendMessage(ctx, nil)
+	_, _, err := m.SendMessage(ctx, nil, nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -122,7 +122,7 @@ func TestMockAdapter_SendMessage_ContextCancellation(t *testing.T) {
 		cancel()
 	}()
 
-	_, _, err := m.SendMessage(ctx, nil)
+	_, _, err := m.SendMessage(ctx, nil, nil)
 	if err == nil {
 		t.Fatal("expected context cancellation error")
 	}
@@ -142,7 +142,7 @@ func TestMockAdapter_SendMessage_WithCustomMetrics(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	_, metrics, err := m.SendMessage(ctx, nil)
+	_, metrics, err := m.SendMessage(ctx, nil, nil)
 	if err != nil {
 		t.Fatalf("SendMessage returned error: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestMockAdapter_StreamMessage(t *testing.T) {
 	ctx := context.Background()
 
 	var buf bytes.Buffer
-	metrics, err := m.StreamMessage(ctx, nil, &buf)
+	metrics, err := m.StreamMessage(ctx, nil, &buf, nil)
 
 	if err != nil {
 		t.Fatalf("StreamMessage returned error: %v", err)
@@ -184,7 +184,7 @@ func TestMockAdapter_StreamMessage_WithDelay(t *testing.T) {
 
 	var buf bytes.Buffer
 	start := time.Now()
-	_, err := m.StreamMessage(ctx, nil, &buf)
+	_, err := m.StreamMessage(ctx, nil, &buf, nil)
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -203,7 +203,7 @@ func TestMockAdapter_StreamMessage_Fallback(t *testing.T) {
 	ctx := context.Background()
 
 	var buf bytes.Buffer
-	_, err := m.StreamMessage(ctx, nil, &buf)
+	_, err := m.StreamMessage(ctx, nil, &buf, nil)
 
 	if err != nil {
 		t.Fatalf("StreamMessage returned error: %v", err)
@@ -227,7 +227,7 @@ func TestMockAdapter_StreamMessage_ContextCancellation(t *testing.T) {
 	}()
 
 	var buf bytes.Buffer
-	_, err := m.StreamMessage(ctx, nil, &buf)
+	_, err := m.StreamMessage(ctx, nil, &buf, nil)
 
 	if err == nil {
 		t.Fatal("expected context cancellation error")
@@ -288,9 +288,9 @@ func TestMockAdapter_Reset(t *testing.T) {
 	ctx := context.Background()
 
 	// Make some calls
-	_, _, _ = m.SendMessage(ctx, []core.Message{core.NewUserMessage("test")})
+	_, _, _ = m.SendMessage(ctx, []core.Message{core.NewUserMessage("test")}, nil)
 	var buf bytes.Buffer
-	_, _ = m.StreamMessage(ctx, nil, &buf)
+	_, _ = m.StreamMessage(ctx, nil, &buf, nil)
 
 	// Verify calls were tracked
 	if m.SendMessageCalls != 1 {

@@ -27,7 +27,7 @@ agents:
   - id: innovator
     type: openrouter
     name: Innovator
-    model: anthropic/claude-sonnet-4-20250514
+    model: anthropic/claude-opus-4-5
     config:
       api_key_env: OPENROUTER_API_KEY
       system_prompt: |
@@ -50,7 +50,7 @@ agents:
   - id: strategist
     type: openrouter
     name: Strategist
-    model: openai/gpt-4-turbo
+    model: openai/gpt-5-mini
     config:
       api_key_env: OPENROUTER_API_KEY
       system_prompt: |
@@ -74,7 +74,7 @@ agents:
   - id: skeptic
     type: openrouter
     name: Skeptic
-    model: anthropic/claude-3-opus
+    model: anthropic/claude-3.7-sonnet
     timeout: 60s
     config:
       api_key_env: OPENROUTER_API_KEY
@@ -99,7 +99,7 @@ agents:
   - id: synthesizer
     type: openrouter
     name: Synthesizer
-    model: google/gemini-pro-1.5
+    model: google/gemini-2.5-flash
     config:
       api_key_env: OPENROUTER_API_KEY
       system_prompt: |

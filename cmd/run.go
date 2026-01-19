@@ -145,6 +145,12 @@ func executeConversation(cmd *cobra.Command, cfgPath string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Suppress console logging in TUI mode EARLY to prevent startup logs
+	// from appearing in terminal history after TUI exits.
+	if useTUI {
+		zerolog.SetGlobalLevel(zerolog.FatalLevel)
+	}
+
 	// Set up signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -193,8 +199,10 @@ func executeConversation(cmd *cobra.Command, cfgPath string) error {
 
 	// Create manager config
 	managerCfg := manager.Config{
-		Timeout: cfg.Conversation.Timeout,
-		SaveDir: cfg.Persistence.SaveDir,
+		Timeout:          cfg.Conversation.Timeout,
+		SaveDir:          cfg.Persistence.SaveDir,
+		ConversationMode: cfg.Conversation.Mode,
+		MaxTurns:         cfg.Conversation.MaxTurns,
 		Persistence: manager.PersistenceConfig{
 			Enabled: cfg.Persistence.AutoSave,
 			SaveDir: cfg.Persistence.SaveDir,
@@ -222,11 +230,6 @@ func executeConversation(cmd *cobra.Command, cfgPath string) error {
 
 	// Run TUI or headless mode
 	if useTUI {
-		// Suppress console logging in TUI mode to prevent log output
-		// from bleeding through and disrupting the TUI display.
-		// Set level to FatalLevel to only show fatal errors (essentially disabling logs).
-		// The TUI handles its own status display.
-		zerolog.SetGlobalLevel(zerolog.FatalLevel)
 		return v2tui.RunWithContext(ctx, mgr, eventBus)
 	}
 

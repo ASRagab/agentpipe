@@ -210,7 +210,7 @@ func TestConfig_Validate(t *testing.T) {
 				},
 			},
 			wantError: true,
-			errorMsg:  "type is required",
+			errorMsg:  "unknown adapter",
 		},
 		{
 			name: "missing agent name",
@@ -358,6 +358,11 @@ func TestApplyDefaults(t *testing.T) {
 				Model: "model",
 				// Adapter is empty - should default to Type
 			},
+			{
+				ID:    "agent-2",
+				Name:  "Agent 2",
+				Model: "model-2",
+			},
 		},
 	}
 
@@ -379,9 +384,14 @@ func TestApplyDefaults(t *testing.T) {
 		t.Errorf("expected default format 'text', got %q", config.Logging.Format)
 	}
 
-	// Check agent adapter defaults to type
 	if config.Agents[0].Adapter != "mock" {
 		t.Errorf("expected adapter 'mock' (defaulted from type), got %q", config.Agents[0].Adapter)
+	}
+	if config.Agents[1].Type != "general purpose" {
+		t.Errorf("expected type 'general purpose', got %q", config.Agents[1].Type)
+	}
+	if config.Agents[1].Adapter != "" {
+		t.Errorf("expected adapter to remain empty for default type, got %q", config.Agents[1].Adapter)
 	}
 
 	// Check persistence default

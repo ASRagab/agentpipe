@@ -49,6 +49,7 @@ type AgentConfig struct {
 	ID string `yaml:"id"`
 	// Type is the agent type (openrouter, claude-api, etc.).
 	Type string `yaml:"type"`
+	Role string `yaml:"role,omitempty"`
 	// Adapter is the adapter to use (defaults to type if not specified).
 	Adapter string `yaml:"adapter,omitempty"`
 	// Name is the display name.
@@ -215,7 +216,10 @@ func (c *Config) applyDefaults() {
 
 	// Agent defaults
 	for i := range c.Agents {
-		if c.Agents[i].Adapter == "" {
+		if c.Agents[i].Type == "" {
+			c.Agents[i].Type = "general purpose"
+		}
+		if c.Agents[i].Adapter == "" && adapters.Has(c.Agents[i].Type) {
 			c.Agents[i].Adapter = c.Agents[i].Type
 		}
 	}
@@ -244,9 +248,6 @@ func (c *Config) Validate() error {
 	for i, agent := range c.Agents {
 		if agent.ID == "" {
 			return fmt.Errorf("agent %d: id is required", i)
-		}
-		if agent.Type == "" {
-			return fmt.Errorf("agent %s: type is required", agent.ID)
 		}
 		if agent.Name == "" {
 			return fmt.Errorf("agent %s: name is required", agent.ID)

@@ -122,24 +122,20 @@ func (e *EchoAdapter) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-// SendMessage sends messages to the AI and returns the response.
-// This is the synchronous, non-streaming version.
-func (e *EchoAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (e *EchoAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	if len(messages) == 0 {
 		return "", nil, nil
 	}
 
 	startTime := time.Now()
 
-	// Check for context cancellation
 	select {
 	case <-ctx.Done():
 		return "", nil, errors.NewTimeoutError(e.agentID, e.agentName, ctx.Err())
 	default:
 	}
 
-	// Find the last user message to echo
-	var lastUserMessage string
+	lastUserMessage := ""
 	for i := len(messages) - 1; i >= 0; i-- {
 		if messages[i].Role == core.RoleUser {
 			lastUserMessage = messages[i].Content
@@ -151,12 +147,6 @@ func (e *EchoAdapter) SendMessage(ctx context.Context, messages []core.Message) 
 		return "", nil, fmt.Errorf("no user message found")
 	}
 
-	// Build the response
-	// In a real adapter, this is where you would:
-	// 1. Convert messages to your API format
-	// 2. Make the HTTP request
-	// 3. Parse the response
-	// 4. Handle errors with proper classification
 	var response string
 	if e.systemPrompt != "" {
 		response = fmt.Sprintf("[%s] Echo: %s", e.systemPrompt, lastUserMessage)
@@ -164,43 +154,36 @@ func (e *EchoAdapter) SendMessage(ctx context.Context, messages []core.Message) 
 		response = fmt.Sprintf("Echo: %s", lastUserMessage)
 	}
 
-	// Simulate some processing time
 	time.Sleep(100 * time.Millisecond)
 
 	duration := time.Since(startTime)
 
-	// Create metrics
-	// In a real adapter, you would get these from the API response
 	metrics := &core.Metrics{
 		Duration:     duration,
-		InputTokens:  len(lastUserMessage) / 4, // Rough estimate
-		OutputTokens: len(response) / 4,        // Rough estimate
+		InputTokens:  len(lastUserMessage) / 4,
+		OutputTokens: len(response) / 4,
 		TotalTokens:  (len(lastUserMessage) + len(response)) / 4,
 		Model:        e.model,
-		Cost:         0.0001, // Example cost
+		Cost:         0.0001,
 	}
 
 	return response, metrics, nil
 }
 
-// StreamMessage sends messages and streams the response to the writer.
-// Returns the final metrics after streaming completes.
-func (e *EchoAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (e *EchoAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	if len(messages) == 0 {
 		return nil, nil
 	}
 
 	startTime := time.Now()
 
-	// Check for context cancellation
 	select {
 	case <-ctx.Done():
 		return nil, errors.NewTimeoutError(e.agentID, e.agentName, ctx.Err())
 	default:
 	}
 
-	// Find the last user message
-	var lastUserMessage string
+	lastUserMessage := ""
 	for i := len(messages) - 1; i >= 0; i-- {
 		if messages[i].Role == core.RoleUser {
 			lastUserMessage = messages[i].Content
@@ -212,7 +195,6 @@ func (e *EchoAdapter) StreamMessage(ctx context.Context, messages []core.Message
 		return nil, fmt.Errorf("no user message found")
 	}
 
-	// Build the response
 	var response string
 	if e.systemPrompt != "" {
 		response = fmt.Sprintf("[%s] Echo: %s", e.systemPrompt, lastUserMessage)
@@ -220,30 +202,24 @@ func (e *EchoAdapter) StreamMessage(ctx context.Context, messages []core.Message
 		response = fmt.Sprintf("Echo: %s", lastUserMessage)
 	}
 
-	// Stream the response word by word
-	// In a real adapter, you would parse SSE events from the API
-	words := []byte(response)
-	for i, char := range words {
+	for i, char := range []byte(response) {
 		select {
 		case <-ctx.Done():
 			return nil, errors.NewTimeoutError(e.agentID, e.agentName, ctx.Err())
 		default:
 		}
 
-		// Write one character at a time (simulating streaming)
 		if _, err := writer.Write([]byte{byte(char)}); err != nil {
 			return nil, fmt.Errorf("failed to write stream content: %w", err)
 		}
 
-		// Small delay to simulate streaming
-		if i < len(words)-1 {
+		if i < len(response)-1 {
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
 	duration := time.Since(startTime)
 
-	// Create metrics
 	metrics := &core.Metrics{
 		Duration:     duration,
 		InputTokens:  len(lastUserMessage) / 4,

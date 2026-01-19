@@ -78,6 +78,21 @@ func ExportToMarkdown(conversation *core.Conversation) (string, error) {
 		sb.WriteString(content)
 		sb.WriteString("\n")
 
+		if msg.Role == core.RoleAgent && len(msg.Artifacts) > 0 {
+			sb.WriteString("\n<details>\n<summary>📦 Artifacts</summary>\n\n")
+			for _, item := range msg.Artifacts {
+				line := fmt.Sprintf("- `%s`", item.Filename)
+				if item.SavedPath != "" {
+					line = fmt.Sprintf("%s → `%s`", line, item.SavedPath)
+				}
+				if item.Version > 1 {
+					line = fmt.Sprintf("%s (v%d)", line, item.Version)
+				}
+				sb.WriteString(line + "\n")
+			}
+			sb.WriteString("\n</details>\n")
+		}
+
 		// Metrics for agent messages
 		if msg.Role == core.RoleAgent && msg.Metrics != nil {
 			sb.WriteString("\n<details>\n<summary>📊 Metrics</summary>\n\n")

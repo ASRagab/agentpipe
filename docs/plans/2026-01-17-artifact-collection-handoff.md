@@ -11,17 +11,20 @@ The artifact collection feature for AgentPipe has been implemented, tested, and 
 ## What Was Accomplished
 
 ### 1. Core Artifact System (Completed)
+
 - **Parser** (`pkg/artifact/parser.go`): Extracts fenced code blocks with ```language:filename.ext syntax
 - **Writer** (`pkg/artifact/writer.go`): Saves artifacts to agent-specific directories with versioning
 - **Types** (`pkg/artifact/types.go`): Data structures and configuration
 
 ### 2. Multi-Agent Test (Completed)
+
 - Ran 17-minute test with 3 agents (Claude-Architect, Gemini-Coder, Codex-Reviewer)
 - **Result:** 8.8/10 collaboration quality score
 - Artifacts created successfully with proper versioning
 - Cross-references between agents worked well
 
 ### 3. Improvements Based on Test Findings (Completed)
+
 | Issue Found | Fix Implemented |
 |-------------|-----------------|
 | Placeholder paths created (`path/to/file.ext`) | Added `isValidArtifactPath()` validation |
@@ -32,6 +35,7 @@ The artifact collection feature for AgentPipe has been implemented, tested, and 
 ## Current State
 
 ### Files Modified/Created
+
 ```
 pkg/artifact/
 ├── parser.go          # Artifact extraction with path validation
@@ -56,12 +60,14 @@ agentpipe-artifacts/    # Generated test artifacts (committed)
 ```
 
 ### Git Status
+
 - All changes committed to `feature/artifact-collection` branch
 - 2 commits in this session:
   1. `504a0e4` - feat(artifact): add artifact collection system with successful multi-agent test
   2. `d7d2786` - feat(artifact): improve collaboration quality with context injection and path validation
 
 ### Quality Checks
+
 - ✅ Build passes: `go build -o agentpipe .`
 - ✅ Tests pass: `go test -race ./pkg/artifact/...` (18 tests)
 - ✅ Full suite passes (except artifact directory false positives from .go files)
@@ -69,6 +75,7 @@ agentpipe-artifacts/    # Generated test artifacts (committed)
 ## Key Implementation Details
 
 ### Context Injection Flow
+
 ```
 Agent Turn Start
     ↓
@@ -86,7 +93,9 @@ Track new artifacts in collectedArtifacts slice
 ```
 
 ### Path Validation Rules
+
 Rejects paths matching:
+
 - `^(path|your|example|sample|my)[/-]` (placeholder patterns)
 - Contains `<` and `>` (template syntax)
 - Filename starts with: example, sample, your-, my-, placeholder
@@ -94,10 +103,13 @@ Rejects paths matching:
 ## Next Steps
 
 ### Ready to Run
+
 1. **Re-run collaboration test with improvements:**
+
    ```bash
    ./agentpipe run -c examples/collaborative-planning-test.yaml
    ```
+
    Expected: Better cross-references, no placeholder artifacts, no iteration regression
 
 2. **Run Scenario B (Deeper Collaboration):**
@@ -109,6 +121,7 @@ Rejects paths matching:
    - Test: "Design how AgentPipe could support collaborative debugging sessions"
 
 ### Potential Improvements
+
 1. **Add `GenerateInstructions()` injection** - Currently defined but not auto-injected (InstructAgents flag exists but instruction text not yet injected on first turn)
 
 2. **Chat log investigation** - Logs weren't created in non-TUI mode during test; may need investigation

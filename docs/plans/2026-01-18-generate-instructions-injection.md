@@ -9,10 +9,12 @@
 The `GenerateInstructions()` function exists in `pkg/artifact/types.go` but is never called. Agents don't receive artifact creation instructions on their first turn, only on subsequent turns via `GenerateContextHeader()` (which shows existing artifacts).
 
 **Current behavior:**
+
 - First turn: Agent gets no artifact instructions from orchestrator
 - Subsequent turns: Agent gets context header showing existing artifacts (if any)
 
 **Desired behavior:**
+
 - First turn: Agent gets artifact creation instructions via `GenerateInstructions()`
 - Subsequent turns: Agent gets both instructions AND context header
 

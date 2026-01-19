@@ -10,48 +10,29 @@ import (
 	"github.com/ASRagab/agentpipe/pkg/core"
 )
 
-// MockAdapter is a configurable adapter for testing purposes.
-// It can simulate responses, delays, errors, and streaming.
 type MockAdapter struct {
-	// Response is the content to return from SendMessage.
-	Response string
-	// Delay is how long to wait before responding.
-	Delay time.Duration
-	// Error is an error to return (if non-nil).
-	Error error
-	// StreamChunks are the chunks to write during StreamMessage.
-	StreamChunks []string
-	// StreamDelay is the delay between streaming chunks.
-	StreamDelay time.Duration
-	// HealthCheckError is the error to return from HealthCheck.
+	Response         string
+	Delay            time.Duration
+	Error            error
+	StreamChunks     []string
+	StreamDelay      time.Duration
 	HealthCheckError error
-	// Available controls whether IsAvailable returns true.
-	Available bool
-	// Model is the model name to return from GetModel.
-	Model string
+	Available        bool
+	Model            string
 
-	// agent holds the initialized agent configuration.
 	agent core.Agent
 
-	// Metrics to return (optional - if nil, default metrics are created).
 	Metrics *core.Metrics
 
-	// SendMessageCalls tracks how many times SendMessage was called.
-	SendMessageCalls int
-	// StreamMessageCalls tracks how many times StreamMessage was called.
+	SendMessageCalls   int
 	StreamMessageCalls int
-	// LastMessages stores the last messages passed to SendMessage/StreamMessage.
-	LastMessages []core.Message
+	LastMessages       []core.Message
+	LastConversation   *core.ConversationContext
 
-	// OnSendMessage is an optional callback for custom SendMessage behavior.
-	// If set, it overrides the default Response/Error behavior.
-	OnSendMessage func(ctx context.Context, messages []core.Message) (string, *core.Metrics, error)
-	// OnStreamMessage is an optional callback for custom StreamMessage behavior.
-	// If set, it overrides the default StreamChunks/Error behavior.
-	OnStreamMessage func(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error)
+	OnSendMessage   func(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error)
+	OnStreamMessage func(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error)
 }
 
-// NewMockAdapter creates a new mock adapter with sensible defaults.
 func NewMockAdapter() *MockAdapter {
 	return &MockAdapter{
 		Response:  "Mock response",
@@ -60,25 +41,20 @@ func NewMockAdapter() *MockAdapter {
 	}
 }
 
-// Initialize stores the agent configuration.
 func (m *MockAdapter) Initialize(agent core.Agent) error {
 	m.agent = agent
 	return nil
 }
 
-// SendMessage simulates sending a message to an AI.
-// If OnSendMessage is set, it uses that callback. Otherwise:
-// It waits for Delay, returns Error if set, otherwise returns Response.
-func (m *MockAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (m *MockAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	m.SendMessageCalls++
 	m.LastMessages = messages
+	m.LastConversation = conversation
 
-	// Use callback if provided
 	if m.OnSendMessage != nil {
-		return m.OnSendMessage(ctx, messages)
+		return m.OnSendMessage(ctx, messages, conversation)
 	}
 
-	// Wait for delay if set
 	if m.Delay > 0 {
 		select {
 		case <-ctx.Done():
@@ -87,12 +63,10 @@ func (m *MockAdapter) SendMessage(ctx context.Context, messages []core.Message) 
 		}
 	}
 
-	// Return error if configured
 	if m.Error != nil {
 		return "", nil, m.Error
 	}
 
-	// Create metrics if not provided
 	metrics := m.Metrics
 	if metrics == nil {
 		metrics = &core.Metrics{
@@ -108,38 +82,39 @@ func (m *MockAdapter) SendMessage(ctx context.Context, messages []core.Message) 
 	return m.Response, metrics, nil
 }
 
-// StreamMessage simulates streaming a response.
-// If OnStreamMessage is set, it uses that callback. Otherwise:
-// It writes StreamChunks to the writer with StreamDelay between each chunk.
-func (m *MockAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (m *MockAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	m.StreamMessageCalls++
 	m.LastMessages = messages
+	m.LastConversation = conversation
 
-	// Use callback if provided
 	if m.OnStreamMessage != nil {
-		return m.OnStreamMessage(ctx, messages, writer)
+		return m.OnStreamMessage(ctx, messages, writer, conversation)
 	}
 
-	// If no chunks configured, simulate with the Response
 	chunks := m.StreamChunks
 	if len(chunks) == 0 {
 		chunks = []string{m.Response}
 	}
 
+	if m.Delay > 0 {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(m.Delay):
+		}
+	}
+
 	for i, chunk := range chunks {
-		// Check for cancellation before each chunk
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
 
-		// Write the chunk
 		if _, err := writer.Write([]byte(chunk)); err != nil {
 			return nil, err
 		}
 
-		// Delay between chunks (not after the last one)
 		if m.StreamDelay > 0 && i < len(chunks)-1 {
 			select {
 			case <-ctx.Done():
@@ -149,16 +124,18 @@ func (m *MockAdapter) StreamMessage(ctx context.Context, messages []core.Message
 		}
 	}
 
-	// Return error if configured
 	if m.Error != nil {
 		return nil, m.Error
 	}
 
-	// Create metrics if not provided
 	metrics := m.Metrics
 	if metrics == nil {
+		totalDuration := m.Delay
+		if len(chunks) > 1 {
+			totalDuration += time.Duration(len(chunks)-1) * m.StreamDelay
+		}
 		metrics = &core.Metrics{
-			Duration:     time.Duration(len(chunks)) * m.StreamDelay,
+			Duration:     totalDuration,
 			InputTokens:  10,
 			OutputTokens: 20,
 			TotalTokens:  30,

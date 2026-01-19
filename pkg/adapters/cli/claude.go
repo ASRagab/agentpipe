@@ -13,12 +13,10 @@ import (
 	"github.com/ASRagab/agentpipe/pkg/log"
 )
 
-// ClaudeCLIAdapter implements the AgentAdapter interface for Claude CLI.
 type ClaudeCLIAdapter struct {
 	BaseCLIAdapter
 }
 
-// NewClaudeCLIAdapter creates a new Claude CLI adapter instance.
 func NewClaudeCLIAdapter() adapters.AgentAdapter {
 	return &ClaudeCLIAdapter{
 		BaseCLIAdapter: BaseCLIAdapter{
@@ -27,7 +25,6 @@ func NewClaudeCLIAdapter() adapters.AgentAdapter {
 	}
 }
 
-// Initialize configures the adapter with the agent configuration.
 func (c *ClaudeCLIAdapter) Initialize(agent core.Agent) error {
 	path, err := FindCLIPath("claude")
 	if err != nil {
@@ -63,8 +60,7 @@ func (c *ClaudeCLIAdapter) Initialize(agent core.Agent) error {
 	return nil
 }
 
-// SendMessage sends messages to Claude CLI and returns the response.
-func (c *ClaudeCLIAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (c *ClaudeCLIAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	if len(messages) == 0 {
 		return "", nil, nil
 	}
@@ -74,21 +70,13 @@ func (c *ClaudeCLIAdapter) SendMessage(ctx context.Context, messages []core.Mess
 		"message_count": len(messages),
 	}).Debug("Sending message to Claude CLI")
 
-	// Filter out this agent's own messages
 	relevantMessages := FilterRelevantMessages(messages, c.agentID, c.agentName)
+	prompt := BuildConversationPrompt(c.agentName, c.systemPrompt, relevantMessages, conversation)
 
-	// Build the prompt
-	prompt := BuildConversationPrompt(c.agentName, c.systemPrompt, relevantMessages)
-
-	// Build command args - must use -p for non-interactive mode
 	args := []string{"-p"}
-
-	// Add model flag if specified
 	if c.model != "" {
 		args = append(args, "--model", c.model)
 	}
-
-	// Add any extra flags
 	args = append(args, c.extraFlags...)
 
 	startTime := time.Now()
@@ -96,25 +84,23 @@ func (c *ClaudeCLIAdapter) SendMessage(ctx context.Context, messages []core.Mess
 	duration := time.Since(startTime)
 
 	if err != nil {
-		// Check if we have meaningful output despite an error
-		// Claude CLI sometimes exits non-zero but produces valid output
-		outputStr := string(stdout)
-		if len(outputStr) > 50 && !strings.Contains(outputStr, "error") {
-			log.WithFields(map[string]interface{}{
-				"agent_name": c.agentName,
-				"duration":   duration.String(),
-				"exit_error": err.Error(),
-			}).Debug("Claude had exit error but produced valid output, accepting response")
-		} else {
-			return "", nil, HandleCLIError("Claude", err, stderr)
+		if output := strings.TrimSpace(string(stdout)); output != "" {
+			metrics := &core.Metrics{
+				Duration:     duration,
+				InputTokens:  EstimateTokens(prompt),
+				OutputTokens: EstimateTokens(output),
+				TotalTokens:  EstimateTokens(prompt) + EstimateTokens(output),
+				Model:        c.model,
+				Cost:         c.estimateCost(EstimateTokens(prompt), EstimateTokens(output)),
+			}
+			return output, metrics, nil
 		}
+		return "", nil, HandleCLIError("Claude", err, stderr)
 	}
 
-	response := ParseCLIOutput(string(stdout))
-
-	// Estimate metrics (Claude CLI doesn't provide token counts)
+	content := ParseCLIOutput(string(stdout))
 	inputTokens := EstimateTokens(prompt)
-	outputTokens := EstimateTokens(response)
+	outputTokens := EstimateTokens(content)
 
 	metrics := &core.Metrics{
 		Duration:     duration,
@@ -125,41 +111,21 @@ func (c *ClaudeCLIAdapter) SendMessage(ctx context.Context, messages []core.Mess
 		Cost:         c.estimateCost(inputTokens, outputTokens),
 	}
 
-	log.WithFields(map[string]interface{}{
-		"agent_name":    c.agentName,
-		"duration":      duration.String(),
-		"response_size": len(response),
-	}).Info("Claude CLI message sent successfully")
-
-	return response, metrics, nil
+	return content, metrics, nil
 }
 
-// StreamMessage sends messages and streams the response to the writer.
-func (c *ClaudeCLIAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (c *ClaudeCLIAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	if len(messages) == 0 {
 		return nil, nil
 	}
 
-	log.WithFields(map[string]interface{}{
-		"agent_name":    c.agentName,
-		"message_count": len(messages),
-	}).Debug("Starting Claude CLI streaming message")
-
-	// Filter out this agent's own messages
 	relevantMessages := FilterRelevantMessages(messages, c.agentID, c.agentName)
+	prompt := BuildConversationPrompt(c.agentName, c.systemPrompt, relevantMessages, conversation)
 
-	// Build the prompt
-	prompt := BuildConversationPrompt(c.agentName, c.systemPrompt, relevantMessages)
-
-	// Build command args - use -p for non-interactive mode (streaming by default)
 	args := []string{"-p"}
-
-	// Add model flag if specified
 	if c.model != "" {
 		args = append(args, "--model", c.model)
 	}
-
-	// Add any extra flags
 	args = append(args, c.extraFlags...)
 
 	startTime := time.Now()
@@ -170,10 +136,8 @@ func (c *ClaudeCLIAdapter) StreamMessage(ctx context.Context, messages []core.Me
 		return nil, HandleCLIError("Claude", err, nil)
 	}
 
-	// Estimate metrics
 	inputTokens := EstimateTokens(prompt)
-	// Output tokens are hard to estimate for streaming without capturing the full response
-	outputTokens := 100 // Rough estimate
+	outputTokens := 100
 
 	metrics := &core.Metrics{
 		Duration:     duration,
@@ -192,7 +156,6 @@ func (c *ClaudeCLIAdapter) StreamMessage(ctx context.Context, messages []core.Me
 	return metrics, nil
 }
 
-// HealthCheck verifies the Claude CLI is accessible and working.
 func (c *ClaudeCLIAdapter) HealthCheck(ctx context.Context) error {
 	if c.cliPath == "" {
 		log.WithField("agent_name", c.agentName).Error("Claude health check failed: not initialized")
@@ -230,7 +193,6 @@ func (c *ClaudeCLIAdapter) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-// GetCLIVersion returns the version of the Claude CLI.
 func (c *ClaudeCLIAdapter) GetCLIVersion() string {
 	if c.cliPath == "" {
 		return "unknown"

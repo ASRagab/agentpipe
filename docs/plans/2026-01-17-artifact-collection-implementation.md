@@ -177,6 +177,7 @@ func sanitizePath(s string) string {
 ### Task 4: Create pkg/artifact/artifact_test.go
 
 Test cases:
+
 - Parse single artifact from content
 - Parse multiple artifacts from content
 - Parse nested path artifacts
@@ -191,6 +192,7 @@ Test cases:
 In `pkg/orchestrator/orchestrator.go`:
 
 1. Add artifact writer field:
+
 ```go
 type Orchestrator struct {
     // ... existing fields
@@ -199,7 +201,8 @@ type Orchestrator struct {
 }
 ```
 
-2. Initialize in constructor or config method:
+1. Initialize in constructor or config method:
+
 ```go
 func (o *Orchestrator) SetArtifactConfig(cfg artifact.Config) {
     o.artifactConfig = cfg
@@ -209,7 +212,8 @@ func (o *Orchestrator) SetArtifactConfig(cfg artifact.Config) {
 }
 ```
 
-3. After agent response, extract and save:
+1. After agent response, extract and save:
+
 ```go
 // In processAgentResponse or similar
 if o.artifactWriter != nil {
@@ -232,6 +236,7 @@ if o.artifactWriter != nil {
 In `pkg/tui/enhanced.go`:
 
 1. Add new message type for artifacts:
+
 ```go
 type artifactSaved struct {
     agentName string
@@ -240,7 +245,8 @@ type artifactSaved struct {
 }
 ```
 
-2. Handle in Update():
+1. Handle in Update():
+
 ```go
 case artifactSaved:
     // Add system message showing artifact save

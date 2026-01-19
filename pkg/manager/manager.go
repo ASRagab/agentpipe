@@ -5,10 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ASRagab/agentpipe/pkg/adapters"
+	"github.com/ASRagab/agentpipe/pkg/artifact"
 	"github.com/ASRagab/agentpipe/pkg/core"
 	"github.com/ASRagab/agentpipe/pkg/events"
 	"github.com/ASRagab/agentpipe/pkg/log"
@@ -16,13 +20,9 @@ import (
 	"github.com/ASRagab/agentpipe/pkg/pool"
 )
 
-// ErrAllAgentsFailed is returned when all agents fail and PauseOnAllFailed is enabled.
 var ErrAllAgentsFailed = errors.New("all agents failed to respond")
-
-// ErrConversationPaused is returned when attempting to send messages while paused.
 var ErrConversationPaused = errors.New("conversation is paused due to all agents failing")
 
-// PersistenceConfig contains configuration for auto-save functionality.
 type PersistenceConfig struct {
 	// Enabled enables auto-save functionality.
 	Enabled bool
@@ -47,7 +47,6 @@ type GracefulDegradationConfig struct {
 	EmitSystemMessages bool
 }
 
-// DefaultGracefulDegradationConfig returns the default graceful degradation configuration.
 func DefaultGracefulDegradationConfig() GracefulDegradationConfig {
 	return GracefulDegradationConfig{
 		Enabled:                  true,
@@ -57,7 +56,6 @@ func DefaultGracefulDegradationConfig() GracefulDegradationConfig {
 	}
 }
 
-// Config contains configuration for the ConversationManager.
 type Config struct {
 	// Timeout is the maximum time to wait for agent responses.
 	Timeout time.Duration
@@ -67,13 +65,16 @@ type Config struct {
 	Persistence PersistenceConfig
 	// GracefulDegradation contains configuration for handling agent failures.
 	GracefulDegradation GracefulDegradationConfig
+	ConversationMode    string
+	MaxTurns            int
 }
 
-// DefaultConfig returns the default configuration.
 func DefaultConfig() Config {
 	return Config{
-		Timeout: 60 * time.Second,
-		SaveDir: "",
+		Timeout:          60 * time.Second,
+		SaveDir:          "",
+		ConversationMode: "parallel",
+		MaxTurns:         0,
 		Persistence: PersistenceConfig{
 			Enabled:      false,
 			SaveDir:      persistence.DefaultSaveDir(),
@@ -97,7 +98,6 @@ type FailedAgentInfo struct {
 	RetryCount int
 }
 
-// ConversationManager orchestrates conversations between multiple AI agents.
 type ConversationManager struct {
 	config       Config
 	conversation *core.Conversation
@@ -105,19 +105,21 @@ type ConversationManager struct {
 	eventBus     *events.Bus
 	mu           sync.RWMutex
 
-	// Auto-save fields
 	lastSave     time.Time
 	saveDebounce time.Duration
 	stopAutoSave chan struct{}
 	autoSaveWg   sync.WaitGroup
 	resumed      bool
 
-	// Graceful degradation fields
-	failedAgents map[string]*FailedAgentInfo // Track failed agents by ID
-	paused       bool                        // Whether conversation is paused due to all agents failing
+	turnCount int
+
+	failedAgents map[string]*FailedAgentInfo
+	paused       bool
+
+	artifactConfig artifact.Config
+	artifactWriter *artifact.Writer
 }
 
-// NewConversationManager creates a new conversation manager.
 func NewConversationManager(config Config, agents []core.Agent, eventBus *events.Bus) (*ConversationManager, error) {
 	if eventBus == nil {
 		eventBus = events.NewBus()
@@ -154,13 +156,14 @@ func NewConversationManager(config Config, agents []core.Agent, eventBus *events
 	conversation := core.NewConversation(agents)
 
 	m := &ConversationManager{
-		config:       config,
-		conversation: conversation,
-		agentPool:    agentPool,
-		eventBus:     eventBus,
-		saveDebounce: 2 * time.Second,
-		stopAutoSave: make(chan struct{}),
-		failedAgents: make(map[string]*FailedAgentInfo),
+		config:         config,
+		conversation:   conversation,
+		agentPool:      agentPool,
+		eventBus:       eventBus,
+		saveDebounce:   2 * time.Second,
+		stopAutoSave:   make(chan struct{}),
+		failedAgents:   make(map[string]*FailedAgentInfo),
+		artifactConfig: artifact.DefaultConfig(),
 	}
 
 	// Set up auto-save if enabled
@@ -325,6 +328,31 @@ func (m *ConversationManager) IsResumed() bool {
 	return m.resumed
 }
 
+func (m *ConversationManager) SetArtifactConfig(config artifact.Config) {
+	m.mu.Lock()
+	m.artifactConfig = config
+	if config.Enabled {
+		m.artifactWriter = artifact.NewWriter(config.OutputDir)
+	} else {
+		m.artifactWriter = nil
+	}
+	m.mu.Unlock()
+}
+
+func (m *ConversationManager) AddSystemMessage(content string) core.Message {
+	sysMsg := core.NewSystemMessage(content)
+	m.addMessage(sysMsg)
+	m.eventBus.Publish(core.NewMessageCreatedEvent(sysMsg))
+	return sysMsg
+}
+
+func (m *ConversationManager) addMessage(msg core.Message) {
+	m.mu.Lock()
+	m.conversation.AddMessage(msg)
+	m.turnCount++
+	m.mu.Unlock()
+}
+
 // Save manually saves the current conversation.
 func (m *ConversationManager) Save() (string, error) {
 	m.mu.RLock()
@@ -354,13 +382,32 @@ func (m *ConversationManager) ExportToMarkdown(outputPath string) error {
 	return persistence.SaveAsMarkdown(conv, outputPath)
 }
 
-// Start begins the conversation and emits the started event.
 func (m *ConversationManager) Start() {
 	m.mu.Lock()
 	agents := m.conversation.Agents
 	conversationID := m.conversation.ID
 	resumed := m.resumed
+	promptsEmitted := false
+	if val, ok := m.conversation.GetMetadata("system_prompts_emitted"); ok {
+		if flag, ok := val.(bool); ok {
+			promptsEmitted = flag
+		}
+	}
 	m.mu.Unlock()
+
+	if !promptsEmitted && !resumed {
+		for _, agent := range agents {
+			prompt := strings.TrimSpace(agent.Config.SystemPrompt)
+			if prompt == "" {
+				continue
+			}
+			content := fmt.Sprintf("System prompt for %s:\n%s", agent.Name, prompt)
+			m.AddSystemMessage(content)
+		}
+		m.mu.Lock()
+		m.conversation.SetMetadata("system_prompts_emitted", true)
+		m.mu.Unlock()
+	}
 
 	// Emit conversation started event
 	event := core.NewConversationStartedEvent(conversationID, agents)
@@ -380,12 +427,6 @@ func (m *ConversationManager) Start() {
 	}).Info("conversation started")
 }
 
-// SendUserMessage sends a user message and waits for all agent responses.
-// With graceful degradation enabled:
-// - The conversation continues even if some agents fail
-// - Failed agents are tracked and retried on the next message
-// - System messages are emitted for unavailable agents
-// - If all agents fail and PauseOnAllFailed is true, returns ErrAllAgentsFailed
 func (m *ConversationManager) SendUserMessage(ctx context.Context, content string) ([]core.Message, error) {
 	// Check if conversation is paused
 	m.mu.RLock()
@@ -397,11 +438,11 @@ func (m *ConversationManager) SendUserMessage(ctx context.Context, content strin
 
 	// Create and add user message
 	userMsg := core.NewUserMessage(content)
+	m.addMessage(userMsg)
 
-	m.mu.Lock()
-	m.conversation.AddMessage(userMsg)
+	m.mu.RLock()
 	messages := m.conversation.GetMessages()
-	m.mu.Unlock()
+	m.mu.RUnlock()
 
 	// Emit message created event
 	m.eventBus.Publish(core.NewMessageCreatedEvent(userMsg))
@@ -412,14 +453,67 @@ func (m *ConversationManager) SendUserMessage(ctx context.Context, content strin
 		"content_length":  len(content),
 	}).Debug("user message sent")
 
-	// Execute all agents in parallel
-	responses := m.agentPool.ExecuteParallel(ctx, messages)
+	conversationContext := m.buildConversationContext(messages)
+	responses := m.agentPool.ExecuteParallel(ctx, messages, conversationContext)
 
-	// Process responses with graceful degradation
 	return m.processResponsesWithDegradation(responses)
 }
 
-// processResponsesWithDegradation processes agent responses with graceful degradation logic.
+func (m *ConversationManager) buildConversationContext(messages []core.Message) *core.ConversationContext {
+	m.mu.RLock()
+	conversation := m.conversation
+	turnCount := m.turnCount
+	mode := m.config.ConversationMode
+	maxTurns := m.config.MaxTurns
+	agents := make([]core.Agent, len(conversation.Agents))
+	copy(agents, conversation.Agents)
+	m.mu.RUnlock()
+
+	if mode == "" {
+		mode = "parallel"
+	}
+
+	participants := make([]core.ConversationParticipant, 0, len(agents))
+	for _, agent := range agents {
+		participant := core.ConversationParticipant{
+			ID:   agent.ID,
+			Name: agent.Name,
+		}
+		if agent.Type != "" && agent.Type != "general purpose" {
+			participant.Type = agent.Type
+		}
+		participants = append(participants, participant)
+	}
+
+	var initialPrompt string
+	for _, msg := range messages {
+		if msg.Role == core.RoleSystem && (msg.AgentID == "system" || msg.AgentID == "host" || msg.AgentName == "System" || msg.AgentName == "HOST") {
+			initialPrompt = msg.Content
+			break
+		}
+	}
+
+	var lastSpeaker string
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg := messages[i]
+		if msg.Role == core.RoleAgent && msg.AgentName != "" {
+			lastSpeaker = msg.AgentName
+			break
+		}
+	}
+
+	return &core.ConversationContext{
+		ConversationID: conversation.ID,
+		CurrentTurn:    turnCount,
+		MaxTurns:       maxTurns,
+		Mode:           mode,
+		Participants:   participants,
+		LastSpeaker:    lastSpeaker,
+		InitialPrompt:  initialPrompt,
+		TotalMessages:  len(messages),
+	}
+}
+
 func (m *ConversationManager) processResponsesWithDegradation(responses []pool.Response) ([]core.Message, error) {
 	agentMessages := make([]core.Message, 0, len(responses))
 	successCount := 0
@@ -430,28 +524,20 @@ func (m *ConversationManager) processResponsesWithDegradation(responses []pool.R
 		if resp.Error != nil {
 			failureCount++
 
-			// Track failed agent
 			m.trackFailedAgent(resp.AgentID, resp.AgentName, resp.Error.Error())
 
-			// Emit system message if configured
 			if config.Enabled && config.EmitSystemMessages {
 				sysMsg := m.createUnavailableSystemMessage(resp.AgentName, resp.Error.Error())
-				m.mu.Lock()
-				m.conversation.AddMessage(sysMsg)
-				m.mu.Unlock()
+				m.addMessage(sysMsg)
 
-				// Emit system message event
 				m.eventBus.Publish(core.NewMessageCreatedEvent(sysMsg))
 
 				agentMessages = append(agentMessages, sysMsg)
 			} else {
-				// Create error message for failed agents (legacy behavior)
 				errMsg := core.NewAgentMessage(resp.AgentID, resp.AgentName, "", nil)
 				errMsg.SetError(resp.Error.Error())
 
-				m.mu.Lock()
-				m.conversation.AddMessage(errMsg)
-				m.mu.Unlock()
+				m.addMessage(errMsg)
 
 				agentMessages = append(agentMessages, errMsg)
 			}
@@ -467,25 +553,26 @@ func (m *ConversationManager) processResponsesWithDegradation(responses []pool.R
 		if resp.Message != nil {
 			successCount++
 
-			// Clear failed status for this agent if it was previously failed
 			m.clearFailedAgent(resp.AgentID)
 
-			m.mu.Lock()
-			m.conversation.AddMessage(*resp.Message)
-			m.mu.Unlock()
+			processed := m.extractAndSaveArtifacts(*resp.Message)
+			m.addMessage(processed)
 
-			// Emit message created event
-			m.eventBus.Publish(core.NewMessageCreatedEvent(*resp.Message))
+			m.eventBus.Publish(core.NewMessageCreatedEvent(processed))
 
-			agentMessages = append(agentMessages, *resp.Message)
+			agentMessages = append(agentMessages, processed)
+
+			log.WithFields(map[string]interface{}{
+				"agent_id":   resp.AgentID,
+				"agent_name": resp.AgentName,
+			}).Debug("agent response added to conversation")
 		}
+
 	}
 
 	// Check if all agents failed
 	if config.Enabled && config.PauseOnAllFailed && failureCount > 0 && successCount == 0 {
-		m.mu.Lock()
 		m.paused = true
-		m.mu.Unlock()
 
 		log.WithFields(map[string]interface{}{
 			"failure_count": failureCount,
@@ -562,6 +649,91 @@ func (m *ConversationManager) createUnavailableSystemMessage(agentName, errorMsg
 	}
 
 	return core.NewSystemMessage(content)
+}
+
+func (m *ConversationManager) extractAndSaveArtifacts(msg core.Message) core.Message {
+	m.mu.RLock()
+	config := m.artifactConfig
+	writer := m.artifactWriter
+	m.mu.RUnlock()
+
+	if !config.Enabled || msg.Role != core.RoleAgent {
+		return msg
+	}
+
+	result := artifact.Parse(msg.Content, msg.AgentID, msg.AgentName)
+	msg.Content = result.CleanedContent
+	if len(result.Artifacts) == 0 {
+		return msg
+	}
+
+	if config.MaxSizeBytes > 0 || len(config.AllowedTypes) > 0 {
+		filtered := make([]artifact.Artifact, 0, len(result.Artifacts))
+		for _, item := range result.Artifacts {
+			if config.MaxSizeBytes > 0 && int64(len(item.Content)) > config.MaxSizeBytes {
+				continue
+			}
+			if len(config.AllowedTypes) > 0 && !containsArtifactType(config.AllowedTypes, item.Type) {
+				continue
+			}
+			filtered = append(filtered, item)
+		}
+		result.Artifacts = filtered
+	}
+
+	if len(result.Artifacts) == 0 {
+		return msg
+	}
+
+	if writer == nil {
+		writer = artifact.NewWriter(config.OutputDir)
+		m.mu.Lock()
+		m.artifactWriter = writer
+		m.mu.Unlock()
+	}
+
+	saved := make([]artifact.Artifact, 0, len(result.Artifacts))
+	for _, item := range result.Artifacts {
+		path, err := writer.Write(item)
+		if err != nil {
+			log.WithFields(map[string]interface{}{
+				"agent_id":   msg.AgentID,
+				"agent_name": msg.AgentName,
+				"filename":   item.Filename,
+			}).WithError(err).Warn("failed to write artifact")
+			continue
+		}
+		item.SavedPath = path
+		item.Version = writerVersion(path)
+		saved = append(saved, item)
+	}
+
+	msg.Content = result.CleanedContent
+	msg.Artifacts = saved
+	return msg
+}
+
+func containsArtifactType(allowed []string, candidate string) bool {
+	for _, t := range allowed {
+		if strings.EqualFold(t, candidate) {
+			return true
+		}
+	}
+	return false
+}
+
+func writerVersion(savedPath string) int {
+	base := filepath.Base(savedPath)
+	name := strings.TrimSuffix(base, filepath.Ext(base))
+	parts := strings.Split(name, ".")
+	if len(parts) < 2 {
+		return 1
+	}
+	last := parts[len(parts)-1]
+	if version, err := strconv.Atoi(last); err == nil {
+		return version
+	}
+	return 1
 }
 
 // GetFailedAgents returns information about all currently failed agents.

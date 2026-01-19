@@ -4,11 +4,13 @@ package pool
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ASRagab/agentpipe/pkg/adapters"
 	"github.com/ASRagab/agentpipe/pkg/core"
+	"github.com/ASRagab/agentpipe/pkg/errors"
 	"github.com/ASRagab/agentpipe/pkg/events"
 	"github.com/ASRagab/agentpipe/pkg/log"
 )
@@ -22,13 +24,14 @@ type Response struct {
 	// Message is the completed message from the agent.
 	Message *core.Message
 	// Error is any error that occurred during processing.
-	Error error
+	Error          error
+	PartialContent string
 }
 
 // AgentPool manages a collection of agents and executes requests in parallel.
 type AgentPool interface {
 	// ExecuteParallel sends a message to all agents in parallel and returns their responses.
-	ExecuteParallel(ctx context.Context, messages []core.Message) []Response
+	ExecuteParallel(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) []Response
 	// GetStatus returns the status of all agents in the pool.
 	GetStatus() map[string]core.AgentStatus
 }
@@ -209,7 +212,7 @@ func (p *Pool) GetAgents() []core.Agent {
 
 // ExecuteParallel sends messages to all agents in parallel.
 // Agents with open circuit breakers are skipped with an error response.
-func (p *Pool) ExecuteParallel(ctx context.Context, messages []core.Message) []Response {
+func (p *Pool) ExecuteParallel(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) []Response {
 	p.mu.RLock()
 	agentsCopy := make([]AgentEntry, len(p.agents))
 	copy(agentsCopy, p.agents)
@@ -251,7 +254,7 @@ func (p *Pool) ExecuteParallel(ctx context.Context, messages []core.Message) []R
 				return
 			}
 
-			resp := p.executeAgent(ctx, e, messages)
+			resp := p.executeAgent(ctx, e, messages, conversation)
 			responseChan <- resp
 		}(entry)
 	}
@@ -270,7 +273,7 @@ func (p *Pool) ExecuteParallel(ctx context.Context, messages []core.Message) []R
 }
 
 // executeAgent runs a single agent with timeout handling.
-func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []core.Message) Response {
+func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []core.Message, conversation *core.ConversationContext) Response {
 	agent := entry.Agent
 	adapter := entry.Adapter
 
@@ -280,17 +283,14 @@ func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []co
 		agentTimeout = p.timeoutHandler.GetAgentTimeout(agent.ID)
 	}
 
-	// Create per-agent context with timeout
 	agentCtx, cancel := context.WithTimeout(ctx, agentTimeout)
 	defer cancel()
 
-	// Register request with cancellation manager for external cancellation support
 	if p.cancellation != nil {
 		p.cancellation.RegisterRequest(agent.ID, agent.Name, cancel)
 		defer p.cancellation.UnregisterRequest(agent.ID)
 	}
 
-	// Emit typing event
 	if p.eventBus != nil {
 		p.eventBus.Publish(core.NewAgentTypingEvent(agent.ID, agent.Name))
 	}
@@ -306,99 +306,37 @@ func (p *Pool) executeAgent(ctx context.Context, entry AgentEntry, messages []co
 
 	startTime := time.Now()
 
-	// Send message
-	content, metrics, err := adapter.SendMessage(agentCtx, messages)
+	if p.isStreamingEnabled() {
+		return p.executeAgentStreaming(agentCtx, entry, messages, startTime, conversation)
+	}
+
+	if p.timeoutHandler == nil {
+		content, metrics, err := adapter.SendMessage(agentCtx, messages, conversation)
+		duration := time.Since(startTime)
+		if err != nil {
+			return p.handleAgentError(entry, agentTimeout, duration, err)
+		}
+
+		msg := p.handleAgentSuccess(entry, duration, content, metrics)
+		return Response{
+			AgentID:   entry.Agent.ID,
+			AgentName: entry.Agent.Name,
+			Message:   &msg,
+		}
+	}
+
+	result := p.timeoutHandler.ExecuteWithTimeout(agentCtx, entry.Agent.ID, entry.Agent.Name,
+		func(execCtx context.Context, partialChan chan<- string) (string, *core.Metrics, error) {
+			return adapter.SendMessage(execCtx, messages, conversation)
+		},
+	)
 	duration := time.Since(startTime)
 
-	if err != nil {
-		// Check if this was a cancellation
-		isCancelled := IsCancellationError(err)
-		if isCancelled {
-			entry.State.SetCancelled()
-
-			log.WithFields(map[string]interface{}{
-				"agent_id":   agent.ID,
-				"agent_name": agent.Name,
-				"duration":   duration.String(),
-			}).Info("agent request cancelled")
-
-			// Note: cancellation event already emitted by CancellationManager
-			return Response{
-				AgentID:   agent.ID,
-				AgentName: agent.Name,
-				Error:     ErrAgentCancelled,
-			}
-		}
-
-		entry.State.SetError(err.Error())
-
-		// Check if this was a timeout error
-		isTimeout := isContextTimeout(err)
-		if isTimeout && p.timeoutStats != nil {
-			p.timeoutStats.RecordTimeout(agent.ID, duration, false, false)
-		}
-
-		// Record failure in circuit breaker
-		if entry.CircuitBreaker != nil {
-			entry.CircuitBreaker.RecordFailure()
-		}
-
-		// Emit error event with enhanced timeout details
-		if p.eventBus != nil {
-			errMsg := err.Error()
-			if isTimeout {
-				errMsg = fmt.Sprintf("agent timed out after %s (limit: %s)",
-					duration.Round(time.Millisecond), agentTimeout.Round(time.Millisecond))
-			}
-			p.eventBus.Publish(core.NewAgentErrorEvent(agent.ID, agent.Name, errMsg))
-		}
-
-		log.WithFields(map[string]interface{}{
-			"agent_id":   agent.ID,
-			"agent_name": agent.Name,
-			"duration":   duration.String(),
-			"timeout":    agentTimeout.String(),
-			"is_timeout": isTimeout,
-		}).WithError(err).Error("agent execution failed")
-
-		return Response{
-			AgentID:   agent.ID,
-			AgentName: agent.Name,
-			Error:     err,
-		}
+	if result.Error != nil {
+		return p.handleTimeoutResult(entry, agentTimeout, duration, result)
 	}
 
-	// Record success in circuit breaker
-	if entry.CircuitBreaker != nil {
-		entry.CircuitBreaker.RecordSuccess()
-	}
-
-	// Ensure metrics has duration
-	if metrics == nil {
-		metrics = &core.Metrics{}
-	}
-	if metrics.Duration == 0 {
-		metrics.Duration = duration
-	}
-
-	// Create the message
-	msg := core.NewAgentMessage(agent.ID, agent.Name, content, metrics)
-
-	// Update agent state
-	entry.State.RecordMessage(metrics.TotalTokens, metrics.Cost)
-
-	// Emit done event
-	if p.eventBus != nil {
-		p.eventBus.Publish(core.NewAgentDoneEvent(agent.ID, agent.Name, msg))
-	}
-
-	log.WithFields(map[string]interface{}{
-		"agent_id":     agent.ID,
-		"agent_name":   agent.Name,
-		"duration":     duration.String(),
-		"total_tokens": metrics.TotalTokens,
-	}).Info("agent execution completed")
-
+	msg := p.handleAgentSuccess(entry, duration, result.Content, result.Metrics)
 	return Response{
 		AgentID:   agent.ID,
 		AgentName: agent.Name,
@@ -416,6 +354,462 @@ func (p *Pool) GetStatus() map[string]core.AgentStatus {
 		status[entry.Agent.ID] = entry.State.Status
 	}
 	return status
+}
+
+func (p *Pool) isStreamingEnabled() bool {
+	return p.eventBus != nil
+}
+
+func newMessageID() string {
+	return fmt.Sprintf("msg-%d", time.Now().UnixNano())
+}
+
+func (p *Pool) executeAgentStreaming(ctx context.Context, entry AgentEntry, messages []core.Message, startTime time.Time, conversation *core.ConversationContext) Response {
+	messageID := newMessageID()
+	buffer := &chunkCollector{
+		agentID:    entry.Agent.ID,
+		agentName:  entry.Agent.Name,
+		messageID:  messageID,
+		eventBus:   p.eventBus,
+		chunkIndex: 0,
+	}
+	if p.eventBus != nil {
+		p.eventBus.Publish(core.NewMessageChunkEvent(core.MessageChunk{
+			MessageID: messageID,
+			AgentID:   entry.Agent.ID,
+			AgentName: entry.Agent.Name,
+			Content:   "",
+			Index:     0,
+			IsFinal:   false,
+		}))
+	}
+
+	result := p.timeoutHandler.ExecuteWithTimeout(ctx, entry.Agent.ID, entry.Agent.Name,
+		func(execCtx context.Context, partialChan chan<- string) (string, *core.Metrics, error) {
+			writer := &streamWriter{
+				collector:   buffer,
+				partialChan: partialChan,
+			}
+			metrics, err := entry.Adapter.StreamMessage(execCtx, messages, writer, conversation)
+			return buffer.String(), metrics, err
+		},
+	)
+
+	elapsed := time.Since(startTime)
+	if result.Error != nil {
+		return p.handleStreamingError(entry, elapsed, result, messageID, buffer.chunkIndex)
+	}
+
+	if buffer.chunkIndex == 0 {
+		buffer.chunkIndex = 1
+	}
+
+	if result.Metrics == nil {
+		result.Metrics = &core.Metrics{}
+	}
+	if result.Metrics.Duration == 0 {
+		result.Metrics.Duration = elapsed
+	}
+
+	entry.State.RecordMessage(result.Metrics.TotalTokens, result.Metrics.Cost)
+
+	msg := core.NewAgentMessage(entry.Agent.ID, entry.Agent.Name, result.Content, result.Metrics)
+	msg.ID = messageID
+	if p.eventBus != nil {
+		p.eventBus.Publish(core.NewMessageChunkEvent(core.MessageChunk{
+			MessageID: messageID,
+			AgentID:   entry.Agent.ID,
+			AgentName: entry.Agent.Name,
+			Content:   "",
+			Index:     buffer.chunkIndex,
+			IsFinal:   true,
+		}))
+		p.eventBus.Publish(core.NewAgentDoneEvent(entry.Agent.ID, entry.Agent.Name, msg))
+	}
+
+	log.WithFields(map[string]interface{}{
+		"agent_id":     entry.Agent.ID,
+		"agent_name":   entry.Agent.Name,
+		"duration":     elapsed.String(),
+		"total_tokens": result.Metrics.TotalTokens,
+	}).Info("agent execution completed")
+
+	return Response{
+		AgentID:   entry.Agent.ID,
+		AgentName: entry.Agent.Name,
+		Message:   &msg,
+	}
+
+}
+
+func (p *Pool) handleAgentSuccess(entry AgentEntry, duration time.Duration, content string, metrics *core.Metrics) core.Message {
+	if entry.CircuitBreaker != nil {
+		entry.CircuitBreaker.RecordSuccess()
+	}
+
+	if metrics == nil {
+		metrics = &core.Metrics{}
+	}
+	if metrics.Duration == 0 {
+		metrics.Duration = duration
+	}
+
+	entry.State.RecordMessage(metrics.TotalTokens, metrics.Cost)
+
+	msg := core.NewAgentMessage(entry.Agent.ID, entry.Agent.Name, content, metrics)
+	if p.eventBus != nil {
+		p.eventBus.Publish(core.NewAgentDoneEvent(entry.Agent.ID, entry.Agent.Name, msg))
+	}
+
+	log.WithFields(map[string]interface{}{
+		"agent_id":     entry.Agent.ID,
+		"agent_name":   entry.Agent.Name,
+		"duration":     duration.String(),
+		"total_tokens": metrics.TotalTokens,
+	}).Info("agent execution completed")
+
+	return msg
+}
+
+func (p *Pool) handleAgentError(entry AgentEntry, agentTimeout, duration time.Duration, err error) Response {
+	if IsCancellationError(err) {
+		entry.State.SetCancelled()
+
+		if p.eventBus != nil {
+			p.eventBus.Publish(core.NewAgentCancelledEvent(
+				entry.Agent.ID,
+				entry.Agent.Name,
+				"request cancelled",
+			))
+		}
+
+		log.WithFields(map[string]interface{}{
+			"agent_id":   entry.Agent.ID,
+			"agent_name": entry.Agent.Name,
+			"duration":   duration.String(),
+		}).Info("agent request cancelled")
+
+		return Response{
+			AgentID:   entry.Agent.ID,
+			AgentName: entry.Agent.Name,
+			Error:     ErrAgentCancelled,
+		}
+	}
+
+	if p.cancellation != nil && p.cancellation.IsCancelled(entry.Agent.ID) {
+		entry.State.SetCancelled()
+
+		if p.eventBus != nil {
+			p.eventBus.Publish(core.NewAgentCancelledEvent(
+				entry.Agent.ID,
+				entry.Agent.Name,
+				"request cancelled",
+			))
+		}
+
+		log.WithFields(map[string]interface{}{
+			"agent_id":   entry.Agent.ID,
+			"agent_name": entry.Agent.Name,
+			"duration":   duration.String(),
+		}).Info("agent request cancelled")
+
+		return Response{
+			AgentID:   entry.Agent.ID,
+			AgentName: entry.Agent.Name,
+			Error:     ErrAgentCancelled,
+		}
+	}
+
+	baseErr := err
+	if agentErr, ok := errors.AsAgentError(err); ok {
+		baseErr = agentErr.Unwrap()
+	}
+	if baseErr == nil {
+		baseErr = err
+	}
+	agentErr := errors.WrapError(entry.Agent.ID, entry.Agent.Name, baseErr)
+	entry.State.SetError(agentErr.Error())
+
+	isTimeout := isContextTimeout(err)
+	var responseErr error = agentErr
+	if isTimeout {
+		responseErr = err
+	} else if baseErr != nil {
+		responseErr = baseErr
+	}
+	if isTimeout && p.timeoutStats != nil {
+		p.timeoutStats.RecordTimeout(entry.Agent.ID, duration, false, false)
+	}
+
+	if entry.CircuitBreaker != nil {
+		entry.CircuitBreaker.RecordFailure()
+	}
+
+	if p.eventBus != nil {
+		errMsg := agentErr.Error()
+		if isTimeout {
+			errMsg = fmt.Sprintf("agent timed out after %s (limit: %s)",
+				duration.Round(time.Millisecond), agentTimeout.Round(time.Millisecond))
+		}
+		p.eventBus.Publish(core.NewAgentErrorEvent(entry.Agent.ID, entry.Agent.Name, errMsg))
+	}
+
+	log.WithFields(map[string]interface{}{
+		"agent_id":   entry.Agent.ID,
+		"agent_name": entry.Agent.Name,
+		"duration":   duration.String(),
+		"timeout":    agentTimeout.String(),
+		"is_timeout": isTimeout,
+	}).WithError(agentErr).Error("agent execution failed")
+
+	return Response{
+		AgentID:   entry.Agent.ID,
+		AgentName: entry.Agent.Name,
+		Error:     responseErr,
+	}
+}
+
+func (p *Pool) handleTimeoutResult(entry AgentEntry, agentTimeout, duration time.Duration, result TimeoutResult) Response {
+	result.Error = unwrapAgentError(result.Error)
+	if result.Error == nil {
+		return Response{
+			AgentID:   entry.Agent.ID,
+			AgentName: entry.Agent.Name,
+		}
+	}
+
+	if IsCancellationError(result.Error) || (p.cancellation != nil && p.cancellation.IsCancelled(entry.Agent.ID)) {
+		entry.State.SetCancelled()
+		if p.eventBus != nil {
+			p.eventBus.Publish(core.NewAgentCancelledEvent(
+				entry.Agent.ID,
+				entry.Agent.Name,
+				"request cancelled",
+			))
+		}
+		return Response{
+			AgentID:   entry.Agent.ID,
+			AgentName: entry.Agent.Name,
+			Error:     ErrAgentCancelled,
+		}
+	}
+
+	if result.TimedOut {
+		timeoutErr := context.DeadlineExceeded
+		entry.State.SetError(timeoutErr.Error())
+		if p.timeoutStats != nil {
+			p.timeoutStats.RecordTimeout(entry.Agent.ID, duration, result.PartialContent != "", false)
+		}
+		if entry.CircuitBreaker != nil {
+			entry.CircuitBreaker.RecordFailure()
+		}
+		if p.eventBus != nil {
+			p.eventBus.Publish(core.NewAgentErrorEvent(
+				entry.Agent.ID,
+				entry.Agent.Name,
+				fmt.Sprintf("agent timed out after %s (limit: %s)",
+					duration.Round(time.Millisecond), agentTimeout.Round(time.Millisecond)),
+			))
+		}
+		log.WithFields(map[string]interface{}{
+			"agent_id":   entry.Agent.ID,
+			"agent_name": entry.Agent.Name,
+			"duration":   duration.String(),
+			"timeout":    agentTimeout.String(),
+			"is_timeout": result.TimedOut,
+		}).WithError(timeoutErr).Error("agent execution failed")
+		return Response{
+			AgentID:   entry.Agent.ID,
+			AgentName: entry.Agent.Name,
+			Error:     timeoutErr,
+		}
+	}
+
+	agentErr := errors.WrapError(entry.Agent.ID, entry.Agent.Name, result.Error)
+	entry.State.SetError(agentErr.Error())
+	responseErr := result.Error
+
+	if result.TimedOut && p.timeoutStats != nil {
+		p.timeoutStats.RecordTimeout(entry.Agent.ID, duration, result.PartialContent != "", false)
+	}
+
+	if entry.CircuitBreaker != nil {
+		entry.CircuitBreaker.RecordFailure()
+	}
+
+	if p.eventBus != nil {
+		errMsg := agentErr.Error()
+		if result.TimedOut {
+			errMsg = fmt.Sprintf("agent timed out after %s (limit: %s)",
+				duration.Round(time.Millisecond), agentTimeout.Round(time.Millisecond))
+		}
+		p.eventBus.Publish(core.NewAgentErrorEvent(entry.Agent.ID, entry.Agent.Name, errMsg))
+	}
+
+	log.WithFields(map[string]interface{}{
+		"agent_id":   entry.Agent.ID,
+		"agent_name": entry.Agent.Name,
+		"duration":   duration.String(),
+		"timeout":    agentTimeout.String(),
+		"is_timeout": result.TimedOut,
+	}).WithError(agentErr).Error("agent execution failed")
+
+	return Response{
+		AgentID:   entry.Agent.ID,
+		AgentName: entry.Agent.Name,
+		Error:     responseErr,
+	}
+}
+
+func unwrapAgentError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if agentErr, ok := errors.AsAgentError(err); ok {
+		return agentErr.Unwrap()
+	}
+	return err
+}
+
+func (p *Pool) handleStreamingError(entry AgentEntry, elapsed time.Duration, result TimeoutResult, messageID string, finalIndex int) Response {
+	result.Error = unwrapAgentError(result.Error)
+	if IsCancellationError(result.Error) || (p.cancellation != nil && p.cancellation.IsCancelled(entry.Agent.ID)) {
+		entry.State.SetCancelled()
+		if p.eventBus != nil {
+			p.eventBus.Publish(core.NewAgentCancelledEvent(
+				entry.Agent.ID,
+				entry.Agent.Name,
+				"request cancelled",
+			))
+		}
+		return Response{
+			AgentID:   entry.Agent.ID,
+			AgentName: entry.Agent.Name,
+			Error:     ErrAgentCancelled,
+		}
+	}
+
+	agentErr := errors.WrapError(entry.Agent.ID, entry.Agent.Name, result.Error)
+	entry.State.SetError(agentErr.Error())
+	responseErr := result.Error
+
+	if result.TimedOut && p.timeoutStats != nil {
+		p.timeoutStats.RecordTimeout(entry.Agent.ID, elapsed, result.PartialContent != "", false)
+	}
+
+	if entry.CircuitBreaker != nil {
+		entry.CircuitBreaker.RecordFailure()
+	}
+
+	if p.eventBus != nil {
+		errMsg := agentErr.Error()
+		if result.TimedOut {
+			errMsg = fmt.Sprintf("agent timed out after %s", elapsed.Round(time.Millisecond))
+		}
+		if result.PartialContent == "" {
+			p.eventBus.Publish(core.NewMessageChunkEvent(core.MessageChunk{
+				MessageID: messageID,
+				AgentID:   entry.Agent.ID,
+				AgentName: entry.Agent.Name,
+				Content:   "",
+				Index:     finalIndex,
+				IsFinal:   true,
+			}))
+			p.eventBus.Publish(core.NewAgentErrorEvent(entry.Agent.ID, entry.Agent.Name, errMsg))
+		}
+	}
+
+	log.WithFields(map[string]interface{}{
+		"agent_id":   entry.Agent.ID,
+		"agent_name": entry.Agent.Name,
+		"duration":   elapsed.String(),
+		"is_timeout": result.TimedOut,
+	}).WithError(agentErr).Error("agent execution failed")
+
+	if result.PartialContent != "" {
+		metrics := result.Metrics
+		if metrics == nil {
+			metrics = &core.Metrics{}
+		}
+		if metrics.Duration == 0 {
+			metrics.Duration = elapsed
+		}
+
+		msg := core.NewAgentMessage(entry.Agent.ID, entry.Agent.Name, result.PartialContent, metrics)
+		msg.ID = messageID
+		if p.eventBus != nil {
+			p.eventBus.Publish(core.NewMessageChunkEvent(core.MessageChunk{
+				MessageID: messageID,
+				AgentID:   entry.Agent.ID,
+				AgentName: entry.Agent.Name,
+				Content:   "",
+				Index:     finalIndex,
+				IsFinal:   true,
+			}))
+			p.eventBus.Publish(core.NewAgentDoneEvent(entry.Agent.ID, entry.Agent.Name, msg))
+		}
+		return Response{
+			AgentID:   entry.Agent.ID,
+			AgentName: entry.Agent.Name,
+			Message:   &msg,
+			Error:     responseErr,
+		}
+
+	}
+
+	return Response{
+		AgentID:        entry.Agent.ID,
+		AgentName:      entry.Agent.Name,
+		Error:          responseErr,
+		PartialContent: result.PartialContent,
+	}
+}
+
+type chunkCollector struct {
+	agentID    string
+	agentName  string
+	messageID  string
+	eventBus   *events.Bus
+	builder    strings.Builder
+	chunkIndex int
+}
+
+func (c *chunkCollector) appendChunk(chunk string) {
+	if chunk == "" {
+		return
+	}
+	c.builder.WriteString(chunk)
+	if c.eventBus != nil {
+		c.eventBus.Publish(core.NewMessageChunkEvent(core.MessageChunk{
+			MessageID: c.messageID,
+			AgentID:   c.agentID,
+			AgentName: c.agentName,
+			Content:   chunk,
+			Index:     c.chunkIndex,
+			IsFinal:   false,
+		}))
+		c.chunkIndex++
+	}
+}
+
+func (c *chunkCollector) String() string {
+	return c.builder.String()
+}
+
+type streamWriter struct {
+	collector   *chunkCollector
+	partialChan chan<- string
+}
+
+func (w *streamWriter) Write(p []byte) (int, error) {
+	chunk := string(p)
+	if chunk == "" {
+		return len(p), nil
+	}
+
+	w.collector.appendChunk(chunk)
+	w.partialChan <- chunk
+	return len(p), nil
 }
 
 // AgentCount returns the number of agents in the pool.

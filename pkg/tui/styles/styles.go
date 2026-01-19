@@ -143,18 +143,26 @@ func CharCountStyle() lipgloss.Style {
 type StatusIndicator string
 
 const (
-	StatusReady  StatusIndicator = "🟢"
-	StatusTyping StatusIndicator = "🟡"
+	StatusReady  StatusIndicator = "⚫"
+	StatusTyping StatusIndicator = "🟢"
 	StatusError  StatusIndicator = "🔴"
 )
 
 // HelpOverlayStyle returns the style for the help overlay.
 func HelpOverlayStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.DoubleBorder()).
 		BorderForeground(lipgloss.Color("63")).
-		Padding(1, 2).
+		Padding(1, 3).
 		Background(lipgloss.Color("235"))
+}
+
+// HelpOverlayContainerStyle returns the style for centering the help overlay on screen.
+func HelpOverlayContainerStyle(width, height int) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Width(width).
+		Height(height).
+		Align(lipgloss.Center, lipgloss.Center)
 }
 
 // HelpKeyStyle returns the style for help key bindings.
@@ -173,8 +181,15 @@ func HelpDescStyle() lipgloss.Style {
 // TypingIndicatorStyle returns the style for typing indicators.
 func TypingIndicatorStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color("226")). // Yellow for visibility
-		Italic(true).
+		Foreground(lipgloss.Color("46")). // Bright green for active/typing
+		Bold(true).
+		PaddingLeft(1)
+}
+
+// TypingIndicatorBlinkStyle returns the dimmed style for typing indicator blink-off state.
+func TypingIndicatorBlinkStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("22")). // Dim green for blink-off
 		PaddingLeft(1)
 }
 

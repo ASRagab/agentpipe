@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/ASRagab/agentpipe/pkg/artifact"
 )
 
 // MessageStatus represents the current state of a message.
@@ -68,7 +70,8 @@ type Message struct {
 	// Status is the current processing state of the message.
 	Status MessageStatus `json:"status"`
 	// Metrics contains performance and cost data (optional).
-	Metrics *Metrics `json:"metrics,omitempty"`
+	Metrics   *Metrics            `json:"metrics,omitempty"`
+	Artifacts []artifact.Artifact `json:"artifacts,omitempty"`
 }
 
 // NewUserMessage creates a new message from a human user.

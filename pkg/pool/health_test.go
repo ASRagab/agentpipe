@@ -33,11 +33,11 @@ func (m *mockHealthAdapter) Initialize(_ core.Agent) error {
 	return nil
 }
 
-func (m *mockHealthAdapter) SendMessage(_ context.Context, _ []core.Message) (string, *core.Metrics, error) {
+func (m *mockHealthAdapter) SendMessage(_ context.Context, _ []core.Message, _ *core.ConversationContext) (string, *core.Metrics, error) {
 	return "response", &core.Metrics{}, nil
 }
 
-func (m *mockHealthAdapter) StreamMessage(_ context.Context, _ []core.Message, _ io.Writer) (*core.Metrics, error) {
+func (m *mockHealthAdapter) StreamMessage(_ context.Context, _ []core.Message, _ io.Writer, _ *core.ConversationContext) (*core.Metrics, error) {
 	return &core.Metrics{}, nil
 }
 

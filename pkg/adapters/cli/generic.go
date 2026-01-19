@@ -15,43 +15,28 @@ import (
 	"github.com/ASRagab/agentpipe/pkg/log"
 )
 
-// OutputParser defines how to parse CLI output.
 type OutputParser string
 
 const (
-	// OutputParserPlain treats output as plain text.
-	OutputParserPlain OutputParser = "plain"
-	// OutputParserJSON extracts content from JSON response.
-	OutputParserJSON OutputParser = "json"
-	// OutputParserMarkdown extracts content from markdown code blocks.
+	OutputParserPlain    OutputParser = "plain"
+	OutputParserJSON     OutputParser = "json"
 	OutputParserMarkdown OutputParser = "markdown"
 )
 
-// GenericCLIConfig contains configuration for a generic CLI adapter.
 type GenericCLIConfig struct {
-	// CLIPath is the path to the CLI executable.
-	CLIPath string `json:"cli_path" yaml:"cli_path"`
-	// CLIName is the name used to search PATH if CLIPath is not set.
-	CLIName string `json:"cli_name" yaml:"cli_name"`
-	// PromptFlag is the flag used to pass the prompt (e.g., "-p", "--prompt").
-	PromptFlag string `json:"prompt_flag" yaml:"prompt_flag"`
-	// HistoryFlag is the flag used to pass conversation history.
-	HistoryFlag string `json:"history_flag" yaml:"history_flag"`
-	// StreamFlag is the flag used to enable streaming (if any).
-	StreamFlag string `json:"stream_flag" yaml:"stream_flag"`
-	// ModelFlag is the flag used to specify the model.
-	ModelFlag string `json:"model_flag" yaml:"model_flag"`
-	// OutputParser determines how to parse CLI output.
-	OutputParser OutputParser `json:"output_parser" yaml:"output_parser"`
-	// JSONPath is the JSON path to extract content (for JSON parser).
-	JSONPath string `json:"json_path" yaml:"json_path"`
-	// CommandTemplate is a template for building the command (optional).
-	// Supports placeholders: {{prompt}}, {{model}}, {{history}}
-	CommandTemplate string `json:"command_template" yaml:"command_template"`
-	// UseStdin indicates whether to pass prompt via stdin.
-	UseStdin bool `json:"use_stdin" yaml:"use_stdin"`
-	// ExtraArgs are additional arguments to pass to the CLI.
-	ExtraArgs []string `json:"extra_args" yaml:"extra_args"`
+	CLIPath         string       `json:"cli_path" yaml:"cli_path"`
+	CLIName         string       `json:"cli_name" yaml:"cli_name"`
+	PromptFlag      string       `json:"prompt_flag" yaml:"prompt_flag"`
+	HistoryFlag     string       `json:"history_flag" yaml:"history_flag"`
+	StreamFlag      string       `json:"stream_flag" yaml:"stream_flag"`
+	ModelFlag       string       `json:"model_flag" yaml:"model_flag"`
+	JSONPath        string       `json:"json_path" yaml:"json_path"`
+	CommandTemplate string       `json:"command_template" yaml:"command_template"`
+	UseStdin        bool         `json:"use_stdin" yaml:"use_stdin"`
+	Args            []string     `json:"args" yaml:"args"`
+	ExtraArgs       []string     `json:"extra_args" yaml:"extra_args"`
+	OutputParser    OutputParser `json:"output_parser" yaml:"output_parser"`
+	ContentPath     string       `json:"content_path" yaml:"content_path"`
 }
 
 // GenericCLIAdapter implements the AgentAdapter interface for any CLI tool.
@@ -60,12 +45,10 @@ type GenericCLIAdapter struct {
 	config GenericCLIConfig
 }
 
-// NewGenericCLIAdapter creates a new generic CLI adapter instance.
 func NewGenericCLIAdapter() adapters.AgentAdapter {
 	return &GenericCLIAdapter{}
 }
 
-// Initialize configures the adapter with the agent configuration.
 func (g *GenericCLIAdapter) Initialize(agent core.Agent) error {
 	// Parse config from agent.Config.Extra
 	g.config = GenericCLIConfig{
@@ -257,8 +240,7 @@ func (g *GenericCLIAdapter) parseMarkdownOutput(output string) (string, error) {
 	return strings.Join(contents, "\n\n"), nil
 }
 
-// SendMessage sends messages to the generic CLI and returns the response.
-func (g *GenericCLIAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (g *GenericCLIAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	if len(messages) == 0 {
 		return "", nil, nil
 	}
@@ -268,47 +250,63 @@ func (g *GenericCLIAdapter) SendMessage(ctx context.Context, messages []core.Mes
 		"message_count": len(messages),
 	}).Debug("Sending message to generic CLI")
 
-	// Filter out this agent's own messages
 	relevantMessages := FilterRelevantMessages(messages, g.agentID, g.agentName)
+	prompt := BuildConversationPrompt(g.agentName, g.systemPrompt, relevantMessages, conversation)
 
-	// Build the prompt
-	prompt := BuildConversationPrompt(g.agentName, g.systemPrompt, relevantMessages)
-
-	// Build command args
 	args := g.buildArgs(prompt)
-
-	var stdin io.Reader
 	if g.config.UseStdin {
-		stdin = strings.NewReader(prompt)
+		startTime := time.Now()
+		stdout, stderr, err := ExecuteCommand(ctx, g.cliPath, args, strings.NewReader(prompt))
+		duration := time.Since(startTime)
+		if err != nil {
+			if output := strings.TrimSpace(string(stdout)); output != "" {
+				metrics := &core.Metrics{
+					Duration:     duration,
+					InputTokens:  EstimateTokens(prompt),
+					OutputTokens: EstimateTokens(output),
+					TotalTokens:  EstimateTokens(prompt) + EstimateTokens(output),
+					Model:        g.model,
+				}
+				return output, metrics, nil
+			}
+			return "", nil, HandleCLIError(g.cliName, err, stderr)
+		}
+
+		content := ParseCLIOutput(string(stdout))
+		inputTokens := EstimateTokens(prompt)
+		outputTokens := EstimateTokens(content)
+
+		metrics := &core.Metrics{
+			Duration:     duration,
+			InputTokens:  inputTokens,
+			OutputTokens: outputTokens,
+			TotalTokens:  inputTokens + outputTokens,
+			Model:        g.model,
+		}
+
+		return content, metrics, nil
 	}
 
 	startTime := time.Now()
-	stdout, stderr, err := ExecuteCommand(ctx, g.cliPath, args, stdin)
+	stdout, stderr, err := ExecuteCommand(ctx, g.cliPath, args, nil)
 	duration := time.Since(startTime)
-
 	if err != nil {
-		// Check if we have meaningful output despite an error
-		outputStr := string(stdout)
-		if len(outputStr) > 50 && !strings.Contains(strings.ToLower(outputStr), "error") {
-			log.WithFields(map[string]interface{}{
-				"agent_name": g.agentName,
-				"duration":   duration.String(),
-				"exit_error": err.Error(),
-			}).Debug("CLI had exit error but produced valid output, accepting response")
-		} else {
-			return "", nil, HandleCLIError(g.cliName, err, stderr)
+		if output := strings.TrimSpace(string(stdout)); output != "" {
+			metrics := &core.Metrics{
+				Duration:     duration,
+				InputTokens:  EstimateTokens(prompt),
+				OutputTokens: EstimateTokens(output),
+				TotalTokens:  EstimateTokens(prompt) + EstimateTokens(output),
+				Model:        g.model,
+			}
+			return output, metrics, nil
 		}
+		return "", nil, HandleCLIError(g.cliName, err, stderr)
 	}
 
-	response, parseErr := g.parseOutput(string(stdout))
-	if parseErr != nil {
-		log.WithError(parseErr).Warn("Failed to parse CLI output, using raw output")
-		response = ParseCLIOutput(string(stdout))
-	}
-
-	// Estimate metrics
+	content := ParseCLIOutput(string(stdout))
 	inputTokens := EstimateTokens(prompt)
-	outputTokens := EstimateTokens(response)
+	outputTokens := EstimateTokens(content)
 
 	metrics := &core.Metrics{
 		Duration:     duration,
@@ -318,33 +316,17 @@ func (g *GenericCLIAdapter) SendMessage(ctx context.Context, messages []core.Mes
 		Model:        g.model,
 	}
 
-	log.WithFields(map[string]interface{}{
-		"agent_name":    g.agentName,
-		"duration":      duration.String(),
-		"response_size": len(response),
-	}).Info("Generic CLI message sent successfully")
-
-	return response, metrics, nil
+	return content, metrics, nil
 }
 
-// StreamMessage sends messages and streams the response to the writer.
-func (g *GenericCLIAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (g *GenericCLIAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	if len(messages) == 0 {
 		return nil, nil
 	}
 
-	log.WithFields(map[string]interface{}{
-		"agent_name":    g.agentName,
-		"message_count": len(messages),
-	}).Debug("Starting generic CLI streaming message")
-
-	// Filter out this agent's own messages
 	relevantMessages := FilterRelevantMessages(messages, g.agentID, g.agentName)
+	prompt := BuildConversationPrompt(g.agentName, g.systemPrompt, relevantMessages, conversation)
 
-	// Build the prompt
-	prompt := BuildConversationPrompt(g.agentName, g.systemPrompt, relevantMessages)
-
-	// Build command args with stream flag if available
 	args := g.buildArgs(prompt)
 	if g.config.StreamFlag != "" {
 		args = append(args, g.config.StreamFlag)
@@ -363,9 +345,8 @@ func (g *GenericCLIAdapter) StreamMessage(ctx context.Context, messages []core.M
 		return nil, HandleCLIError(g.cliName, err, nil)
 	}
 
-	// Estimate metrics
 	inputTokens := EstimateTokens(prompt)
-	outputTokens := 100 // Rough estimate for streaming
+	outputTokens := 100
 
 	metrics := &core.Metrics{
 		Duration:     duration,
@@ -383,7 +364,6 @@ func (g *GenericCLIAdapter) StreamMessage(ctx context.Context, messages []core.M
 	return metrics, nil
 }
 
-// HealthCheck verifies the CLI is accessible and working.
 func (g *GenericCLIAdapter) HealthCheck(ctx context.Context) error {
 	if g.cliPath == "" {
 		log.WithField("agent_name", g.agentName).Error("Generic CLI health check failed: not initialized")

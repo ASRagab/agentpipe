@@ -24,16 +24,17 @@ type Layout struct {
 }
 
 const (
-	// MinAgentListWidth is the minimum width for the agent list panel.
-	MinAgentListWidth = 20
-	// AgentListWidthPercent is the percentage of width for agent list.
+	MinAgentListWidth     = 20
 	AgentListWidthPercent = 0.20
-	// InputHeight is the fixed height for the input area.
-	InputHeight = 3
-	// StatusBarHeight is the fixed height for the status bar.
-	StatusBarHeight = 1
-	// BorderPadding accounts for borders around panels.
-	BorderPadding = 2
+	InputHeight           = 3
+	StatusBarHeight       = 1
+	LogoHeight            = 6
+	LogoVisibleWidth      = 73
+	BorderPadding         = 2
+
+	// Minimum terminal dimensions
+	MinTerminalWidth  = 80
+	MinTerminalHeight = 24
 )
 
 // CalculateLayout computes panel dimensions based on terminal size.
@@ -52,10 +53,11 @@ func CalculateLayout(width, height int) Layout {
 	conversationWidth := width - agentListWidth - BorderPadding
 
 	// Height calculations:
-	// - Status bar at top: 1 line
+	// - Logo at top: 6 lines
+	// - Status bar below logo: 1 line
 	// - Input area at bottom: 3 lines
 	// - Remaining goes to agent list and conversation
-	availableHeight := height - StatusBarHeight - InputHeight - BorderPadding*2
+	availableHeight := height - LogoHeight - StatusBarHeight - InputHeight - BorderPadding*2
 
 	// Agent list and conversation share the available height
 	agentListHeight := availableHeight
@@ -82,11 +84,10 @@ func RecalculateOnResize(oldLayout Layout, newWidth, newHeight int) Layout {
 
 // IsMinimumSize checks if the terminal meets minimum size requirements.
 func IsMinimumSize(width, height int) bool {
-	// Minimum: 60 columns wide, 15 rows tall
-	return width >= 60 && height >= 15
+	return width >= MinTerminalWidth && height >= MinTerminalHeight
 }
 
 // MinimumSizeMessage returns a message to display if terminal is too small.
 func MinimumSizeMessage() string {
-	return "Terminal too small. Please resize to at least 60x15."
+	return "Terminal too small. Please resize to at least 80x24."
 }

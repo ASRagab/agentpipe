@@ -72,6 +72,7 @@ type AgentListModel struct {
 	errorMap       map[string]AgentErrorInfo  // Error info for each agent
 	healthMap      map[string]AgentHealthInfo // Health info for each agent
 	animFrame      int                        // Current frame for typing animation (0-2)
+	blinkOn        bool                       // Blink state for typing indicator
 	selectedIndex  int
 	width          int
 	height         int
@@ -101,6 +102,7 @@ func NewAgentListModel(agents []core.Agent) AgentListModel {
 		selectedIndex:  0,
 		focused:        false,
 		animFrame:      0,
+		blinkOn:        true,
 	}
 }
 
@@ -522,6 +524,7 @@ func (m *AgentListModel) GetError(agentID string) (AgentErrorInfo, bool) {
 // Should be called on each frame tick (every 200ms) to create cycling dots animation.
 func (m *AgentListModel) AdvanceAnimationFrame() {
 	m.animFrame = (m.animFrame + 1) % 3
+	m.blinkOn = !m.blinkOn
 }
 
 // GetAnimationFrame returns the current animation frame.
@@ -564,11 +567,9 @@ func (m AgentListModel) renderRetryCountdown(countdown time.Duration) string {
 
 // renderTypingIndicator renders the animated typing indicator with elapsed time.
 func (m AgentListModel) renderTypingIndicator(agentID string) string {
-	// Cycling dots animation based on animation frame
 	dots := []string{".", "..", "..."}
 	indicator := dots[m.animFrame]
 
-	// Calculate elapsed time
 	elapsed := m.GetTypingElapsed(agentID)
 	var elapsedStr string
 	if elapsed < time.Second {
@@ -580,7 +581,11 @@ func (m AgentListModel) renderTypingIndicator(agentID string) string {
 	}
 
 	typingLine := fmt.Sprintf("  typing%s %s", indicator, elapsedStr)
-	return styles.TypingIndicatorStyle().Render(typingLine)
+
+	if m.blinkOn {
+		return styles.TypingIndicatorStyle().Render(typingLine)
+	}
+	return styles.TypingIndicatorBlinkStyle().Render(typingLine)
 }
 
 // truncateString truncates a string to the specified length, adding "..." if truncated.

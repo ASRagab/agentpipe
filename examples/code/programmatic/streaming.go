@@ -74,7 +74,7 @@ func RunStreamingExample() {
 	fmt.Println("[Streaming to stdout]")
 	fmt.Print("\nAssistant: ")
 
-	metrics, err := adapter.StreamMessage(ctx, messages, os.Stdout)
+	metrics, err := adapter.StreamMessage(ctx, messages, os.Stdout, nil)
 	if err != nil {
 		fmt.Printf("\nError: %v\n", err)
 		return
@@ -94,7 +94,7 @@ func RunStreamingExample() {
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel2()
 
-	metrics2, err := adapter.StreamMessage(ctx2, messages2, &buffer)
+	metrics2, err := adapter.StreamMessage(ctx2, messages2, &buffer, nil)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -168,7 +168,7 @@ func RunCustomStreamingExample() {
 		},
 	}
 
-	metrics, err := adapter.StreamMessage(ctx, messages, writer)
+	metrics, err := adapter.StreamMessage(ctx, messages, writer, nil)
 	if err != nil {
 		fmt.Printf("\nError: %v\n", err)
 		return

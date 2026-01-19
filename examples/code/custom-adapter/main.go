@@ -74,7 +74,8 @@ func main() {
 
 	// Create the conversation manager
 	config := manager.Config{
-		Timeout: 30 * time.Second,
+		Timeout:          30 * time.Second,
+		ConversationMode: "parallel",
 		GracefulDegradation: manager.GracefulDegradationConfig{
 			Enabled:                  true,
 			PauseOnAllFailed:         true,

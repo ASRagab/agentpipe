@@ -12,10 +12,10 @@
 #   agentpipe run -c examples/multi-model.yaml
 #
 # Models included (price tiers):
-#   - Claude 3 Haiku: Fast and cheap ($0.25/$1.25 per 1M tokens)
-#   - Claude Sonnet: Balanced ($3/$15 per 1M tokens)
-#   - GPT-4o-mini: OpenAI's efficient option ($0.15/$0.60 per 1M tokens)
-#   - Gemini 1.5 Flash: Google's fast model (free tier available)
+#   - Claude 3.5 Haiku: Fast and cheap
+#   - Claude 3.7 Sonnet: Balanced
+#   - GPT-5 Nano: OpenAI's efficient option
+#   - Gemini 2.5 Flash: Google's fast model
 
 conversation:
   timeout: 30s
@@ -23,11 +23,11 @@ conversation:
   max_turns: 15       # Keep token usage reasonable with 4 agents
 
 agents:
-  # Fast tier - Claude Haiku
+  # Fast tier - Claude 3.5 Haiku
   - id: haiku
     type: openrouter
     name: Haiku
-    model: anthropic/claude-3-haiku
+    model: anthropic/claude-3.5-haiku
     timeout: 15s       # Fast model, short timeout
     config:
       api_key_env: OPENROUTER_API_KEY
@@ -35,11 +35,11 @@ agents:
       temperature: 0.5
       max_tokens: 500
 
-  # Balanced tier - Claude Sonnet
+  # Balanced tier - Claude 3.7 Sonnet
   - id: sonnet
     type: openrouter
     name: Sonnet
-    model: anthropic/claude-sonnet-4-20250514
+    model: anthropic/claude-3.7-sonnet
     timeout: 30s
     config:
       api_key_env: OPENROUTER_API_KEY
@@ -47,23 +47,23 @@ agents:
       temperature: 0.7
       max_tokens: 800
 
-  # OpenAI efficient - GPT-4o-mini
-  - id: gpt4o-mini
+  # OpenAI efficient - GPT-5 Nano
+  - id: gpt5-nano
     type: openrouter
-    name: GPT-4o-mini
-    model: openai/gpt-4o-mini
+    name: GPT-5 Nano
+    model: openai/gpt-5-nano
     timeout: 20s
     config:
       api_key_env: OPENROUTER_API_KEY
-      system_prompt: "You are GPT-4o-mini. Provide helpful, concise responses."
+      system_prompt: "You are GPT-5 Nano. Provide helpful, concise responses."
       temperature: 0.6
       max_tokens: 600
 
-  # Google's fast model - Gemini Flash
+  # Google's fast model - Gemini 2.5 Flash
   - id: gemini
     type: openrouter
     name: Gemini Flash
-    model: google/gemini-flash-1.5
+    model: google/gemini-2.5-flash
     timeout: 20s
     config:
       api_key_env: OPENROUTER_API_KEY

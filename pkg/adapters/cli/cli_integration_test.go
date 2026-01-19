@@ -81,7 +81,7 @@ func TestRealClaudeCLI(t *testing.T) {
 			},
 		}
 
-		response, metrics, err := adapter.SendMessage(ctx, messages)
+		response, metrics, err := adapter.SendMessage(ctx, messages, nil)
 		if err != nil {
 			t.Errorf("SendMessage failed: %v", err)
 		}
@@ -118,7 +118,7 @@ func TestRealClaudeCLI(t *testing.T) {
 		}
 
 		var output bytes.Buffer
-		metrics, err := adapter.StreamMessage(ctx, messages, &output)
+		metrics, err := adapter.StreamMessage(ctx, messages, &output, nil)
 		if err != nil {
 			t.Errorf("StreamMessage failed: %v", err)
 		}
@@ -192,7 +192,7 @@ func TestRealGeminiCLI(t *testing.T) {
 			},
 		}
 
-		response, metrics, err := adapter.SendMessage(ctx, messages)
+		response, metrics, err := adapter.SendMessage(ctx, messages, nil)
 		if err != nil {
 			t.Errorf("SendMessage failed: %v", err)
 		}
@@ -229,7 +229,7 @@ func TestRealGeminiCLI(t *testing.T) {
 		}
 
 		var output bytes.Buffer
-		metrics, err := adapter.StreamMessage(ctx, messages, &output)
+		metrics, err := adapter.StreamMessage(ctx, messages, &output, nil)
 		if err != nil {
 			t.Errorf("StreamMessage failed: %v", err)
 		}
@@ -272,7 +272,7 @@ func TestNetworkErrorHandling(t *testing.T) {
 			core.NewUserMessage("Test"),
 		}
 
-		_, _, err := adapter.SendMessage(ctx, messages)
+		_, _, err := adapter.SendMessage(ctx, messages, nil)
 		if err == nil {
 			t.Error("Expected timeout error")
 		}

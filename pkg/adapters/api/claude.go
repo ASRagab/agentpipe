@@ -124,13 +124,12 @@ func (c *ClaudeAPIAdapter) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-// SendMessage sends messages and returns the response.
-func (c *ClaudeAPIAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (c *ClaudeAPIAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	if len(messages) == 0 {
 		return "", nil, nil
 	}
 
-	apiMessages := c.buildAPIMessages(messages)
+	apiMessages := c.buildAPIMessages(messages, conversation)
 	req := claudeRequest{
 		Model:     c.model,
 		MaxTokens: c.maxTokens,
@@ -175,18 +174,21 @@ func (c *ClaudeAPIAdapter) SendMessage(ctx context.Context, messages []core.Mess
 	return content, metrics, nil
 }
 
-// StreamMessage sends messages and streams the response.
-func (c *ClaudeAPIAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (c *ClaudeAPIAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	if len(messages) == 0 {
 		return nil, nil
 	}
 
-	apiMessages := c.buildAPIMessages(messages)
+	apiMessages := c.buildAPIMessages(messages, conversation)
 	req := claudeRequest{
 		Model:     c.model,
 		MaxTokens: c.maxTokens,
-		Messages:  apiMessages,
 		Stream:    true,
+		Messages:  apiMessages,
+	}
+
+	if c.systemPrompt != "" {
+		req.System = c.systemPrompt
 	}
 
 	if c.systemPrompt != "" {
@@ -216,9 +218,16 @@ func (c *ClaudeAPIAdapter) StreamMessage(ctx context.Context, messages []core.Me
 	return metrics, nil
 }
 
-// buildAPIMessages converts core.Message to Claude API format.
-func (c *ClaudeAPIAdapter) buildAPIMessages(messages []core.Message) []claudeMessage {
-	apiMessages := make([]claudeMessage, 0, len(messages))
+func (c *ClaudeAPIAdapter) buildAPIMessages(messages []core.Message, conversation *core.ConversationContext) []claudeMessage {
+	apiMessages := make([]claudeMessage, 0, len(messages)+1)
+
+	contextPrompt := adapters.BuildConversationContextPrompt(conversation)
+	if contextPrompt != "" {
+		apiMessages = append(apiMessages, claudeMessage{
+			Role:    "user",
+			Content: contextPrompt,
+		})
+	}
 
 	for _, msg := range messages {
 		var role string

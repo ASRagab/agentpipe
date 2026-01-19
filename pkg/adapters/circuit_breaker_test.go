@@ -48,7 +48,7 @@ func (m *mockAdapterForCircuitBreaker) HealthCheck(_ context.Context) error {
 	return nil
 }
 
-func (m *mockAdapterForCircuitBreaker) SendMessage(ctx context.Context, _ []core.Message) (string, *core.Metrics, error) {
+func (m *mockAdapterForCircuitBreaker) SendMessage(ctx context.Context, _ []core.Message, _ *core.ConversationContext) (string, *core.Metrics, error) {
 	if m.sendDelay > 0 {
 		select {
 		case <-time.After(m.sendDelay):
@@ -70,8 +70,8 @@ func (m *mockAdapterForCircuitBreaker) SendMessage(ctx context.Context, _ []core
 	return response, &core.Metrics{Duration: time.Millisecond * 100}, nil
 }
 
-func (m *mockAdapterForCircuitBreaker) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
-	response, metrics, err := m.SendMessage(ctx, messages)
+func (m *mockAdapterForCircuitBreaker) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
+	response, metrics, err := m.SendMessage(ctx, messages, conversation)
 	if err != nil {
 		return nil, err
 	}
@@ -433,7 +433,7 @@ func TestCircuitBreakerAdapterSendMessage(t *testing.T) {
 	messages := []core.Message{}
 
 	// Successful request
-	response, metrics, err := adapter.SendMessage(ctx, messages)
+	response, metrics, err := adapter.SendMessage(ctx, messages, nil)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -461,7 +461,7 @@ func TestCircuitBreakerAdapterOpens(t *testing.T) {
 
 	// First two requests should fail normally
 	for i := 0; i < 2; i++ {
-		_, _, err := adapter.SendMessage(ctx, messages)
+		_, _, err := adapter.SendMessage(ctx, messages, nil)
 		if err == nil {
 			t.Errorf("Request %d: expected error", i+1)
 		}
@@ -473,7 +473,7 @@ func TestCircuitBreakerAdapterOpens(t *testing.T) {
 	}
 
 	// Next request should fail with circuit open error
-	_, _, err := adapter.SendMessage(ctx, messages)
+	_, _, err := adapter.SendMessage(ctx, messages, nil)
 	if err == nil {
 		t.Error("Expected error for open circuit")
 	}
@@ -498,7 +498,7 @@ func TestCircuitBreakerAdapterRecovery(t *testing.T) {
 
 	// Trigger circuit open
 	for i := 0; i < 2; i++ {
-		_, _, _ = adapter.SendMessage(ctx, messages)
+		_, _, _ = adapter.SendMessage(ctx, messages, nil)
 	}
 
 	if adapter.CircuitBreaker().State() != CircuitOpen {
@@ -509,7 +509,7 @@ func TestCircuitBreakerAdapterRecovery(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 
 	// Next request should succeed (mock is now past its fail count)
-	response, _, err := adapter.SendMessage(ctx, messages)
+	response, _, err := adapter.SendMessage(ctx, messages, nil)
 	if err != nil {
 		t.Errorf("Unexpected error after recovery: %v", err)
 	}
@@ -534,7 +534,7 @@ func TestCircuitBreakerAdapterStreamMessage(t *testing.T) {
 	messages := []core.Message{}
 	var buf bytes.Buffer
 
-	metrics, err := adapter.StreamMessage(ctx, messages, &buf)
+	metrics, err := adapter.StreamMessage(ctx, messages, &buf, nil)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -564,7 +564,7 @@ func TestCircuitBreakerAdapterIsAvailable(t *testing.T) {
 
 	// Open the circuit
 	ctx := context.Background()
-	_, _, _ = adapter.SendMessage(ctx, []core.Message{})
+	_, _, _ = adapter.SendMessage(ctx, []core.Message{}, nil)
 
 	// Should now be unavailable (circuit open)
 	if adapter.IsAvailable() {

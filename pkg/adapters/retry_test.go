@@ -11,10 +11,9 @@ import (
 	"github.com/ASRagab/agentpipe/pkg/errors"
 )
 
-// mockAdapter implements AgentAdapter for testing.
 type mockAdapter struct {
-	sendMessageFunc   func(ctx context.Context, messages []core.Message) (string, *core.Metrics, error)
-	streamMessageFunc func(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error)
+	sendMessageFunc   func(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error)
+	streamMessageFunc func(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error)
 	model             string
 	available         bool
 }
@@ -35,18 +34,18 @@ func (m *mockAdapter) HealthCheck(_ context.Context) error {
 	return nil
 }
 
-func (m *mockAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (m *mockAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	if m.sendMessageFunc != nil {
-		return m.sendMessageFunc(ctx, messages)
+		return m.sendMessageFunc(ctx, messages, conversation)
 	}
-	return "response", &core.Metrics{}, nil
+	return "", nil, nil
 }
 
-func (m *mockAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (m *mockAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	if m.streamMessageFunc != nil {
-		return m.streamMessageFunc(ctx, messages, writer)
+		return m.streamMessageFunc(ctx, messages, writer, conversation)
 	}
-	return &core.Metrics{}, nil
+	return nil, nil
 }
 
 func TestDefaultRetryConfig(t *testing.T) {
@@ -130,7 +129,7 @@ func TestRetryableAdapter_SendMessageSuccess(t *testing.T) {
 	mock := &mockAdapter{
 		available: true,
 		model:     "test-model",
-		sendMessageFunc: func(_ context.Context, _ []core.Message) (string, *core.Metrics, error) {
+		sendMessageFunc: func(_ context.Context, _ []core.Message, _ *core.ConversationContext) (string, *core.Metrics, error) {
 			called++
 			return "success", &core.Metrics{}, nil
 		},
@@ -145,7 +144,7 @@ func TestRetryableAdapter_SendMessageSuccess(t *testing.T) {
 	}
 
 	adapter := NewRetryableAdapter(mock, config, "agent-1", "TestAgent")
-	response, _, err := adapter.SendMessage(context.Background(), []core.Message{})
+	response, _, err := adapter.SendMessage(context.Background(), []core.Message{}, nil)
 
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -162,10 +161,9 @@ func TestRetryableAdapter_SendMessageRetryOnNetworkError(t *testing.T) {
 	called := 0
 	mock := &mockAdapter{
 		available: true,
-		sendMessageFunc: func(_ context.Context, _ []core.Message) (string, *core.Metrics, error) {
+		sendMessageFunc: func(_ context.Context, _ []core.Message, _ *core.ConversationContext) (string, *core.Metrics, error) {
 			called++
 			if called < 3 {
-				// Return a retryable network error
 				return "", nil, errors.NewNetworkError("agent-1", "TestAgent", fmt.Errorf("connection refused"))
 			}
 			return "success after retry", &core.Metrics{}, nil
@@ -181,7 +179,7 @@ func TestRetryableAdapter_SendMessageRetryOnNetworkError(t *testing.T) {
 	}
 
 	adapter := NewRetryableAdapter(mock, config, "agent-1", "TestAgent")
-	response, _, err := adapter.SendMessage(context.Background(), []core.Message{})
+	response, _, err := adapter.SendMessage(context.Background(), []core.Message{}, nil)
 
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -198,9 +196,8 @@ func TestRetryableAdapter_SendMessageNoRetryOnAuthError(t *testing.T) {
 	called := 0
 	mock := &mockAdapter{
 		available: true,
-		sendMessageFunc: func(_ context.Context, _ []core.Message) (string, *core.Metrics, error) {
+		sendMessageFunc: func(_ context.Context, _ []core.Message, _ *core.ConversationContext) (string, *core.Metrics, error) {
 			called++
-			// Return a non-retryable auth error
 			return "", nil, errors.NewAuthError("agent-1", "TestAgent", 401, fmt.Errorf("unauthorized"))
 		},
 	}
@@ -214,7 +211,7 @@ func TestRetryableAdapter_SendMessageNoRetryOnAuthError(t *testing.T) {
 	}
 
 	adapter := NewRetryableAdapter(mock, config, "agent-1", "TestAgent")
-	_, _, err := adapter.SendMessage(context.Background(), []core.Message{})
+	_, _, err := adapter.SendMessage(context.Background(), []core.Message{}, nil)
 
 	if err == nil {
 		t.Error("expected error, got nil")
@@ -236,7 +233,7 @@ func TestRetryableAdapter_SendMessageExhaustedRetries(t *testing.T) {
 	called := 0
 	mock := &mockAdapter{
 		available: true,
-		sendMessageFunc: func(_ context.Context, _ []core.Message) (string, *core.Metrics, error) {
+		sendMessageFunc: func(_ context.Context, _ []core.Message, _ *core.ConversationContext) (string, *core.Metrics, error) {
 			called++
 			return "", nil, errors.NewNetworkError("agent-1", "TestAgent", fmt.Errorf("connection refused"))
 		},
@@ -251,7 +248,7 @@ func TestRetryableAdapter_SendMessageExhaustedRetries(t *testing.T) {
 	}
 
 	adapter := NewRetryableAdapter(mock, config, "agent-1", "TestAgent")
-	_, _, err := adapter.SendMessage(context.Background(), []core.Message{})
+	_, _, err := adapter.SendMessage(context.Background(), []core.Message{}, nil)
 
 	if err == nil {
 		t.Error("expected error after exhausted retries, got nil")
@@ -273,7 +270,7 @@ func TestRetryableAdapter_SendMessageContextCancellation(t *testing.T) {
 	called := 0
 	mock := &mockAdapter{
 		available: true,
-		sendMessageFunc: func(_ context.Context, _ []core.Message) (string, *core.Metrics, error) {
+		sendMessageFunc: func(_ context.Context, _ []core.Message, _ *core.ConversationContext) (string, *core.Metrics, error) {
 			called++
 			return "", nil, errors.NewNetworkError("agent-1", "TestAgent", fmt.Errorf("connection refused"))
 		},
@@ -296,7 +293,7 @@ func TestRetryableAdapter_SendMessageContextCancellation(t *testing.T) {
 		cancel()
 	}()
 
-	_, _, err := adapter.SendMessage(ctx, []core.Message{})
+	_, _, err := adapter.SendMessage(ctx, []core.Message{}, nil)
 
 	if err != context.Canceled {
 		t.Errorf("expected context.Canceled, got %v", err)
@@ -312,7 +309,7 @@ func TestRetryableAdapter_StreamMessageRetry(t *testing.T) {
 	called := 0
 	mock := &mockAdapter{
 		available: true,
-		streamMessageFunc: func(_ context.Context, _ []core.Message, _ io.Writer) (*core.Metrics, error) {
+		streamMessageFunc: func(_ context.Context, _ []core.Message, _ io.Writer, _ *core.ConversationContext) (*core.Metrics, error) {
 			called++
 			if called < 2 {
 				return nil, errors.NewTimeoutError("agent-1", "TestAgent", fmt.Errorf("timeout"))
@@ -330,7 +327,7 @@ func TestRetryableAdapter_StreamMessageRetry(t *testing.T) {
 	}
 
 	adapter := NewRetryableAdapter(mock, config, "agent-1", "TestAgent")
-	_, err := adapter.StreamMessage(context.Background(), []core.Message{}, io.Discard)
+	_, err := adapter.StreamMessage(context.Background(), []core.Message{}, io.Discard, nil)
 
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -344,10 +341,11 @@ func TestRetryableAdapter_RateLimitHandling(t *testing.T) {
 	called := 0
 	mock := &mockAdapter{
 		available: true,
-		sendMessageFunc: func(_ context.Context, _ []core.Message) (string, *core.Metrics, error) {
+		sendMessageFunc: func(_ context.Context, _ []core.Message, _ *core.ConversationContext) (string, *core.Metrics, error) {
 			called++
 			if called == 1 {
-				return "", nil, errors.NewRateLimitError("agent-1", "TestAgent", 5*time.Second)
+				retryAfter := 10 * time.Millisecond
+				return "", nil, errors.NewRateLimitError("agent-1", "TestAgent", retryAfter)
 			}
 			return "success", &core.Metrics{}, nil
 		},
@@ -362,7 +360,7 @@ func TestRetryableAdapter_RateLimitHandling(t *testing.T) {
 	}
 
 	adapter := NewRetryableAdapter(mock, config, "agent-1", "TestAgent")
-	response, _, err := adapter.SendMessage(context.Background(), []core.Message{})
+	response, _, err := adapter.SendMessage(context.Background(), []core.Message{}, nil)
 
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)

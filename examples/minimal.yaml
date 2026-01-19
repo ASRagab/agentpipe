@@ -19,11 +19,11 @@ conversation:
   mode: parallel   # v2 uses parallel mode by default
 
 agents:
-  # Single agent - Claude 3 Haiku via OpenRouter (fast and cheap)
+  # Single agent - Claude 3.5 Haiku via OpenRouter (fast and cheap)
   - id: assistant
     type: openrouter
     name: Assistant
-    model: anthropic/claude-3-haiku
+    model: anthropic/claude-haiku-4.5
     config:
       api_key_env: OPENROUTER_API_KEY
       system_prompt: "You are a helpful AI assistant. Be concise and accurate."

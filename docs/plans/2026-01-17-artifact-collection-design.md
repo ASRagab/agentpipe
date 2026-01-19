@@ -15,6 +15,7 @@ Currently AgentPipe captures conversation text but produces no tangible outputs.
 ## Solution
 
 Introduce an artifact extraction system that:
+
 1. Recognizes a filename convention in fenced code blocks
 2. Extracts and saves artifacts in real-time
 3. Organizes artifacts by agent in a workspace folder
@@ -63,6 +64,7 @@ paths:
 ### Timing: Real-Time Extraction
 
 Artifacts are saved immediately as each agent responds:
+
 - User sees progress during conversation
 - Artifacts survive conversation interrupts (Ctrl+C)
 - TUI displays `[Artifact saved: alice/api-spec.yaml]` inline
@@ -82,7 +84,9 @@ To create a saveable artifact, use fenced code blocks with a filename:
   ```language:path/to/filename.ext
   content here
   ```
+
 Artifacts will be saved to the workspace automatically.
+
 ```
 
 This informs agents they can create persistent outputs.
@@ -109,7 +113,7 @@ This informs agents they can create persistent outputs.
    }
    ```
 
-3. **Parser logic:**
+1. **Parser logic:**
    - Regex to match ` ```language:filename` pattern
    - Extract content between fences
    - Return slice of artifacts + cleaned message content
@@ -122,6 +126,7 @@ This informs agents they can create persistent outputs.
    - Emit artifact event (for TUI display)
 
 2. **Configuration additions:**
+
    ```yaml
    artifacts:
      enabled: true

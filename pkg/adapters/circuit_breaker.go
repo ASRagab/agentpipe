@@ -325,18 +325,15 @@ func (cba *CircuitBreakerAdapter) IsAvailable() bool {
 	return cba.circuitBreaker.AllowRequest()
 }
 
-// GetModel delegates to the wrapped adapter.
 func (cba *CircuitBreakerAdapter) GetModel() string {
 	return cba.adapter.GetModel()
 }
 
-// HealthCheck delegates to the wrapped adapter (no circuit breaker for health checks).
 func (cba *CircuitBreakerAdapter) HealthCheck(ctx context.Context) error {
 	return cba.adapter.HealthCheck(ctx)
 }
 
-// SendMessage sends a message with circuit breaker protection.
-func (cba *CircuitBreakerAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (cba *CircuitBreakerAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	if !cba.circuitBreaker.AllowRequest() {
 		timeUntil := cba.circuitBreaker.TimeUntilRetry()
 		return "", nil, errors.NewAgentError(
@@ -348,7 +345,7 @@ func (cba *CircuitBreakerAdapter) SendMessage(ctx context.Context, messages []co
 		).WithRetryAfter(timeUntil)
 	}
 
-	response, metrics, err := cba.adapter.SendMessage(ctx, messages)
+	response, metrics, err := cba.adapter.SendMessage(ctx, messages, conversation)
 	if err != nil {
 		cba.circuitBreaker.RecordFailure()
 		return response, metrics, err
@@ -358,8 +355,7 @@ func (cba *CircuitBreakerAdapter) SendMessage(ctx context.Context, messages []co
 	return response, metrics, nil
 }
 
-// StreamMessage streams a message with circuit breaker protection.
-func (cba *CircuitBreakerAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (cba *CircuitBreakerAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	if !cba.circuitBreaker.AllowRequest() {
 		timeUntil := cba.circuitBreaker.TimeUntilRetry()
 		return nil, errors.NewAgentError(
@@ -371,7 +367,7 @@ func (cba *CircuitBreakerAdapter) StreamMessage(ctx context.Context, messages []
 		).WithRetryAfter(timeUntil)
 	}
 
-	metrics, err := cba.adapter.StreamMessage(ctx, messages, writer)
+	metrics, err := cba.adapter.StreamMessage(ctx, messages, writer, conversation)
 	if err != nil {
 		cba.circuitBreaker.RecordFailure()
 		return metrics, err

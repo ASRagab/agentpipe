@@ -80,7 +80,8 @@ func runWebhookExample(webhookURL string) {
 
 	// Create manager
 	config := manager.Config{
-		Timeout: 30 * time.Second,
+		Timeout:          30 * time.Second,
+		ConversationMode: "parallel",
 	}
 
 	mgr, err := manager.NewConversationManager(config, agents, eventBus)

@@ -82,8 +82,10 @@ func main() {
 	// Create conversation manager with persistence enabled if saving
 	timeout, saveDir := cfg.GetManagerConfig()
 	mgrConfig := manager.Config{
-		Timeout: timeout,
-		SaveDir: saveDir,
+		Timeout:          timeout,
+		SaveDir:          saveDir,
+		ConversationMode: cfg.Conversation.Mode,
+		MaxTurns:         cfg.Conversation.MaxTurns,
 		Persistence: manager.PersistenceConfig{
 			Enabled: *save,
 			SaveDir: persistence.DefaultSaveDir(),

@@ -33,7 +33,7 @@ func TestRetryOnNetworkError(t *testing.T) {
 	adapter := mock.NewMockAdapter()
 	adapter.Response = "Success after retries"
 	adapter.Delay = 10 * time.Millisecond
-	adapter.OnSendMessage = func(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+	adapter.OnSendMessage = func(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 		attempt := attempts.Add(1)
 		if attempt < 3 {
 			// Return network error for first 2 attempts
@@ -58,7 +58,7 @@ func TestRetryOnNetworkError(t *testing.T) {
 	// Execute
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hello")}
-	response, metrics, err := retryableAdapter.SendMessage(ctx, messages)
+	response, metrics, err := retryableAdapter.SendMessage(ctx, messages, nil)
 
 	// Verify success after retries
 	if err != nil {
@@ -85,7 +85,7 @@ func TestNoRetryOnAuthError(t *testing.T) {
 
 	// Create adapter that returns auth error
 	adapter := mock.NewMockAdapter()
-	adapter.OnSendMessage = func(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+	adapter.OnSendMessage = func(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 		attempts.Add(1)
 		return "", nil, pkgerrors.NewAuthError("agent-1", "Test Agent", 401, fmt.Errorf("invalid API key"))
 	}
@@ -104,7 +104,7 @@ func TestNoRetryOnAuthError(t *testing.T) {
 	// Execute
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hello")}
-	_, _, err := retryableAdapter.SendMessage(ctx, messages)
+	_, _, err := retryableAdapter.SendMessage(ctx, messages, nil)
 
 	// Verify immediate failure
 	if err == nil {
@@ -138,7 +138,7 @@ func TestRateLimitHandling(t *testing.T) {
 
 	// Create adapter that returns rate limit initially
 	adapter := mock.NewMockAdapter()
-	adapter.OnSendMessage = func(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+	adapter.OnSendMessage = func(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 		attempt := attempts.Add(1)
 		now := time.Now()
 
@@ -171,7 +171,7 @@ func TestRateLimitHandling(t *testing.T) {
 	// Execute
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hello")}
-	response, _, err := retryableAdapter.SendMessage(ctx, messages)
+	response, _, err := retryableAdapter.SendMessage(ctx, messages, nil)
 
 	// Verify success after rate limit
 	if err != nil {
@@ -223,7 +223,7 @@ func TestCircuitBreakerOpens(t *testing.T) {
 
 	// Trigger failures to open circuit
 	for i := 0; i < 5; i++ {
-		responses := pool.ExecuteParallel(ctx, messages)
+		responses := pool.ExecuteParallel(ctx, messages, nil)
 		if len(responses) != 1 {
 			t.Fatalf("expected 1 response, got %d", len(responses))
 		}
@@ -275,7 +275,7 @@ func TestCircuitBreakerRecovers(t *testing.T) {
 	// Create adapter that fails initially, then succeeds
 	var attempts atomic.Int32
 	adapter := mock.NewMockAdapter()
-	adapter.OnSendMessage = func(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+	adapter.OnSendMessage = func(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 		attempt := attempts.Add(1)
 		if attempt <= 2 {
 			// Fail first 2 times to open circuit
@@ -293,7 +293,7 @@ func TestCircuitBreakerRecovers(t *testing.T) {
 
 	// Trigger failures to open circuit
 	for i := 0; i < 2; i++ {
-		_ = agentPool.ExecuteParallel(ctx, messages)
+		_ = agentPool.ExecuteParallel(ctx, messages, nil)
 	}
 
 	// Verify circuit is open
@@ -306,7 +306,7 @@ func TestCircuitBreakerRecovers(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Next request should probe (half-open) and succeed, closing the circuit
-	responses := agentPool.ExecuteParallel(ctx, messages)
+	responses := agentPool.ExecuteParallel(ctx, messages, nil)
 	if len(responses) != 1 {
 		t.Fatalf("expected 1 response, got %d", len(responses))
 	}
@@ -431,7 +431,7 @@ func TestTimeout(t *testing.T) {
 	messages := []core.Message{core.NewUserMessage("Test")}
 
 	start := time.Now()
-	responses := agentPool.ExecuteParallel(ctx, messages)
+	responses := agentPool.ExecuteParallel(ctx, messages, nil)
 	elapsed := time.Since(start)
 
 	// Verify response exists
@@ -489,7 +489,7 @@ func TestCancellation(t *testing.T) {
 	// Start execution in goroutine
 	done := make(chan []pool.Response)
 	go func() {
-		done <- agentPool.ExecuteParallel(ctx, messages)
+		done <- agentPool.ExecuteParallel(ctx, messages, nil)
 	}()
 
 	// Wait for agent to start

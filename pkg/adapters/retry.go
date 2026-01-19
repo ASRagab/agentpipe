@@ -98,32 +98,26 @@ func NewRetryableAdapter(adapter AgentAdapter, config RetryConfig, agentID, agen
 	}
 }
 
-// Initialize delegates to the wrapped adapter.
 func (r *RetryableAdapter) Initialize(agent core.Agent) error {
 	return r.adapter.Initialize(agent)
 }
 
-// IsAvailable delegates to the wrapped adapter.
 func (r *RetryableAdapter) IsAvailable() bool {
 	return r.adapter.IsAvailable()
 }
 
-// GetModel delegates to the wrapped adapter.
 func (r *RetryableAdapter) GetModel() string {
 	return r.adapter.GetModel()
 }
 
-// HealthCheck delegates to the wrapped adapter (no retry for health checks).
 func (r *RetryableAdapter) HealthCheck(ctx context.Context) error {
 	return r.adapter.HealthCheck(ctx)
 }
 
-// SendMessage sends a message with retry logic.
-func (r *RetryableAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (r *RetryableAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	var lastErr error
 
 	for attempt := 0; attempt < r.config.MaxAttempts; attempt++ {
-		// Wait before retry (skip for first attempt)
 		if attempt > 0 {
 			delay := r.config.calculateDelay(attempt)
 
@@ -142,7 +136,7 @@ func (r *RetryableAdapter) SendMessage(ctx context.Context, messages []core.Mess
 			}
 		}
 
-		response, metrics, err := r.adapter.SendMessage(ctx, messages)
+		response, metrics, err := r.adapter.SendMessage(ctx, messages, conversation)
 		if err == nil {
 			if attempt > 0 {
 				log.WithFields(map[string]interface{}{
@@ -185,12 +179,10 @@ func (r *RetryableAdapter) SendMessage(ctx context.Context, messages []core.Mess
 	).WithRetryCount(r.config.MaxAttempts)
 }
 
-// StreamMessage streams a message with retry logic.
-func (r *RetryableAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (r *RetryableAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	var lastErr error
 
 	for attempt := 0; attempt < r.config.MaxAttempts; attempt++ {
-		// Wait before retry (skip for first attempt)
 		if attempt > 0 {
 			delay := r.config.calculateDelay(attempt)
 
@@ -209,7 +201,7 @@ func (r *RetryableAdapter) StreamMessage(ctx context.Context, messages []core.Me
 			}
 		}
 
-		metrics, err := r.adapter.StreamMessage(ctx, messages, writer)
+		metrics, err := r.adapter.StreamMessage(ctx, messages, writer, conversation)
 		if err == nil {
 			if attempt > 0 {
 				log.WithFields(map[string]interface{}{

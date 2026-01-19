@@ -284,11 +284,13 @@ docker cp agentpipe:/app/agentpipe ./
 ### Security
 
 1. **Run as Non-root User**
+
    ```dockerfile
    USER agentpipe
    ```
 
 2. **Read-only Filesystems**
+
    ```bash
    docker run --read-only \
      --tmpfs /tmp \
@@ -301,6 +303,7 @@ docker cp agentpipe:/app/agentpipe ./
    - Remove unnecessary files
 
 4. **Scan for Vulnerabilities**
+
    ```bash
    docker scan agentpipe:latest
    ```
@@ -308,6 +311,7 @@ docker cp agentpipe:/app/agentpipe ./
 ### Performance
 
 1. **Use BuildKit**
+
    ```bash
    DOCKER_BUILDKIT=1 docker build -t agentpipe:latest .
    ```
@@ -323,17 +327,20 @@ docker cp agentpipe:/app/agentpipe ./
 ### Reliability
 
 1. **Health Checks**
+
    ```dockerfile
    HEALTHCHECK --interval=30s --timeout=3s \
      CMD agentpipe version || exit 1
    ```
 
 2. **Restart Policies**
+
    ```yaml
    restart: unless-stopped
    ```
 
 3. **Log Rotation**
+
    ```yaml
    logging:
      driver: "json-file"

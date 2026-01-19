@@ -248,7 +248,7 @@ func TestHandleCLIError(t *testing.T) {
 // TestBuildConversationPrompt tests prompt building
 func TestBuildConversationPrompt(t *testing.T) {
 	t.Run("EmptyMessages", func(t *testing.T) {
-		prompt := BuildConversationPrompt("TestAgent", "You are helpful", nil)
+		prompt := BuildConversationPrompt("TestAgent", "You are helpful", nil, nil)
 		if !strings.Contains(prompt, "TestAgent") {
 			t.Error("Prompt should contain agent name")
 		}
@@ -275,7 +275,7 @@ func TestBuildConversationPrompt(t *testing.T) {
 			},
 		}
 
-		prompt := BuildConversationPrompt("TestAgent", "", messages)
+		prompt := BuildConversationPrompt("TestAgent", "", messages, nil)
 		if !strings.Contains(prompt, "Discussion topic") {
 			t.Error("Prompt should contain initial topic")
 		}
@@ -390,7 +390,7 @@ func TestClaudeCLIAdapter(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		response, metrics, err := adapter.SendMessage(ctx, messages)
+		response, metrics, err := adapter.SendMessage(ctx, messages, nil)
 
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
@@ -480,7 +480,7 @@ func TestGeminiCLIAdapter(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		response, metrics, err := adapter.SendMessage(ctx, messages)
+		response, metrics, err := adapter.SendMessage(ctx, messages, nil)
 
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
@@ -494,8 +494,6 @@ func TestGeminiCLIAdapter(t *testing.T) {
 	})
 
 	t.Run("CleanOutput", func(t *testing.T) {
-		adapter := &GeminiCLIAdapter{}
-
 		tests := []struct {
 			input    string
 			expected string
@@ -511,9 +509,11 @@ func TestGeminiCLIAdapter(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			result := adapter.cleanOutput(tt.input)
-			if result != tt.expected {
-				t.Errorf("Expected %q, got %q", tt.expected, result)
+			builder := &strings.Builder{}
+			filter := &geminiFilterWriter{writer: builder}
+			_, _ = filter.Write([]byte(tt.input))
+			if builder.String() != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, builder.String())
 			}
 		}
 	})
@@ -577,7 +577,7 @@ func TestGenericCLIAdapter(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		response, metrics, err := adapter.SendMessage(ctx, messages)
+		response, metrics, err := adapter.SendMessage(ctx, messages, nil)
 
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
@@ -707,7 +707,7 @@ func TestCLITimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	_, _, err := adapter.SendMessage(ctx, messages)
+	_, _, err := adapter.SendMessage(ctx, messages, nil)
 	if err == nil {
 		t.Error("Expected timeout error")
 	}
@@ -741,7 +741,7 @@ func TestCLIStreamOutput(t *testing.T) {
 
 	var output strings.Builder
 	ctx := context.Background()
-	metrics, err := adapter.StreamMessage(ctx, messages, &output)
+	metrics, err := adapter.StreamMessage(ctx, messages, &output, nil)
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -811,7 +811,7 @@ func TestEmptyMessages(t *testing.T) {
 	for _, tt := range adaptersToTest {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			response, metrics, err := tt.adapter.SendMessage(ctx, nil)
+			response, metrics, err := tt.adapter.SendMessage(ctx, nil, nil)
 
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
@@ -931,7 +931,7 @@ func BenchmarkSendMessage(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, _, err := adapter.SendMessage(ctx, messages)
+		_, _, err := adapter.SendMessage(ctx, messages, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -982,7 +982,7 @@ func TestStreamMessageWriterError(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := adapter.StreamMessage(ctx, messages, failWriter)
+	_, err := adapter.StreamMessage(ctx, messages, failWriter, nil)
 
 	// The error might be swallowed or wrapped, just verify it doesn't panic
 	// and produces some reasonable behavior

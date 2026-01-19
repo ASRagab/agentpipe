@@ -48,14 +48,17 @@ repos:
 
   # Go formatting and linting
   - repo: https://github.com/tekwizely/pre-commit-golang
-    rev: v1.0.0-rc.1
+    rev: v1.0.0-rc.4
     hooks:
       - id: go-fmt
         args: [-w]
       - id: go-imports
         args: [-w, -local, github.com/ASRagab/agentpipe]
       - id: go-vet
+        types: [go]
+        files: '\.go$'
         args: [./...]
+        pass_filenames: false
       - id: go-mod-tidy
 
   # Markdown linting (optional but helpful for docs)
@@ -63,5 +66,5 @@ repos:
     rev: v0.47.0
     hooks:
       - id: markdownlint
-        args: [--fix, --disable, MD013, MD033, MD041, --]
-        exclude: ^(CHANGELOG\.md|Auto Run Docs/.*)$
+        args: [--fix, --disable, MD013, MD033, MD041, MD060, --]
+        exclude: ^(CHANGELOG\.md|Auto Run Docs/.*|autorun/.*|docs/.*|)$

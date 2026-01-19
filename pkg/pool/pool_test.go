@@ -102,7 +102,7 @@ func TestExecuteParallel(t *testing.T) {
 	// Execute
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hello")}
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 
 	if len(responses) != 2 {
 		t.Errorf("expected 2 responses, got %d", len(responses))
@@ -148,7 +148,7 @@ func TestParallelTiming(t *testing.T) {
 	messages := []core.Message{core.NewUserMessage("Hello")}
 
 	start := time.Now()
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 	elapsed := time.Since(start)
 
 	if len(responses) != 2 {
@@ -189,7 +189,7 @@ func TestEventEmission(t *testing.T) {
 
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hello")}
-	_ = pool.ExecuteParallel(ctx, messages)
+	_ = pool.ExecuteParallel(ctx, messages, nil)
 
 	// Wait for async events
 	time.Sleep(100 * time.Millisecond)
@@ -229,7 +229,7 @@ func TestAgentError(t *testing.T) {
 
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hello")}
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 
 	if len(responses) != 2 {
 		t.Errorf("expected 2 responses, got %d", len(responses))
@@ -282,7 +282,7 @@ func TestAllAgentsFail(t *testing.T) {
 
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hello")}
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 
 	if len(responses) != 2 {
 		t.Errorf("expected 2 responses, got %d", len(responses))
@@ -308,7 +308,7 @@ func TestTimeout(t *testing.T) {
 	messages := []core.Message{core.NewUserMessage("Hello")}
 
 	start := time.Now()
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 	elapsed := time.Since(start)
 
 	if len(responses) != 1 {
@@ -349,7 +349,7 @@ func TestContextCancellation(t *testing.T) {
 	messages := []core.Message{core.NewUserMessage("Hello")}
 
 	start := time.Now()
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 	elapsed := time.Since(start)
 
 	if len(responses) != 1 {
@@ -412,7 +412,7 @@ func TestEmptyPool(t *testing.T) {
 
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hello")}
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 
 	if len(responses) != 0 {
 		t.Errorf("expected 0 responses from empty pool, got %d", len(responses))
@@ -432,7 +432,7 @@ func TestNilEventBus(t *testing.T) {
 
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hi")}
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 
 	if len(responses) != 1 {
 		t.Errorf("expected 1 response, got %d", len(responses))
@@ -460,7 +460,7 @@ func TestConcurrentExecutions(t *testing.T) {
 
 			ctx := context.Background()
 			messages := []core.Message{core.NewUserMessage("Hello")}
-			responses := pool.ExecuteParallel(ctx, messages)
+			responses := pool.ExecuteParallel(ctx, messages, nil)
 			if len(responses) != 1 {
 				t.Errorf("expected 1 response, got %d", len(responses))
 			}
@@ -487,7 +487,7 @@ func TestAgentStateAfterExecution(t *testing.T) {
 
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hello")}
-	_ = pool.ExecuteParallel(ctx, messages)
+	_ = pool.ExecuteParallel(ctx, messages, nil)
 
 	state, _ := pool.GetAgentState("agent-1")
 	if state.MessageCount != 1 {
@@ -516,7 +516,7 @@ func TestMetricsPopulatedInResponse(t *testing.T) {
 
 	ctx := context.Background()
 	messages := []core.Message{core.NewUserMessage("Hello")}
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 
 	if len(responses) != 1 {
 		t.Fatalf("expected 1 response, got %d", len(responses))
@@ -579,7 +579,7 @@ func TestCircuitBreakerCustomConfig(t *testing.T) {
 
 	// Execute 3 times to trip circuit (custom threshold)
 	for i := 0; i < 3; i++ {
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}
 
 	cbInfo, _ := pool.GetCircuitBreakerStatus("agent-1")
@@ -602,7 +602,7 @@ func TestCircuitBreakerOpensAfterConsecutiveFailures(t *testing.T) {
 
 	// Default threshold is 5, so we need 5 failures
 	for i := 0; i < 5; i++ {
-		responses := pool.ExecuteParallel(ctx, messages)
+		responses := pool.ExecuteParallel(ctx, messages, nil)
 		if len(responses) != 1 {
 			t.Fatalf("expected 1 response, got %d", len(responses))
 		}
@@ -638,11 +638,11 @@ func TestCircuitBreakerSkipsOpenCircuit(t *testing.T) {
 
 	// Trip the circuit breaker (5 failures)
 	for i := 0; i < 5; i++ {
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}
 
 	// Circuit is now open - next call should be skipped with circuit open error
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 	if len(responses) != 1 {
 		t.Fatalf("expected 1 response, got %d", len(responses))
 	}
@@ -683,7 +683,7 @@ func TestCircuitBreakerEmitsErrorEventOnOpen(t *testing.T) {
 
 	// Trip the circuit breaker (5 failures)
 	for i := 0; i < 5; i++ {
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}
 
 	// Wait for async events
@@ -709,7 +709,7 @@ func TestCircuitBreakerSuccessResetsFailureCount(t *testing.T) {
 	// Simulate 3 failures
 	adapter.Error = errors.New("temporary failure")
 	for i := 0; i < 3; i++ {
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}
 
 	cbInfo, _ := pool.GetCircuitBreakerStatus("agent-1")
@@ -720,7 +720,7 @@ func TestCircuitBreakerSuccessResetsFailureCount(t *testing.T) {
 	// Now a success should reset the count
 	adapter.Error = nil
 	adapter.Response = "Success!"
-	_ = pool.ExecuteParallel(ctx, messages)
+	_ = pool.ExecuteParallel(ctx, messages, nil)
 
 	cbInfo, _ = pool.GetCircuitBreakerStatus("agent-1")
 	if cbInfo.FailureCount != 0 {
@@ -767,7 +767,7 @@ func TestResetCircuitBreaker(t *testing.T) {
 
 	// Trip the circuit
 	for i := 0; i < 5; i++ {
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}
 
 	cbInfo, _ := pool.GetCircuitBreakerStatus("agent-1")
@@ -818,7 +818,7 @@ func TestResetAllCircuitBreakers(t *testing.T) {
 
 	// Trip both circuits
 	for i := 0; i < 5; i++ {
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}
 
 	// Verify both are open
@@ -867,7 +867,7 @@ func TestGetAvailableAgentCount(t *testing.T) {
 
 	// Trip agent-2's circuit
 	for i := 0; i < 5; i++ {
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}
 
 	// Now only agent-1 should be available
@@ -898,11 +898,11 @@ func TestMixedAgentsContinueWithOpenCircuit(t *testing.T) {
 
 	// Trip the failing agent's circuit (5 failures)
 	for i := 0; i < 5; i++ {
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}
 
 	// Now execute again - healthy agent should still work
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 	if len(responses) != 2 {
 		t.Fatalf("expected 2 responses, got %d", len(responses))
 	}
@@ -953,7 +953,7 @@ func TestCircuitBreakerHalfOpenRecovery(t *testing.T) {
 
 	// Trip the circuit (2 failures with custom threshold)
 	for i := 0; i < 2; i++ {
-		_ = pool.ExecuteParallel(ctx, messages)
+		_ = pool.ExecuteParallel(ctx, messages, nil)
 	}
 
 	cbInfo, _ := pool.GetCircuitBreakerStatus("agent-1")
@@ -970,7 +970,7 @@ func TestCircuitBreakerHalfOpenRecovery(t *testing.T) {
 	adapter.Delay = 20 * time.Millisecond
 
 	// Execute - should transition to half-open and then close on success
-	responses := pool.ExecuteParallel(ctx, messages)
+	responses := pool.ExecuteParallel(ctx, messages, nil)
 	if len(responses) != 1 {
 		t.Fatalf("expected 1 response, got %d", len(responses))
 	}

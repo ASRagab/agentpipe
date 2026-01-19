@@ -42,6 +42,9 @@ temp/
 
 # Artifact output directory
 agentpipe-artifacts/
+v2tui
+Auto\ Run\ Docs/
+autorun/
 
 # Build artifacts
 dist/

@@ -11,7 +11,6 @@ import (
 	"github.com/ASRagab/agentpipe/pkg/core"
 )
 
-// testAdapter is a simple adapter for testing purposes
 type testAdapter struct {
 	model           string
 	initializeError error
@@ -26,11 +25,11 @@ func (t *testAdapter) Initialize(agent core.Agent) error {
 	return nil
 }
 
-func (t *testAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (t *testAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	return "test response", nil, nil
 }
 
-func (t *testAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (t *testAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	return nil, nil
 }
 

@@ -50,6 +50,7 @@ conversation:
 #### Duration Format
 
 Durations use Go duration format:
+
 - `30s` - 30 seconds
 - `2m` - 2 minutes
 - `1h30m` - 1 hour 30 minutes

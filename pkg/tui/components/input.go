@@ -38,12 +38,13 @@ func NewInputModel() InputModel {
 	ta.ShowLineNumbers = false
 	ta.CharLimit = 4096
 	ta.SetHeight(3)
+	ta.Focus() // Start focused so typing works immediately
 
 	return InputModel{
 		textarea:          ta,
 		placeholder:       "Type your message...",
 		maxChars:          4096,
-		focused:           false,
+		focused:           true, // Start focused
 		showTokenEstimate: true,
 		targetModel:       "", // Will use a default for estimation
 		lastTokenEstimate: 0,
@@ -66,19 +67,25 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.focused {
-			switch msg.String() {
-			case "ctrl+enter":
-				// Submit the message
+			keyStr := msg.String()
+
+			// Handle our special keys FIRST, before textarea gets them
+			switch keyStr {
+			case "enter":
+				// Submit the message on Enter
+				// (Use Shift+Enter for newlines in the textarea)
 				content := strings.TrimSpace(m.textarea.Value())
 				if content != "" {
+					savedContent := content // capture for closure
 					m.textarea.Reset()
 					// Clear estimates on submit
 					m.lastTokenEstimate = 0
 					m.lastCostEstimate = 0.0
 					return m, func() tea.Msg {
-						return InputSubmittedMsg{Content: content}
+						return InputSubmittedMsg{Content: savedContent}
 					}
 				}
+				return m, nil // Don't pass to textarea
 			case "esc":
 				// Clear input
 				m.textarea.Reset()
@@ -87,13 +94,19 @@ func (m InputModel) Update(msg tea.Msg) (InputModel, tea.Cmd) {
 				m.lastCostEstimate = 0.0
 				return m, nil
 			}
-		}
-	}
 
-	if m.focused {
-		var cmd tea.Cmd
-		m.textarea, cmd = m.textarea.Update(msg)
-		cmds = append(cmds, cmd)
+			// Pass other keys to textarea
+			var cmd tea.Cmd
+			m.textarea, cmd = m.textarea.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+	default:
+		// Pass non-key messages to textarea
+		if m.focused {
+			var cmd tea.Cmd
+			m.textarea, cmd = m.textarea.Update(msg)
+			cmds = append(cmds, cmd)
+		}
 	}
 
 	// Update token/cost estimate if content changed
@@ -118,7 +131,7 @@ func (m InputModel) View() string {
 	// Header
 	header := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
-		Render("Message (Ctrl+Enter to send, Esc to clear)")
+		Render("Message (Enter to send, Esc to clear)")
 
 	// Character count
 	charCount := len(m.textarea.Value())
@@ -281,8 +294,8 @@ func EstimateInputCost(tokens int, model string) float64 {
 	// Use utils.EstimateCost for accurate pricing
 	// For user input, we estimate input tokens only (output is 0)
 	if model == "" {
-		// Default to claude-3-sonnet for estimation if no model specified
-		model = "claude-3-sonnet-20240229"
+		// Default to claude-3.7-sonnet for estimation if no model specified
+		model = "anthropic/claude-3.7-sonnet"
 	}
 	return utils.EstimateCost(model, tokens, 0)
 }

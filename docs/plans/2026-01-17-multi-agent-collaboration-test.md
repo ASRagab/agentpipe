@@ -16,15 +16,17 @@ Test how three agents (Claude-Architect, Gemini-Coder, Codex-Reviewer) collabora
 ## Test Objectives
 
 ### Primary Objectives
+
 1. **Artifact Creation** - Verify multiple agents can create artifacts using the ```language:filename syntax
 2. **Sequential Collaboration** - Confirm agents read and build on previous responses
 3. **Artifact Organization** - Validate artifact storage in agent-specific directories
 4. **Role Adherence** - Ensure agents stick to assigned roles (architect/coder/reviewer)
 
 ### Secondary Objectives
-5. **Turn-Taking Quality** - Observe how effectively agents listen and contribute
-6. **Planning Coherence** - Assess whether the combined output forms a logical plan
-7. **System Stability** - Confirm no crashes, timeouts, or parsing errors
+
+1. **Turn-Taking Quality** - Observe how effectively agents listen and contribute
+2. **Planning Coherence** - Assess whether the combined output forms a logical plan
+3. **System Stability** - Confirm no crashes, timeouts, or parsing errors
 
 ## Test Scenario: Collaborative Feature Builder
 
@@ -64,6 +66,7 @@ Turn 4-5: Iteration/refinement based on feedback
 **File:** `examples/collaborative-planning-test.yaml`
 
 **Key Settings:**
+
 - Mode: `round-robin` (ensures equal turns)
 - Max Turns: `5` (~1-2 contributions per agent)
 - Timeout: `180s` per turn
@@ -71,6 +74,7 @@ Turn 4-5: Iteration/refinement based on feedback
 - Output: `./agentpipe-artifacts`
 
 **Models:**
+
 - Claude: `claude-sonnet-4-5@20250929`
 - Gemini: `gemini-2.5-pro`
 - Codex: `gpt-5.2-codex`
@@ -78,6 +82,7 @@ Turn 4-5: Iteration/refinement based on feedback
 ## Execution Plan
 
 ### Pre-Test Setup
+
 ```bash
 # 1. Check current artifact state
 ls -la agentpipe-artifacts/ 2>/dev/null || echo "Clean start"
@@ -90,6 +95,7 @@ cat examples/collaborative-planning-test.yaml
 ```
 
 ### Running the Test
+
 ```bash
 agentpipe run -t -c examples/collaborative-planning-test.yaml
 ```
@@ -97,26 +103,31 @@ agentpipe run -t -c examples/collaborative-planning-test.yaml
 ### During Execution - Observation Points
 
 **Turn 1 (Claude-Architect):**
+
 - [ ] Creates `architecture-design.md` artifact?
 - [ ] Includes system components and interactions?
 - [ ] Design is well-structured and concise?
 
 **Turn 2 (Gemini-Coder):**
+
 - [ ] References the architecture explicitly?
 - [ ] Creates `implementation-sketch.go` artifact?
 - [ ] Code structure aligns with architecture?
 
 **Turn 3 (Codex-Reviewer):**
+
 - [ ] References both previous artifacts?
 - [ ] Creates `review-checklist.md` artifact?
 - [ ] Checklist covers architecture AND implementation?
 
 **Turns 4-5 (Iteration):**
+
 - [ ] Agents refine based on feedback?
 - [ ] New artifacts or updates to existing ones?
 - [ ] Convergence toward coherent plan?
 
 **TUI Indicators:**
+
 - [ ] Artifact parsing messages visible?
 - [ ] No error messages or timeouts?
 - [ ] All agents complete their turns?
@@ -148,18 +159,21 @@ cat ~/.agentpipe/chats/[latest-session].log
 ## Success Criteria
 
 ### Must Have (Test Passes)
+
 - ✅ All 3 agents create their designated artifacts
 - ✅ Artifacts saved to correct directories without errors
 - ✅ No crashes, timeouts, or parsing failures
 - ✅ Conversation completes all planned turns
 
 ### Should Have (Quality Indicators)
+
 - ✅ Later agents reference earlier artifacts
 - ✅ Architecture → Implementation flow is logical
 - ✅ Review checklist covers both architecture and code
 - ✅ Combined output forms coherent plan
 
 ### Could Have (Bonus)
+
 - ✅ Agents iterate and refine based on feedback
 - ✅ Disagreement handled constructively
 - ✅ Artifact versioning triggered (if agents create duplicates)
@@ -167,12 +181,14 @@ cat ~/.agentpipe/chats/[latest-session].log
 ## Failure Indicators
 
 **Critical Failures:**
+
 - Missing artifacts (agents didn't create them)
 - Parse errors or file write failures
 - Agent timeouts or crashes
 - Artifacts in wrong directories
 
 **Quality Failures:**
+
 - Agents ignore each other (no cross-references)
 - Incoherent or contradictory outputs
 - Agents don't follow their assigned roles
@@ -181,6 +197,7 @@ cat ~/.agentpipe/chats/[latest-session].log
 ## Documentation Requirements
 
 **Post-Test Report Should Include:**
+
 1. Artifact directory tree (screenshot or text output)
 2. Quality rating for each artifact (1-5 scale)
 3. Collaboration patterns observed
@@ -188,6 +205,7 @@ cat ~/.agentpipe/chats/[latest-session].log
 5. Recommendations for next tests
 
 **Quality Rating Scale:**
+
 - 5 = Excellent (specific, coherent, builds on others)
 - 4 = Good (solid work, minor issues)
 - 3 = Adequate (functional but generic)
@@ -200,11 +218,13 @@ cat ~/.agentpipe/chats/[latest-session].log
 
 **Scenario A - Architectural Challenge:**
 "Design how AgentPipe could enable agents to work on the same codebase simultaneously with conflict resolution"
+
 - Tests: Complex problem-solving, deeper collaboration
 - Duration: 10-15 turns
 
 **Scenario B - Concrete Feature:**
 "Design how AgentPipe could support collaborative debugging sessions where agents help each other fix bugs"
+
 - Tests: Disagreement handling, consensus building
 - Duration: 8-10 turns
 

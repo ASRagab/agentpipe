@@ -122,13 +122,12 @@ func (o *OpenRouterAdapter) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-// SendMessage sends messages and returns the response.
-func (o *OpenRouterAdapter) SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+func (o *OpenRouterAdapter) SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 	if len(messages) == 0 {
 		return "", nil, nil
 	}
 
-	apiMessages := o.buildAPIMessages(messages)
+	apiMessages := o.buildAPIMessages(messages, conversation)
 	req := chatCompletionRequest{
 		Model:    o.model,
 		Messages: apiMessages,
@@ -173,13 +172,12 @@ func (o *OpenRouterAdapter) SendMessage(ctx context.Context, messages []core.Mes
 	return content, metrics, nil
 }
 
-// StreamMessage sends messages and streams the response.
-func (o *OpenRouterAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error) {
+func (o *OpenRouterAdapter) StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error) {
 	if len(messages) == 0 {
 		return nil, nil
 	}
 
-	apiMessages := o.buildAPIMessages(messages)
+	apiMessages := o.buildAPIMessages(messages, conversation)
 	req := chatCompletionRequest{
 		Model:    o.model,
 		Messages: apiMessages,
@@ -221,11 +219,17 @@ func (o *OpenRouterAdapter) StreamMessage(ctx context.Context, messages []core.M
 	return metrics, nil
 }
 
-// buildAPIMessages converts core.Message to the API format.
-func (o *OpenRouterAdapter) buildAPIMessages(messages []core.Message) []chatMessage {
+func (o *OpenRouterAdapter) buildAPIMessages(messages []core.Message, conversation *core.ConversationContext) []chatMessage {
 	apiMessages := make([]chatMessage, 0, len(messages)+1)
 
-	// Add system prompt if configured
+	contextPrompt := adapters.BuildConversationContextPrompt(conversation)
+	if contextPrompt != "" {
+		apiMessages = append(apiMessages, chatMessage{
+			Role:    "system",
+			Content: contextPrompt,
+		})
+	}
+
 	if o.systemPrompt != "" {
 		apiMessages = append(apiMessages, chatMessage{
 			Role:    "system",

@@ -150,7 +150,7 @@ func TestStreamingFlow(t *testing.T) {
 	var buf bytes.Buffer
 	messages := []core.Message{core.NewUserMessage("Stream to me")}
 
-	metrics, err := adapter.StreamMessage(ctx, messages, &buf)
+	metrics, err := adapter.StreamMessage(ctx, messages, &buf, nil)
 	if err != nil {
 		t.Fatalf("StreamMessage failed: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestParallelAgentsWithDifferentSpeeds(t *testing.T) {
 	messages := []core.Message{core.NewUserMessage("Hello")}
 
 	start := time.Now()
-	responses := agentPool.ExecuteParallel(ctx, messages)
+	responses := agentPool.ExecuteParallel(ctx, messages, nil)
 	elapsed := time.Since(start)
 
 	// Verify both responded
@@ -297,7 +297,7 @@ func TestAgentErrorRecovery(t *testing.T) {
 	agentPool.AddAgent(core.NewAgent("fail", "mock", "Fail", "model", "mock"), failAdapter)
 
 	ctx := context.Background()
-	responses := agentPool.ExecuteParallel(ctx, []core.Message{core.NewUserMessage("Test")})
+	responses := agentPool.ExecuteParallel(ctx, []core.Message{core.NewUserMessage("Test")}, nil)
 
 	// Wait for events
 	time.Sleep(100 * time.Millisecond)
@@ -366,7 +366,7 @@ func TestEventBusIntegration(t *testing.T) {
 
 	// Execute
 	ctx := context.Background()
-	_ = agentPool.ExecuteParallel(ctx, []core.Message{core.NewUserMessage("Test")})
+	_ = agentPool.ExecuteParallel(ctx, []core.Message{core.NewUserMessage("Test")}, nil)
 
 	// Wait for events
 	time.Sleep(100 * time.Millisecond)

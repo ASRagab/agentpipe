@@ -92,7 +92,9 @@ persistence:
 
 	// Create manager
 	managerCfg := manager.Config{
-		Timeout: cfg.Conversation.Timeout,
+		Timeout:          cfg.Conversation.Timeout,
+		ConversationMode: cfg.Conversation.Mode,
+		MaxTurns:         cfg.Conversation.MaxTurns,
 	}
 
 	mgr, err := manager.NewConversationManager(managerCfg, agents, eventBus)
@@ -281,8 +283,10 @@ persistence:
 	// Create first conversation manager - Persistence.Enabled=false to avoid auto-save race conditions
 	// We'll use manual Save() to test persistence explicitly
 	managerCfg := manager.Config{
-		Timeout: cfg.Conversation.Timeout,
-		SaveDir: saveDir,
+		Timeout:          cfg.Conversation.Timeout,
+		SaveDir:          saveDir,
+		ConversationMode: cfg.Conversation.Mode,
+		MaxTurns:         cfg.Conversation.MaxTurns,
 		Persistence: manager.PersistenceConfig{
 			Enabled: false,
 			SaveDir: saveDir,

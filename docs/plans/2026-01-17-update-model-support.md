@@ -34,6 +34,7 @@
 ## Task 1: Fetch Latest Provider Data from Catwalk
 
 **Files:**
+
 - Modify: `internal/providers/providers.json` (auto-generated)
 
 **Step 1: Verify update script exists and is runnable**
@@ -50,6 +51,7 @@ Expected: Output showing "Fetched 16 providers" and "Successfully wrote internal
 
 Run: `cat internal/providers/providers.json | jq '.providers[] | select(.id == "anthropic" or .id == "gemini" or .id == "openai" or .id == "vertexai") | {id, model_count: (.models | length)}'`
 Expected:
+
 ```json
 {"id": "anthropic", "model_count": 10}
 {"id": "gemini", "model_count": 4}
@@ -84,20 +86,24 @@ git commit -m "chore: update providers.json with latest models from Catwalk
 ## Task 2: Fix simple-conversation.yaml Model Reference
 
 **Files:**
+
 - Modify: `examples/simple-conversation.yaml:9`
 
 **Step 1: Read current file to confirm line content**
 
 Run: `sed -n '9p' examples/simple-conversation.yaml`
-Expected: `    model: claude-4-sonnet`
+Expected: `model: claude-4-sonnet`
 
 **Step 2: Fix the invalid model reference**
 
 Replace line 9 from:
+
 ```yaml
     model: claude-4-sonnet
 ```
+
 to:
+
 ```yaml
     model: claude-sonnet-4-5-20250929
 ```
@@ -105,7 +111,7 @@ to:
 **Step 3: Verify the change**
 
 Run: `sed -n '9p' examples/simple-conversation.yaml`
-Expected: `    model: claude-sonnet-4-5-20250929`
+Expected: `model: claude-sonnet-4-5-20250929`
 
 **Step 4: Commit**
 
@@ -121,20 +127,24 @@ git commit -m "fix(examples): update simple-conversation.yaml to valid model ID
 ## Task 3: Fix brainstorm.yaml Model Reference
 
 **Files:**
+
 - Modify: `examples/brainstorm.yaml:17`
 
 **Step 1: Read current file to confirm line content**
 
 Run: `sed -n '17p' examples/brainstorm.yaml`
-Expected: `    model: claude-3-opus`
+Expected: `model: claude-3-opus`
 
 **Step 2: Fix the outdated model reference**
 
 Replace line 17 from:
+
 ```yaml
     model: claude-3-opus
 ```
+
 to:
+
 ```yaml
     model: claude-opus-4-5-20251101
 ```
@@ -142,7 +152,7 @@ to:
 **Step 3: Verify the change**
 
 Run: `sed -n '17p' examples/brainstorm.yaml`
-Expected: `    model: claude-opus-4-5-20251101`
+Expected: `model: claude-opus-4-5-20251101`
 
 **Step 4: Commit**
 
@@ -158,6 +168,7 @@ git commit -m "fix(examples): update brainstorm.yaml to latest Opus model
 ## Task 4: Fix troubleshooting.md Model Reference
 
 **Files:**
+
 - Modify: `docs/troubleshooting.md:341`
 
 **Step 1: Read current context around line 341**
@@ -172,7 +183,7 @@ Replace `claude-3-haiku` with `claude-3-5-haiku-20241022` on line 341
 **Step 3: Verify the change**
 
 Run: `sed -n '341p' docs/troubleshooting.md`
-Expected: `    model: claude-3-5-haiku-20241022`
+Expected: `model: claude-3-5-haiku-20241022`
 
 **Step 4: Commit**
 
@@ -188,6 +199,7 @@ git commit -m "fix(docs): update troubleshooting.md to valid Haiku model ID
 ## Task 5: Run Tests and Build Verification
 
 **Files:**
+
 - Test: All existing tests
 
 **Step 1: Run linting**
@@ -220,6 +232,7 @@ Expected: Shows the new Opus 4.5 model with $5/$25 pricing
 ## Task 6: Update CHANGELOG.md
 
 **Files:**
+
 - Modify: `CHANGELOG.md`
 
 **Step 1: Add entry for model updates**
@@ -283,11 +296,13 @@ Expected: All tests pass
 ### Rollback Instructions
 
 If issues arise, revert with:
+
 ```bash
 git revert HEAD~5..HEAD  # Revert last 5 commits
 ```
 
 Or restore old providers.json:
+
 ```bash
 git checkout HEAD~6 -- internal/providers/providers.json
 ```
@@ -295,11 +310,13 @@ git checkout HEAD~6 -- internal/providers/providers.json
 ### Future Updates
 
 To update models again in the future:
+
 ```bash
 go run scripts/update-providers.go
 ```
 
 Or via CLI:
+
 ```bash
 agentpipe providers update
 ```

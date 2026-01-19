@@ -166,6 +166,10 @@ type eventMsg struct {
 	event core.Event
 }
 
+type userMessageResultMsg struct {
+	err error
+}
+
 // Update handles all messages and updates the model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
@@ -254,6 +258,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle user input submission
 		cmds = append(cmds, m.handleInputSubmit(msg.Content))
 
+	case userMessageResultMsg:
+		if msg.err != nil {
+			m.lastError = msg.err.Error()
+		} else if m.lastError != "" {
+			m.lastError = ""
+		}
+
 	case tickMsg:
 		// Process event queue
 		cmds = append(cmds, m.processEventQueue())
@@ -311,6 +322,21 @@ func (m *Model) handleGlobalKeys(msg tea.KeyMsg) tea.Cmd {
 			m.showHelp = !m.showHelp
 			return nil
 		}
+	case "ctrl+s":
+		return func() tea.Msg {
+			if _, err := m.manager.Save(); err != nil {
+				return userMessageResultMsg{err: err}
+			}
+			return nil
+		}
+	case "ctrl+e":
+		return func() tea.Msg {
+			outputPath := fmt.Sprintf("conversation_%s.md", time.Now().Format("2006-01-02_15-04-05"))
+			if err := m.manager.ExportToMarkdown(outputPath); err != nil {
+				return userMessageResultMsg{err: err}
+			}
+			return nil
+		}
 	case "tab":
 		m.cycleFocus()
 		return nil
@@ -326,10 +352,7 @@ func (m *Model) handleInputSubmit(content string) tea.Cmd {
 	return func() tea.Msg {
 		// Send user message through manager
 		_, err := m.manager.SendUserMessage(m.ctx, content)
-		if err != nil {
-			m.lastError = err.Error()
-		}
-		return nil
+		return userMessageResultMsg{err: err}
 	}
 }
 
@@ -527,51 +550,43 @@ func (m Model) View() string {
 		return MinimumSizeMessage()
 	}
 
-	// Show help overlay if active
-	if m.showHelp {
-		return m.renderHelpOverlay()
-	}
-
-	// Show error details modal if active
 	if m.showErrorDetails {
 		return m.renderErrorDetailsOverlay()
 	}
 
-	// Calculate available height for main panels more accurately
-	// Total height minus: logo (6) + version line (1) + status bar (1) + input (3) + borders (4)
-	// Note: InputHeight=3 already, and we need 2 for panel borders top/bottom
-	headerHeight := LogoHeight + 2  // logo + version line + status bar
-	footerHeight := InputHeight + 2 // input + some padding
+	mainView := m.renderMainView()
+
+	if m.showHelp {
+		return m.renderHelpOverlayOnTop(mainView)
+	}
+
+	return mainView
+}
+
+func (m Model) renderMainView() string {
+	headerHeight := LogoHeight + 2
+	footerHeight := InputHeight + 2
 	mainHeight := m.height - headerHeight - footerHeight
 	if mainHeight < 10 {
-		mainHeight = 10 // Minimum height for panels
+		mainHeight = 10
 	}
 
 	var b strings.Builder
 
-	// Logo at top (6 lines) - center by adding padding
-	// The logo is approximately 73 visible characters wide
-	logoWidth := 73
-	logoPadding := (m.width - logoWidth) / 2
-	if logoPadding < 0 {
-		logoPadding = 0
-	}
-	padStr := strings.Repeat(" ", logoPadding)
-
-	// Add padding to each line of the logo
 	logoLines := strings.Split(branding.ASCIILogo, "\n")
 	for i, line := range logoLines {
 		if line != "" {
-			b.WriteString(padStr)
-			b.WriteString(line)
+			centeredLine := lipgloss.NewStyle().
+				Width(m.width).
+				Align(lipgloss.Center).
+				Render(line)
+			b.WriteString(centeredLine)
 		}
 		if i < len(logoLines)-1 {
 			b.WriteString("\n")
 		}
 	}
 
-	// Version below logo (1 line), centered
-	// Don't add 'v' prefix if version is 'dev' or already starts with 'v'
 	versionStr := version.GetShortVersion()
 	if versionStr != "dev" && !strings.HasPrefix(versionStr, "v") {
 		versionStr = "v" + versionStr
@@ -583,36 +598,41 @@ func (m Model) View() string {
 	b.WriteString(versionStyle.Render(versionStr))
 	b.WriteString("\n")
 
-	// Status bar (1 line)
 	b.WriteString(m.statusBar.View())
 	b.WriteString("\n")
 
-	// Get panel views
 	agentListView := m.agentList.View()
 	conversationView := m.conversation.View()
 
-	// Join panels horizontally
 	mainPanels := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		agentListView,
 		conversationView,
 	)
 
-	// Constrain panels to available height
-	constrainedPanels := lipgloss.NewStyle().
+	centeredPanels := lipgloss.NewStyle().
+		Width(m.width).
+		Align(lipgloss.Center).
 		MaxHeight(mainHeight).
 		Render(mainPanels)
 
-	b.WriteString(constrainedPanels)
+	b.WriteString(centeredPanels)
 	b.WriteString("\n")
 
-	// Input panel at bottom
-	b.WriteString(m.input.View())
+	inputView := m.input.View()
+	centeredInput := lipgloss.NewStyle().
+		Width(m.width).
+		Align(lipgloss.Center).
+		Render(inputView)
+	b.WriteString(centeredInput)
 
-	// Error display
 	if m.lastError != "" {
 		b.WriteString("\n")
-		b.WriteString(styles.ErrorStyle().Render("Error: " + m.lastError))
+		errorView := lipgloss.NewStyle().
+			Width(m.width).
+			Align(lipgloss.Center).
+			Render(styles.ErrorStyle().Render("Error: " + m.lastError))
+		b.WriteString(errorView)
 	}
 
 	return b.String()
@@ -651,6 +671,8 @@ func (m Model) renderHelpOverlay() string {
 		{"Tab", "Cycle focus between panels"},
 		{"Shift+Tab", "Cycle focus backwards"},
 		{"?, h", "Toggle this help screen"},
+		{"Ctrl+S", "Save conversation"},
+		{"Ctrl+E", "Export conversation"},
 		{"", ""},
 		{"Agent List (when focused):", ""},
 		{"↑/↓, k/j", "Navigate agent list"},
@@ -665,6 +687,8 @@ func (m Model) renderHelpOverlay() string {
 		{"", ""},
 		{"Input (when focused):", ""},
 		{"Ctrl+Enter", "Send message"},
+		{"Ctrl+S", "Save conversation"},
+		{"Ctrl+E", "Export conversation"},
 		{"Esc", "Clear input"},
 	}
 
@@ -691,6 +715,68 @@ func (m Model) renderHelpOverlay() string {
 	b.WriteString(styles.HelpStyle().Render("Press ?, h, or Esc to close"))
 
 	return styles.HelpOverlayStyle().Render(b.String())
+}
+
+func (m Model) renderHelpOverlayOnTop(background string) string {
+	helpModal := m.renderHelpOverlay()
+
+	helpLines := strings.Split(helpModal, "\n")
+	modalHeight := len(helpLines)
+	modalWidth := lipgloss.Width(helpModal)
+
+	bgLines := strings.Split(background, "\n")
+
+	for len(bgLines) < m.height {
+		bgLines = append(bgLines, strings.Repeat(" ", m.width))
+	}
+
+	startRow := (m.height - modalHeight) / 2
+	if startRow < 0 {
+		startRow = 0
+	}
+	startCol := (m.width - modalWidth) / 2
+	if startCol < 0 {
+		startCol = 0
+	}
+
+	result := make([]string, len(bgLines))
+	copy(result, bgLines)
+
+	for i, helpLine := range helpLines {
+		targetRow := startRow + i
+		if targetRow >= len(result) {
+			break
+		}
+
+		bgLine := result[targetRow]
+
+		bgLineWidth := lipgloss.Width(bgLine)
+		if bgLineWidth < m.width {
+			bgLine = bgLine + strings.Repeat(" ", m.width-bgLineWidth)
+		}
+
+		prefix := ""
+		if startCol > 0 {
+			prefixRunes := []rune(bgLine)
+			if len(prefixRunes) >= startCol {
+				prefix = string(prefixRunes[:startCol])
+			} else {
+				prefix = bgLine + strings.Repeat(" ", startCol-len(prefixRunes))
+			}
+		}
+
+		helpLineWidth := lipgloss.Width(helpLine)
+		suffixStart := startCol + helpLineWidth
+		suffix := ""
+		bgRunes := []rune(bgLine)
+		if suffixStart < len(bgRunes) {
+			suffix = string(bgRunes[suffixStart:])
+		}
+
+		result[targetRow] = prefix + helpLine + suffix
+	}
+
+	return strings.Join(result, "\n")
 }
 
 // Run starts the TUI program.

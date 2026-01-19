@@ -3,6 +3,7 @@ package pool
 
 import (
 	"context"
+	stdErrors "errors"
 	"fmt"
 	"sync"
 	"time"
@@ -241,6 +242,16 @@ func (h *TimeoutHandler) executeWithDuration(
 		elapsed := time.Since(startTime)
 
 		if result.err != nil {
+			if stdErrors.Is(result.err, context.Canceled) {
+				return TimeoutResult{
+					Success:     false,
+					Content:     result.content,
+					Metrics:     result.metrics,
+					Error:       result.err,
+					TimedOut:    false,
+					ElapsedTime: elapsed,
+				}
+			}
 			// Check if the error is a context-related timeout
 			if isContextTimeout(result.err) {
 				return h.handleTimeout(agentID, agentName, timeout, elapsed, partialContent, isGlobal)

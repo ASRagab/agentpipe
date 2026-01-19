@@ -76,7 +76,8 @@ func runOpenRouterExample() {
 
 	// Configure the conversation manager
 	config := manager.Config{
-		Timeout: 60 * time.Second,
+		Timeout:          60 * time.Second,
+		ConversationMode: "parallel",
 		GracefulDegradation: manager.GracefulDegradationConfig{
 			Enabled:                  true,
 			PauseOnAllFailed:         true,

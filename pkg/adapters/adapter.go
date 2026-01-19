@@ -1,37 +1,78 @@
 // Package adapters provides the interface and implementations for AI agent adapters.
-// Each adapter connects to a different AI provider (OpenRouter, Claude API, etc.)
-// and handles the specifics of API communication, authentication, and message formatting.
 package adapters
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"strings"
 
 	"github.com/ASRagab/agentpipe/pkg/core"
 )
 
-// AgentAdapter defines the interface that all AI provider adapters must implement.
 type AgentAdapter interface {
-	// Initialize configures the adapter with the given agent configuration.
 	Initialize(agent core.Agent) error
 
-	// SendMessage sends messages to the AI and returns the response.
-	// This is the synchronous, non-streaming version.
-	SendMessage(ctx context.Context, messages []core.Message) (string, *core.Metrics, error)
+	SendMessage(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error)
+	StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer, conversation *core.ConversationContext) (*core.Metrics, error)
 
-	// StreamMessage sends messages and streams the response to the writer.
-	// Returns the final metrics after streaming completes.
-	StreamMessage(ctx context.Context, messages []core.Message, writer io.Writer) (*core.Metrics, error)
-
-	// IsAvailable checks if the adapter is properly configured and can be used.
-	// For API adapters, this typically checks if the API key is set.
 	IsAvailable() bool
-
-	// GetModel returns the model name this adapter is configured to use.
 	GetModel() string
-
-	// HealthCheck performs a minimal request to verify the API is accessible.
 	HealthCheck(ctx context.Context) error
+}
+
+func BuildConversationContextPrompt(conversation *core.ConversationContext) string {
+	if conversation == nil {
+		return ""
+	}
+
+	var builder strings.Builder
+	builder.WriteString("CONVERSATION CONTEXT:\n")
+	builder.WriteString(strings.Repeat("-", 40))
+	builder.WriteString("\n")
+	if conversation.ConversationID != "" {
+		builder.WriteString(fmt.Sprintf("• Session: %s", conversation.ConversationID))
+		if conversation.CurrentTurn > 0 {
+			builder.WriteString(fmt.Sprintf(" (Turn %d", conversation.CurrentTurn))
+			if conversation.MaxTurns > 0 {
+				builder.WriteString(fmt.Sprintf(" of %d", conversation.MaxTurns))
+			}
+			builder.WriteString(")")
+		}
+		builder.WriteString("\n")
+	} else if conversation.CurrentTurn > 0 {
+		builder.WriteString(fmt.Sprintf("• Turn: %d", conversation.CurrentTurn))
+		if conversation.MaxTurns > 0 {
+			builder.WriteString(fmt.Sprintf(" of %d", conversation.MaxTurns))
+		}
+		builder.WriteString("\n")
+	}
+	if conversation.Mode != "" {
+		builder.WriteString(fmt.Sprintf("• Mode: %s\n", conversation.Mode))
+	}
+	if len(conversation.Participants) > 0 {
+		builder.WriteString("• Participants:\n")
+		for _, participant := range conversation.Participants {
+			label := participant.Name
+			if participant.Type != "" {
+				label = fmt.Sprintf("%s (%s)", label, participant.Type)
+			}
+			builder.WriteString(fmt.Sprintf("  - %s\n", label))
+		}
+	}
+	if conversation.LastSpeaker != "" {
+		builder.WriteString(fmt.Sprintf("• Last speaker: %s\n", conversation.LastSpeaker))
+	}
+	builder.WriteString(strings.Repeat("-", 40))
+	builder.WriteString("\n\n")
+
+	builder.WriteString("RESPONSE GUIDELINES:\n")
+	builder.WriteString("• You are ONE voice in a GROUP conversation, not a solo assistant.\n")
+	builder.WriteString("• Keep responses concise (2–4 short paragraphs max).\n")
+	builder.WriteString("• Build on what others said; avoid repeating their points.\n")
+	builder.WriteString("• No preambles, no sign-offs, no meta-commentary.\n")
+	builder.WriteString("• If you have nothing new to add, say so briefly and yield.\n")
+	return builder.String()
 }
 
 // AdapterFactory is a function that creates a new adapter instance.

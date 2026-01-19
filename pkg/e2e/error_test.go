@@ -30,7 +30,7 @@ func TestNetworkFailureRecovery(t *testing.T) {
 		var callCount int32
 
 		// Configure Alice to fail first 2 times, then succeed
-		harness.MockAdapters["alice"].OnSendMessage = func(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+		harness.MockAdapters["alice"].OnSendMessage = func(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 			count := atomic.AddInt32(&callCount, 1)
 			if count <= 2 {
 				return "", nil, ErrNetworkTimeout
@@ -281,7 +281,7 @@ func TestRetryConfig(t *testing.T) {
 		// Track retry attempts
 		var aliceAttempts int32
 
-		harness.MockAdapters["alice"].OnSendMessage = func(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+		harness.MockAdapters["alice"].OnSendMessage = func(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 			attempt := atomic.AddInt32(&aliceAttempts, 1)
 			if attempt == 1 {
 				return "", nil, ErrIntermittentFailure

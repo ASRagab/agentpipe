@@ -1,6 +1,4 @@
 // Package cli provides CLI-based adapters for AI agents that operate through command-line tools.
-// These adapters execute external CLI programs like Claude CLI and Gemini CLI to interact
-// with AI models, providing backwards compatibility with existing v1 configurations.
 package cli
 
 import (
@@ -148,6 +146,7 @@ func ParseCLIOutput(output string) string {
 		// Skip common status/meta lines
 		if strings.Contains(line, "Loaded cached credentials") ||
 			strings.Contains(line, "To authenticate") ||
+			strings.HasPrefix(strings.TrimSpace(line), "Gemini CLI") ||
 			strings.HasPrefix(line, "DEBUG:") ||
 			strings.HasPrefix(line, "INFO:") {
 			continue
@@ -205,12 +204,9 @@ func (b *BaseCLIAdapter) IsAvailable() bool {
 	return err == nil
 }
 
-// BuildConversationPrompt creates a formatted prompt string from messages.
-// This provides a consistent format for multi-agent conversations.
-func BuildConversationPrompt(agentName, systemPrompt string, messages []core.Message) string {
+func BuildConversationPrompt(agentName, systemPrompt string, messages []core.Message, conversation *core.ConversationContext) string {
 	var prompt strings.Builder
 
-	// Part 1: Identity and Role
 	prompt.WriteString("AGENT SETUP:\n")
 	prompt.WriteString(strings.Repeat("=", 60))
 	prompt.WriteString("\n")
@@ -222,6 +218,12 @@ func BuildConversationPrompt(agentName, systemPrompt string, messages []core.Mes
 		prompt.WriteString("\n\n")
 	}
 
+	contextPrompt := adapters.BuildConversationContextPrompt(conversation)
+	if contextPrompt != "" {
+		prompt.WriteString(contextPrompt)
+		prompt.WriteString("\n")
+	}
+
 	prompt.WriteString("ARTIFACT CREATION:\n")
 	prompt.WriteString("To create a saveable artifact, use fenced code blocks with a filename:\n")
 	prompt.WriteString("  ```language:path/to/filename.ext\n")
@@ -231,12 +233,10 @@ func BuildConversationPrompt(agentName, systemPrompt string, messages []core.Mes
 	prompt.WriteString(strings.Repeat("=", 60))
 	prompt.WriteString("\n\n")
 
-	// Part 2: Conversation context
 	if len(messages) > 0 {
 		var initialPrompt string
 		var otherMessages []core.Message
 
-		// Find the orchestrator's initial prompt
 		for _, msg := range messages {
 			if msg.Role == core.RoleSystem && (msg.AgentID == "system" || msg.AgentID == "host" || msg.AgentName == "System" || msg.AgentName == "HOST") && initialPrompt == "" {
 				initialPrompt = msg.Content
@@ -245,7 +245,6 @@ func BuildConversationPrompt(agentName, systemPrompt string, messages []core.Mes
 			}
 		}
 
-		// Show initial prompt as direct instruction
 		if initialPrompt != "" {
 			prompt.WriteString("YOUR TASK - PLEASE RESPOND TO THIS:\n")
 			prompt.WriteString(strings.Repeat("=", 60))
@@ -256,7 +255,6 @@ func BuildConversationPrompt(agentName, systemPrompt string, messages []core.Mes
 			prompt.WriteString("\n\n")
 		}
 
-		// Show conversation history
 		if len(otherMessages) > 0 {
 			prompt.WriteString("CONVERSATION SO FAR:\n")
 			prompt.WriteString(strings.Repeat("-", 60))
@@ -283,7 +281,6 @@ func BuildConversationPrompt(agentName, systemPrompt string, messages []core.Mes
 	return prompt.String()
 }
 
-// FilterRelevantMessages removes this agent's own messages from the list.
 func FilterRelevantMessages(messages []core.Message, agentID, agentName string) []core.Message {
 	relevant := make([]core.Message, 0, len(messages))
 

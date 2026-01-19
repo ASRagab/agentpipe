@@ -81,7 +81,7 @@ func TestEstimateInputCost(t *testing.T) {
 		{
 			name:   "specific model with tokens",
 			tokens: 1000,
-			model:  "claude-3-sonnet-20240229",
+			model:  "anthropic/claude-3.7-sonnet",
 		},
 	}
 

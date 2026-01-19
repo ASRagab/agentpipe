@@ -232,7 +232,7 @@ func BenchmarkPoolExecution(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = agentPool.ExecuteParallel(ctx, messages)
+		_ = agentPool.ExecuteParallel(ctx, messages, nil)
 	}
 	b.StopTimer()
 }

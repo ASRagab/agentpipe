@@ -35,6 +35,7 @@ Replace the current single conversation panel with a multi-window TUI where each
 ```
 
 **Key Elements:**
+
 - **Main Window** (~70% width): Full viewport for currently selected agent's output
 - **Preview Sidebar** (~30% width): Stacked tiles showing other agents' last 2-3 lines
 - **Tab Indicator**: Shows current agent name with arrows indicating navigation

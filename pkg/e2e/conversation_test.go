@@ -171,7 +171,7 @@ func TestAgentContextAwareness(t *testing.T) {
 		var receivedMessages [][]core.Message
 
 		adapter := harness.MockAdapters["context-agent"]
-		adapter.OnSendMessage = func(ctx context.Context, messages []core.Message) (string, *core.Metrics, error) {
+		adapter.OnSendMessage = func(ctx context.Context, messages []core.Message, conversation *core.ConversationContext) (string, *core.Metrics, error) {
 			// Make a copy of the messages
 			msgCopy := make([]core.Message, len(messages))
 			copy(msgCopy, messages)
