@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag_exists: ${{ steps.check_tag.outputs.exists }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -59,20 +59,20 @@ jobs:
     name: Trigger Release Workflow
     needs: create-tag
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Trigger release workflow
         run: |
           echo "Tag created/exists. The release workflow will be triggered automatically."
           echo "Version: ${{ inputs.version }}"
           echo "Pre-release: ${{ inputs.prerelease }}"
-          
+
       - name: Wait for release workflow
         run: |
           echo "Waiting for release workflow to start..."
           sleep 10
-          
+
       - name: Get release URL
         run: |
           echo "Once complete, the release will be available at:"
-          echo "https://github.com/kevinelliott/agentpipe/releases/tag/${{ inputs.version }}"
+          echo "https://github.com/ASRagab/agentpipe/releases/tag/${{ inputs.version }}"

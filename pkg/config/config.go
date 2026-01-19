@@ -1,255 +1,354 @@
-// Package config provides configuration management for AgentPipe.
-// It defines the structure for YAML configuration files and handles
-// loading, validation, and default value application.
+// Package config provides configuration loading for the v2 architecture.
 package config
 
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/kevinelliott/agentpipe/pkg/agent"
+	"github.com/ASRagab/agentpipe/pkg/adapters"
+	"github.com/ASRagab/agentpipe/pkg/core"
+	"github.com/ASRagab/agentpipe/pkg/log"
 )
 
-// Config is the top-level configuration structure for AgentPipe.
-// It defines agents, orchestration behavior, logging settings, and bridge streaming.
+// Config represents the complete v2 configuration file.
 type Config struct {
-	// Version is the configuration file format version
-	Version string `yaml:"version"`
-	// Agents is the list of agent configurations
-	Agents []agent.AgentConfig `yaml:"agents"`
-	// Orchestrator defines conversation orchestration settings
-	Orchestrator OrchestratorConfig `yaml:"orchestrator"`
-	// Logging defines logging behavior
-	Logging LoggingConfig `yaml:"logging"`
-	// Bridge defines streaming bridge settings
-	Bridge BridgeConfig `yaml:"bridge"`
+	// Conversation contains conversation-level settings.
+	Conversation ConversationConfig `yaml:"conversation"`
+	// Agents is the list of agent configurations.
+	Agents []AgentConfig `yaml:"agents"`
+	// TUI contains terminal UI settings.
+	TUI TUIConfig `yaml:"tui,omitempty"`
+	// Logging contains logging settings.
+	Logging LoggingConfig `yaml:"logging,omitempty"`
+	// Persistence contains save/load settings.
+	Persistence PersistenceConfig `yaml:"persistence,omitempty"`
 }
 
-// OrchestratorConfig defines how the orchestrator manages conversations.
-type OrchestratorConfig struct {
-	// Mode is the orchestration mode: "round-robin", "reactive", or "free-form"
-	Mode string `yaml:"mode"`
-	// MaxTurns is the maximum number of conversation turns (0 = unlimited)
-	MaxTurns int `yaml:"max_turns"`
-	// TurnTimeout is the maximum time an agent has to respond
-	TurnTimeout time.Duration `yaml:"turn_timeout"`
-	// ResponseDelay is the pause between agent responses
-	ResponseDelay time.Duration `yaml:"response_delay"`
-	// InitialPrompt is an optional starting prompt for the conversation
-	InitialPrompt string `yaml:"initial_prompt"`
-	// Summary defines conversation summary generation settings
-	Summary SummaryConfig `yaml:"summary"`
+// ConversationConfig contains conversation-level settings.
+type ConversationConfig struct {
+	// Timeout is the default timeout for individual agent responses.
+	Timeout time.Duration `yaml:"timeout"`
+	// GlobalTimeout is the maximum time for all agents combined to respond.
+	// If not set or 0, no global timeout is enforced.
+	GlobalTimeout time.Duration `yaml:"global_timeout,omitempty"`
+	// Mode is the conversation mode (parallel, round-robin, reactive).
+	Mode string `yaml:"mode,omitempty"`
+	// MaxTurns is the maximum number of conversation turns.
+	MaxTurns int `yaml:"max_turns,omitempty"`
+	// PreservePartialResponse determines whether to keep partial responses on timeout.
+	PreservePartialResponse *bool `yaml:"preserve_partial_response,omitempty"`
 }
 
-// SummaryConfig defines conversation summary generation behavior.
-type SummaryConfig struct {
-	// Enabled determines if conversation summaries are generated (default: true)
-	Enabled bool `yaml:"enabled"`
-	// Agent is the agent type to use for summary generation (default: "gemini")
-	Agent string `yaml:"agent"`
+// AgentConfig represents a single agent's configuration.
+type AgentConfig struct {
+	// ID is the unique identifier for this agent.
+	ID string `yaml:"id"`
+	// Type is the agent type (openrouter, claude-api, etc.).
+	Type string `yaml:"type"`
+	Role string `yaml:"role,omitempty"`
+	// Adapter is the adapter to use (defaults to type if not specified).
+	Adapter string `yaml:"adapter,omitempty"`
+	// Name is the display name.
+	Name string `yaml:"name"`
+	// Model is the AI model to use.
+	Model string `yaml:"model"`
+	// Timeout is the per-agent timeout (overrides conversation default).
+	Timeout time.Duration `yaml:"timeout,omitempty"`
+	// Config contains adapter-specific settings.
+	Config AgentAdapterConfig `yaml:"config,omitempty"`
 }
 
-// LoggingConfig defines conversation logging behavior.
+// AgentAdapterConfig contains adapter-specific configuration.
+type AgentAdapterConfig struct {
+	// SystemPrompt is the system prompt for the agent.
+	SystemPrompt string `yaml:"system_prompt,omitempty"`
+	// Temperature controls response randomness.
+	Temperature float64 `yaml:"temperature,omitempty"`
+	// MaxTokens limits response length.
+	MaxTokens int `yaml:"max_tokens,omitempty"`
+	// APIKeyEnv is the environment variable for the API key.
+	APIKeyEnv string `yaml:"api_key_env,omitempty"`
+}
+
+// TUIConfig contains terminal UI settings.
+type TUIConfig struct {
+	// Enabled determines if TUI should be used.
+	Enabled bool `yaml:"enabled,omitempty"`
+	// Theme is the color theme.
+	Theme string `yaml:"theme,omitempty"`
+	// ShowMetrics determines if metrics should be displayed.
+	ShowMetrics bool `yaml:"show_metrics,omitempty"`
+}
+
+// LoggingConfig contains logging settings.
 type LoggingConfig struct {
-	// Enabled determines if conversation logging is active
-	Enabled bool `yaml:"enabled"`
-	// ChatLogDir is the directory where chat logs are stored
-	ChatLogDir string `yaml:"chat_log_dir"`
-	// LogFormat is either "text" or "json"
-	LogFormat string `yaml:"log_format"`
-	// ShowMetrics determines if token/cost metrics are logged
-	ShowMetrics bool `yaml:"show_metrics"`
+	// Level is the log level (debug, info, warn, error).
+	Level string `yaml:"level,omitempty"`
+	// Format is the log format (json, text).
+	Format string `yaml:"format,omitempty"`
+	// File is the log file path (empty for stdout).
+	File string `yaml:"file,omitempty"`
 }
 
-// BridgeConfig defines streaming bridge configuration for real-time conversation updates.
-type BridgeConfig struct {
-	// Enabled determines if streaming bridge is active (disabled by default)
-	Enabled bool `yaml:"enabled"`
-	// URL is the base URL of the AgentPipe Web app (e.g., https://agentpipe.ai)
-	URL string `yaml:"url"`
-	// APIKey is the authentication key for the streaming API
-	APIKey string `yaml:"api_key"`
-	// TimeoutMs is the HTTP request timeout in milliseconds (default: 10000)
-	TimeoutMs int `yaml:"timeout_ms"`
-	// RetryAttempts is the number of retry attempts for failed requests (default: 3)
-	RetryAttempts int `yaml:"retry_attempts"`
-	// LogLevel is the logging level for bridge operations: "debug", "info", "warn", "error" (default: "info")
-	LogLevel string `yaml:"log_level"`
+// PersistenceConfig contains save/load settings.
+type PersistenceConfig struct {
+	// SaveDir is the directory for saving conversations.
+	SaveDir string `yaml:"save_dir,omitempty"`
+	// AutoSave determines if conversations should be auto-saved.
+	AutoSave bool `yaml:"auto_save,omitempty"`
 }
 
-// NewDefaultConfig creates a configuration with sensible defaults.
-// The default log directory is ~/.agentpipe/chats.
-func NewDefaultConfig() *Config {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		homeDir = "."
-	}
-	defaultLogDir := fmt.Sprintf("%s/.agentpipe/chats", homeDir)
-
-	return &Config{
-		Version: "1.0",
-		Agents:  []agent.AgentConfig{},
-		Orchestrator: OrchestratorConfig{
-			Mode:          "round-robin",
-			MaxTurns:      10,
-			TurnTimeout:   30 * time.Second,
-			ResponseDelay: 1 * time.Second,
-			Summary: SummaryConfig{
-				Enabled: true,
-				Agent:   "gemini",
-			},
-		},
-		Logging: LoggingConfig{
-			Enabled:     true,
-			ChatLogDir:  defaultLogDir,
-			LogFormat:   "text",
-			ShowMetrics: false,
-		},
-	}
-}
-
-// LoadConfig loads and validates a configuration from a YAML file.
-// It applies default values for any missing optional fields.
-// Returns an error if the file cannot be read, parsed, or is invalid.
+// LoadConfig loads a configuration file from the given path.
+// It automatically detects and migrates v1 configurations to v2 format.
 func LoadConfig(path string) (*Config, error) {
+	return LoadConfigWithOptions(path, LoadOptions{})
+}
+
+// LoadOptions controls configuration loading behavior.
+type LoadOptions struct {
+	// AutoMigrateV1 enables automatic migration of v1 configs (default: true when not set).
+	AutoMigrateV1 *bool
+	// SaveMigratedConfig saves the migrated config to disk (default: false).
+	SaveMigratedConfig bool
+}
+
+// LoadConfigWithOptions loads a configuration file with custom options.
+func LoadConfigWithOptions(path string, opts LoadOptions) (*Config, error) {
+	// Read file
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
+	// Check for v1 configuration format
+	autoMigrate := true
+	if opts.AutoMigrateV1 != nil {
+		autoMigrate = *opts.AutoMigrateV1
+	}
+
+	if autoMigrate {
+		isV1, detectErr := DetectV1Config(data)
+		if detectErr != nil {
+			log.WithFields(map[string]interface{}{
+				"path":  path,
+				"error": detectErr.Error(),
+			}).Warn("failed to detect v1 config, proceeding with v2 parsing")
+		} else if isV1 {
+			// Migrate v1 config
+			result, migrateErr := MigrateV1Config(data)
+			if migrateErr != nil {
+				return nil, fmt.Errorf("failed to migrate v1 config: %w", migrateErr)
+			}
+
+			// Log deprecation warning
+			log.WithFields(map[string]interface{}{
+				"path":           path,
+				"source_version": result.SourceVersion,
+			}).Warn("v1 configuration format is deprecated; automatically migrated to v2 format")
+
+			for _, warning := range result.Warnings {
+				log.Warn(warning)
+			}
+
+			// Optionally save the migrated config
+			if opts.SaveMigratedConfig {
+				if saveErr := SaveMigratedConfig(path, result.Config); saveErr != nil {
+					log.WithFields(map[string]interface{}{
+						"path":  path,
+						"error": saveErr.Error(),
+					}).Warn("failed to save migrated config")
+				}
+			}
+
+			// Apply defaults to migrated config
+			result.Config.applyDefaults()
+
+			// Validate
+			if err := result.Config.Validate(); err != nil {
+				return nil, fmt.Errorf("invalid migrated configuration: %w", err)
+			}
+
+			log.WithFields(map[string]interface{}{
+				"path":        path,
+				"agent_count": len(result.Config.Agents),
+				"migrated":    true,
+			}).Info("configuration loaded (migrated from v1)")
+
+			return result.Config, nil
+		}
+	}
+
+	// Parse YAML as v2 config
 	var config Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
+	// Apply defaults
+	config.applyDefaults()
+
+	// Validate
 	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	config.applyDefaults()
+	log.WithFields(map[string]interface{}{
+		"path":        path,
+		"agent_count": len(config.Agents),
+	}).Info("configuration loaded")
 
 	return &config, nil
 }
 
-// SaveConfig writes the configuration to a YAML file.
-// The file is created with 0600 permissions (read/write for owner only).
-func (c *Config) SaveConfig(path string) error {
-	data, err := yaml.Marshal(c)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
+// applyDefaults sets default values for unspecified fields.
+func (c *Config) applyDefaults() {
+	// Conversation defaults
+	if c.Conversation.Timeout == 0 {
+		c.Conversation.Timeout = 30 * time.Second
+	}
+	if c.Conversation.Mode == "" {
+		c.Conversation.Mode = "parallel"
 	}
 
-	if err := os.WriteFile(path, data, 0600); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+	// Agent defaults
+	for i := range c.Agents {
+		if c.Agents[i].Type == "" {
+			c.Agents[i].Type = "general purpose"
+		}
+		if c.Agents[i].Adapter == "" && adapters.Has(c.Agents[i].Type) {
+			c.Agents[i].Adapter = c.Agents[i].Type
+		}
 	}
 
-	return nil
+	// Logging defaults
+	if c.Logging.Level == "" {
+		c.Logging.Level = "info"
+	}
+	if c.Logging.Format == "" {
+		c.Logging.Format = "text"
+	}
+
+	// Persistence defaults
+	if c.Persistence.SaveDir == "" {
+		homeDir, _ := os.UserHomeDir()
+		c.Persistence.SaveDir = filepath.Join(homeDir, ".agentpipe", "v2", "chats")
+	}
 }
 
 // Validate checks the configuration for errors.
-// It ensures at least one agent is configured, all required fields are present,
-// agent IDs are unique, and the orchestration mode is valid.
 func (c *Config) Validate() error {
 	if len(c.Agents) == 0 {
 		return fmt.Errorf("at least one agent must be configured")
 	}
 
-	agentIDs := make(map[string]bool)
-	for _, agent := range c.Agents {
+	for i, agent := range c.Agents {
 		if agent.ID == "" {
-			return fmt.Errorf("agent ID cannot be empty")
-		}
-		if agent.Type == "" {
-			return fmt.Errorf("agent type cannot be empty for agent %s", agent.ID)
+			return fmt.Errorf("agent %d: id is required", i)
 		}
 		if agent.Name == "" {
-			return fmt.Errorf("agent name cannot be empty for agent %s", agent.ID)
+			return fmt.Errorf("agent %s: name is required", agent.ID)
 		}
-		if agentIDs[agent.ID] {
-			return fmt.Errorf("duplicate agent ID: %s", agent.ID)
+		if agent.Model == "" {
+			return fmt.Errorf("agent %s: model is required", agent.ID)
 		}
-		agentIDs[agent.ID] = true
-	}
 
-	validModes := map[string]bool{
-		"round-robin": true,
-		"reactive":    true,
-		"free-form":   true,
-	}
-
-	if c.Orchestrator.Mode != "" && !validModes[c.Orchestrator.Mode] {
-		return fmt.Errorf("invalid orchestrator mode: %s", c.Orchestrator.Mode)
+		// Check if adapter is registered
+		adapterName := agent.Adapter
+		if adapterName == "" {
+			adapterName = agent.Type
+		}
+		if !adapters.Has(adapterName) {
+			return fmt.Errorf("agent %s: unknown adapter: %s", agent.ID, adapterName)
+		}
 	}
 
 	return nil
 }
 
-// nolint:gocyclo // Config defaults are inherently sequential; complexity is acceptable for readability
-func (c *Config) applyDefaults() {
-	if c.Version == "" {
-		c.Version = "1.0"
-	}
+// InitializeAgents creates and initializes agents from the configuration.
+func (c *Config) InitializeAgents() ([]core.Agent, error) {
+	agents := make([]core.Agent, 0, len(c.Agents))
 
-	if c.Orchestrator.Mode == "" {
-		c.Orchestrator.Mode = "round-robin"
-	}
-
-	if c.Orchestrator.MaxTurns == 0 {
-		c.Orchestrator.MaxTurns = 10
-	}
-
-	if c.Orchestrator.TurnTimeout == 0 {
-		c.Orchestrator.TurnTimeout = 30 * time.Second
-	}
-
-	if c.Orchestrator.ResponseDelay == 0 {
-		c.Orchestrator.ResponseDelay = 1 * time.Second
-	}
-
-	// Summary defaults
-	// Note: Enabled defaults to true (opt-out with --no-summary)
-	if c.Orchestrator.Summary.Agent == "" {
-		c.Orchestrator.Summary.Agent = "gemini"
-		// Default enabled to true for new configs
-		c.Orchestrator.Summary.Enabled = true
-	}
-
-	// Logging defaults
-	if c.Logging.ChatLogDir == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			homeDir = "."
+	for _, agentCfg := range c.Agents {
+		agent := core.Agent{
+			ID:          agentCfg.ID,
+			Type:        agentCfg.Type,
+			Name:        agentCfg.Name,
+			Model:       agentCfg.Model,
+			AdapterName: agentCfg.Adapter,
+			Config: core.AgentAdapterConfig{
+				SystemPrompt: agentCfg.Config.SystemPrompt,
+				Temperature:  agentCfg.Config.Temperature,
+				MaxTokens:    agentCfg.Config.MaxTokens,
+				APIKeyEnvVar: agentCfg.Config.APIKeyEnv,
+			},
 		}
-		c.Logging.ChatLogDir = fmt.Sprintf("%s/.agentpipe/chats", homeDir)
+
+		agents = append(agents, agent)
+
+		log.WithFields(map[string]interface{}{
+			"agent_id":   agent.ID,
+			"agent_name": agent.Name,
+			"adapter":    agent.AdapterName,
+			"model":      agent.Model,
+		}).Debug("agent initialized from config")
 	}
 
-	if c.Logging.LogFormat == "" {
-		c.Logging.LogFormat = "text"
+	return agents, nil
+}
+
+// GetManagerConfig returns the manager configuration.
+func (c *Config) GetManagerConfig() (timeout time.Duration, saveDir string) {
+	return c.Conversation.Timeout, c.Persistence.SaveDir
+}
+
+// TimeoutConfigInfo contains timeout configuration details extracted from config.
+type TimeoutConfigInfo struct {
+	// DefaultAgentTimeout is the default timeout for agents without specific timeout.
+	DefaultAgentTimeout time.Duration
+	// GlobalTimeout is the maximum time for all agents combined (0 = disabled).
+	GlobalTimeout time.Duration
+	// PreservePartialResponse determines if partial responses should be saved on timeout.
+	PreservePartialResponse bool
+	// PerAgentTimeouts maps agent IDs to their specific timeouts.
+	PerAgentTimeouts map[string]time.Duration
+}
+
+// GetTimeoutConfig extracts timeout configuration from the config.
+func (c *Config) GetTimeoutConfig() TimeoutConfigInfo {
+	info := TimeoutConfigInfo{
+		DefaultAgentTimeout:     c.Conversation.Timeout,
+		GlobalTimeout:           c.Conversation.GlobalTimeout,
+		PreservePartialResponse: true, // default
+		PerAgentTimeouts:        make(map[string]time.Duration),
 	}
 
-	// Bridge defaults
-	// Note: Enabled defaults to false (opt-in), URL handled by internal/bridge
-	if c.Bridge.TimeoutMs == 0 {
-		c.Bridge.TimeoutMs = 10000
-	}
-	if c.Bridge.RetryAttempts == 0 {
-		c.Bridge.RetryAttempts = 3
-	}
-	if c.Bridge.LogLevel == "" {
-		c.Bridge.LogLevel = "info"
+	// Check if preserve partial response is explicitly set
+	if c.Conversation.PreservePartialResponse != nil {
+		info.PreservePartialResponse = *c.Conversation.PreservePartialResponse
 	}
 
-	for i := range c.Agents {
-		// Only apply temperature default if not explicitly set (< 0 means not set)
-		// Allow 0 as a valid temperature for deterministic outputs
-		if c.Agents[i].Temperature < 0 {
-			c.Agents[i].Temperature = 0.7
+	// Collect per-agent timeouts
+	for _, agentCfg := range c.Agents {
+		if agentCfg.Timeout > 0 {
+			info.PerAgentTimeouts[agentCfg.ID] = agentCfg.Timeout
 		}
-		if c.Agents[i].MaxTokens == 0 {
-			c.Agents[i].MaxTokens = 2000
+	}
+
+	return info
+}
+
+// GetAgentTimeout returns the timeout for a specific agent.
+// Returns the agent-specific timeout if set, otherwise the default.
+func (c *Config) GetAgentTimeout(agentID string) time.Duration {
+	for _, agentCfg := range c.Agents {
+		if agentCfg.ID == agentID && agentCfg.Timeout > 0 {
+			return agentCfg.Timeout
 		}
 	}
+	return c.Conversation.Timeout
 }

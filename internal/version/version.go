@@ -18,6 +18,20 @@ var (
 
 	// BuildDate is the build date
 	BuildDate = "unknown"
+
+	// V2EngineVersion is the version of the v2 parallel execution engine
+	V2EngineVersion = "2.0.0-mvp"
+
+	// V2EngineFeatures lists the capabilities of the v2 engine
+	V2EngineFeatures = []string{
+		"parallel-execution",
+		"graceful-degradation",
+		"circuit-breaker",
+		"health-monitoring",
+		"persistence",
+		"conversation-resume",
+		"markdown-export",
+	}
 )
 
 // GitHubRelease represents a GitHub release
@@ -44,7 +58,7 @@ func CheckForUpdate() (bool, string, error) {
 
 	// Use the latest release redirect URL which doesn't count against rate limits
 	// This returns a 302 redirect to the actual release page
-	resp, err := client.Head("https://github.com/kevinelliott/agentpipe/releases/latest")
+	resp, err := client.Head("https://github.com/ASRagab/agentpipe/releases/latest")
 	if err != nil {
 		return false, "", fmt.Errorf("failed to check for updates: %w", err)
 	}
@@ -58,7 +72,7 @@ func CheckForUpdate() (bool, string, error) {
 
 	// Extract version from the redirect URL
 	// The Location header will be something like:
-	// https://github.com/kevinelliott/agentpipe/releases/tag/v1.0.0
+	// https://github.com/ASRagab/agentpipe/releases/tag/v1.0.0
 	location := resp.Header.Get("Location")
 	if location == "" {
 		return false, "", fmt.Errorf("no redirect location found")
@@ -90,7 +104,7 @@ func checkViaAPI() (bool, string, error) {
 	}
 
 	// Add a user agent to be a good citizen
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/kevinelliott/agentpipe/releases/latest", nil)
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/ASRagab/agentpipe/releases/latest", nil)
 	if err != nil {
 		return false, "", err
 	}
@@ -180,4 +194,14 @@ func GetVersionString() string {
 // GetShortVersion returns just the version number
 func GetShortVersion() string {
 	return Version
+}
+
+// GetV2EngineInfo returns v2 engine version and features
+func GetV2EngineInfo() (string, []string) {
+	return V2EngineVersion, V2EngineFeatures
+}
+
+// GetV2VersionString returns a formatted v2 engine version string
+func GetV2VersionString() string {
+	return fmt.Sprintf("v2 Engine: %s", V2EngineVersion)
 }

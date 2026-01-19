@@ -1,0 +1,18 @@
+version: "1.0"
+
+agents:
+  - id: designer
+    type: claude
+    name: "Designer"
+    prompt: "You are concise. When asked to create something, use the artifact format: ```language:filename.ext"
+
+orchestrator:
+  mode: round-robin
+  max_turns: 1
+  turn_timeout: 180s
+  initial_prompt: "Create a simple JSON config file artifact. Just 3-5 lines. Use ```json:config.json format."
+
+artifacts:
+  enabled: true
+  output_dir: ./agentpipe-artifacts
+  instruct_agents: true

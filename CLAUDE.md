@@ -1,22 +1,26 @@
 # AgentPipe Project Memory
 
 ## Project Overview
+
 AgentPipe is a CLI and TUI application that orchestrates conversations between multiple AI agent CLIs (Claude, Gemini, Qwen, Codex, Ollama). It allows different AI tools to communicate in a shared "room" with various conversation modes.
 
 ## Key Technical Details
 
 ### Go Version
+
 - **IMPORTANT**: Requires Go 1.24+ (go.mod specifies 1.24.0)
 - GitHub Actions workflows must use Go 1.24
 - All dependencies are compatible with Go 1.24
 
 ### Health Check Configuration
+
 - Default timeout: 5 seconds (increased from 2 seconds)
 - Claude CLI needs longer startup time
 - Flag: `--health-check-timeout` to customize
 - Flag: `--skip-health-check` to bypass
 
 ### Directory Structure
+
 - Chat logs: `~/.agentpipe/chats/` (default)
 - Homebrew formula: `Formula/` (NOT Formulae/)
 - Config examples: `examples/`
@@ -24,6 +28,7 @@ AgentPipe is a CLI and TUI application that orchestrates conversations between m
 ### CI/CD Configuration
 
 #### Linting
+
 - Use golangci-lint-action@v6 with golangci-lint v1.x (latest stable)
 - GitHub Action version parameter: `version: latest` (downloads latest v1.x)
 - **IMPORTANT**: Config file (`.golangci.yml`) uses v1.x format (no version field)
@@ -34,14 +39,16 @@ AgentPipe is a CLI and TUI application that orchestrates conversations between m
   - Or: `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`
 - Configuration structure: `linters-settings:` for linter config, `issues.exclude-rules:` for exclusions
 - Cognitive complexity threshold: 30
-- Excluded from complexity checks: pkg/tui/, pkg/adapters/, pkg/orchestrator/
+- Excluded from complexity checks: pkg/tui/, pkg/adapters/, pkg/config/, pkg/persistence/
 
 #### Testing
+
 - Windows test fix: Single-line command (no multiline)
 - Command: `go test -v -race ./...`
 - No coverage profile to avoid Windows parsing issues
 
 #### Releases
+
 - Triggered on tags: `v[0-9]+.[0-9]+.[0-9]+`
 - Requires `HOMEBREW_TAP_TOKEN` secret for formula updates
 - Token needs `repo` scope for cross-repo access
@@ -68,19 +75,22 @@ AgentPipe is a CLI and TUI application that orchestrates conversations between m
 
 5. **Linting errors**
    - Empty branches: Add comment or `_ = err`
-   - Imports: Use `goimports -local github.com/kevinelliott/agentpipe`
+   - Imports: Use `goimports -local github.com/ASRagab/agentpipe`
    - Deprecated methods: Updated viewport scroll methods
 
 ### Agent Adapters
+
 AgentPipe supports two types of agent adapters:
 
 **CLI-Based Adapters** (Claude, Gemini, Qwen, Continue, etc.):
+
 - Execute external CLI tools via `exec.Command`
 - Each adapter must implement full `Agent` interface
 - Methods: `Initialize(config)`, `IsAvailable()`, `HealthCheck(ctx)`, `SendMessage(ctx, messages)`, `StreamMessage(ctx, messages, writer)`, `GetCLIVersion()`
 - **Continue CLI** (`cn`): Uses `-p` flag for prompt, `--model` for model selection, `--silent` to strip think tags
 
 **API-Based Adapters** (OpenRouter, v0.6.0+):
+
 - Direct HTTP API integration without CLI dependencies
 - Same `Agent` interface but uses HTTP client instead of exec
 - `IsAvailable()` checks for API key instead of CLI binary
@@ -88,6 +98,7 @@ AgentPipe supports two types of agent adapters:
 - Benefits: No CLI installation, lower latency, real token counts from API
 
 ### TUI Features
+
 - Three panels: agents list, conversation, user input
 - Color-coded agent messages with badges
 - Real-time metrics display (duration, tokens, cost)
@@ -95,7 +106,9 @@ AgentPipe supports two types of agent adapters:
 - User participation with 'u' key
 
 ### Configuration
+
 YAML config supports:
+
 - Multiple agents with custom prompts
 - Orchestrator modes: round-robin, reactive, free-form
 - Logging configuration
@@ -106,13 +119,16 @@ YAML config supports:
   - Environment variables override config file: `AGENTPIPE_STREAM_ENABLED`, `AGENTPIPE_STREAM_URL`, `AGENTPIPE_STREAM_API_KEY`
 
 ### Streaming Bridge (v0.3.0+)
+
 **Overview:**
-- Opt-in real-time conversation streaming to AgentPipe Web (https://agentpipe.ai)
+
+- Opt-in real-time conversation streaming to AgentPipe Web (<https://agentpipe.ai>)
 - Four event types: `conversation.started`, `message.created`, `conversation.completed`, `conversation.error`
 - Non-blocking async HTTP implementation using goroutines - never blocks conversations
 - Privacy-first: disabled by default, API keys never logged, clear disclosure
 
 **Architecture:**
+
 - Package: `internal/bridge/`
 - Components:
   - `events.go` - Event type definitions matching web app Zod schemas
@@ -125,12 +141,14 @@ YAML config supports:
 - Thread Safety: RWMutex for concurrent access to bridge emitter
 
 **Event Schema:**
+
 - `conversation.started`: Agent participants (type, model, name, CLI version), system info, mode, max turns
 - `message.created`: Agent name/type, content, turn number, tokens (input/output/total), cost, duration
 - `conversation.completed`: Status (completed/interrupted), total messages, turns, tokens, cost, duration
 - `conversation.error`: Error message, type (timeout/rate_limit/unknown), agent type
 
 **Implementation Details:**
+
 - Build tags for environment-specific defaults: dev (`http://localhost:3000`) vs production (`https://agentpipe.ai`)
 - Client retries failed requests with exponential backoff (up to 3 attempts by default)
 - 4xx errors (client errors) are not retried - only 5xx (server errors)
@@ -138,13 +156,88 @@ YAML config supports:
 - Comprehensive tests with >80% coverage
 - Agent version detection via `GetCLIVersion()` method and internal registry
 
+### Pre-commit Hooks & Secret Detection
+
+AgentPipe uses pre-commit hooks to ensure code quality and prevent accidental credential leaks.
+
+**Setup:**
+
+```bash
+# Install pre-commit and detect-secrets (one-time setup)
+brew install pre-commit detect-secrets
+# Or with pip: pip install pre-commit detect-secrets
+
+# Install git hooks (one-time per clone)
+pre-commit install
+
+# Run all hooks manually
+pre-commit run --all-files
+
+# Update hooks to latest versions
+pre-commit autoupdate
+```
+
+**Installed Hooks:**
+
+- `detect-secrets` - Scans for potential secrets/API keys/passwords
+- `end-of-file-fixer` - Ensures files end with newline
+- `trailing-whitespace` - Removes trailing whitespace
+- `check-yaml` / `check-json` - Validates YAML/JSON syntax
+- `check-merge-conflict` - Prevents committing merge conflict markers
+- `check-added-large-files` - Blocks files >500KB
+- `go-fmt` - Go code formatting
+- `go-imports` - Organizes imports with local packages
+- `go-vet` - Go static analysis
+- `go-mod-tidy` - Ensures go.mod is tidy
+- `markdownlint` - Markdown formatting
+
+**Managing the Secrets Baseline:**
+
+```bash
+# Regenerate baseline (after adding new files with false positives)
+detect-secrets scan \
+  --exclude-files 'go\.sum' \
+  --exclude-files '.*_test\.go' \
+  --exclude-files 'examples/.*' \
+  --exclude-files '\.claude/.*' \
+  --exclude-files 'docs/.*' \
+  > .secrets.baseline
+
+# Audit baseline interactively
+detect-secrets audit .secrets.baseline
+
+# View audit report
+detect-secrets audit .secrets.baseline --report
+```
+
+**Excluded from Secret Scanning:**
+
+- `go.sum` - Package checksums
+- `*_test.go` - Test files (may contain test fixtures)
+- `examples/*` - Example configs with placeholder values
+- `.claude/*` - Claude Code agent configurations
+- `docs/*` - Documentation with code examples
+- `.secrets.baseline` - The baseline file itself
+
+### Security Best Practices
+
+1. **Never commit secrets**: Use environment variables for API keys, tokens, and credentials
+2. **Review before committing**: Run `git diff --staged` to review changes before commit
+3. **Use detect-secrets**: The pre-commit hook automatically blocks potential secrets
+4. **Rotate compromised keys**: If a secret is accidentally committed, rotate it immediately
+5. **Environment variables**: Store sensitive config in environment, not in code
+   - `OPENROUTER_API_KEY` - OpenRouter API access
+   - `AGENTPIPE_STREAM_API_KEY` - Streaming bridge authentication
+   - `HOMEBREW_TAP_TOKEN` - GitHub Actions Homebrew updates
+
 ## Quality Requirements
 
 **IMPORTANT**: Before committing any changes, ALL of the following checks MUST pass:
 
-1. **Linting**: `golangci-lint run --timeout=5m` (Note: Local v2.x won't work; verify via GitHub Actions)
-2. **Testing**: `go test -v -race ./...`
-3. **Build**: `go build -o agentpipe .`
+1. **Pre-commit hooks**: `pre-commit run --all-files`
+2. **Linting**: `golangci-lint run --timeout=5m` (Note: Local v2.x won't work; verify via GitHub Actions)
+3. **Testing**: `go test -v -race ./...`
+4. **Build**: `go build -o agentpipe .`
 
 No code should be committed if any of these checks fail. This ensures code quality, prevents regressions, and maintains CI/CD pipeline health.
 
@@ -164,7 +257,7 @@ golangci-lint run --timeout=5m
 
 # Format
 gofmt -w .
-goimports -local github.com/kevinelliott/agentpipe -w .
+goimports -local github.com/ASRagab/agentpipe -w .
 
 # Run with TUI
 ./agentpipe run -t -c examples/brainstorm.yaml
@@ -174,6 +267,7 @@ goimports -local github.com/kevinelliott/agentpipe -w .
 ```
 
 ## Recent Changes Log
+
 - **v0.6.0 (2025-10-25)**: OpenRouter API Support - First API-Based Agent
   - New `openrouter` agent type for direct API integration
   - Created `pkg/client/` package with OpenAI-compatible HTTP client

@@ -2,23 +2,25 @@
 
 ![AgentPipe Logo](screenshots/agentpipe-logo.png)
 
-[![CI](https://github.com/kevinelliott/agentpipe/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/kevinelliott/agentpipe/actions/workflows/test.yml)
+[![CI](https://github.com/ASRagab/agentpipe/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/ASRagab/agentpipe/actions/workflows/test.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
-[![Release](https://img.shields.io/github/v/release/kevinelliott/agentpipe?color=success)](https://github.com/kevinelliott/agentpipe/releases)
-[![License](https://img.shields.io/github/license/kevinelliott/agentpipe?color=blue)](https://github.com/kevinelliott/agentpipe/blob/main/LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kevinelliott/agentpipe)](https://goreportcard.com/report/github.com/kevinelliott/agentpipe)
-[![Downloads](https://img.shields.io/github/downloads/kevinelliott/agentpipe/total?color=brightgreen)](https://github.com/kevinelliott/agentpipe/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/kevinelliott/agentpipe?color=yellow&logo=github)](https://github.com/kevinelliott/agentpipe)
+[![Release](https://img.shields.io/github/v/release/ASRagab/agentpipe?color=success)](https://github.com/ASRagab/agentpipe/releases)
+[![License](https://img.shields.io/github/license/ASRagab/agentpipe?color=blue)](https://github.com/ASRagab/agentpipe/blob/main/LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ASRagab/agentpipe)](https://goreportcard.com/report/github.com/ASRagab/agentpipe)
+[![Downloads](https://img.shields.io/github/downloads/ASRagab/agentpipe/total?color=brightgreen)](https://github.com/ASRagab/agentpipe/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/ASRagab/agentpipe?color=yellow&logo=github)](https://github.com/ASRagab/agentpipe)
 
 AgentPipe is a powerful CLI and TUI application that orchestrates conversations between multiple AI agents. It allows different AI CLI tools (like Claude, Cursor, Gemini, Qwen, Ollama) to communicate with each other in a shared "room", creating dynamic multi-agent conversations with real-time metrics, cost tracking, and interactive user participation.
 
 ## Screenshots
 
 ### Enhanced TUI Interface
+
 ![AgentPipe TUI](screenshots/tui/tui1.png)
 *Enhanced TUI with multi-panel layout: agent list with status indicators, conversation view with metrics, statistics panel showing turns and total cost, configuration panel, and user input area*
 
 ### Console/CLI Interface
+
 ![AgentPipe Console](screenshots/console/console1.png)
 *CLI output showing color-coded agent messages with agent type indicators (e.g., "Alice (qoder)"), HOST vs SYSTEM distinction, and inline metrics display*
 
@@ -46,6 +48,7 @@ All agents now use a **standardized interaction pattern** with structured three-
 ## Features
 
 ### Core Capabilities
+
 - **Multi-Agent Conversations**: Connect multiple AI agents in a single conversation
 - **Multiple Conversation Modes**:
   - `round-robin`: Agents take turns in a fixed order
@@ -54,6 +57,7 @@ All agents now use a **standardized interaction pattern** with structured three-
 - **Flexible Configuration**: Use command-line flags or YAML configuration files
 
 ### Enhanced TUI Interface
+
 - Multi-panel layout with dedicated sections for agents, chat, stats, and config
 - Color-coded agent messages with unique colors per agent
 - **Agent type indicators** showing agent type in parentheses (e.g., "Alice (qoder)")
@@ -71,6 +75,7 @@ All agents now use a **standardized interaction pattern** with structured three-
 - Proper multi-paragraph message formatting
 
 ### Production Features
+
 - **Prometheus Metrics**: Comprehensive observability with 10+ metrics types
   - Request rates, durations, errors
   - Token usage and cost tracking
@@ -99,11 +104,22 @@ All agents now use a **standardized interaction pattern** with structured three-
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
 
-**Latest Release**: v0.6.0 - OpenRouter API Support
+**Latest Release**: v2.0.0 - Complete Architecture Rewrite
 
-**What's New in v0.6.0**:
+**Key Features**:
+
+- **Parallel agent execution**: All agents can respond simultaneously
+- **Real-time streaming**: Word-level token streaming in TUI
+- **Modern TUI**: Status bar, live metrics, multi-panel layout
+- **Auto-save & resume**: Never lose conversation progress
+- **API adapters**: Direct API support (OpenRouter, Claude API)
+- **Circuit breaker**: Intelligent retry with failure detection
+- **16 AI agent CLIs**: Claude, Gemini, Qwen, OpenRouter, and more
+
+**Previous Release - v0.6.0**:
 
 🌐 **OpenRouter API Support - First API-Based Agent**:
+
 - **New Agent Type**: Direct API integration without CLI dependencies
   - Access 400+ models from multiple providers through a unified API
   - No CLI installation required - just set `OPENROUTER_API_KEY`
@@ -112,31 +128,37 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
   - Streaming and non-streaming message support
   - Smart model matching with provider registry integration
 - **Example Configurations**:
-  - `examples/openrouter-conversation.yaml` - Multi-provider conversation
-  - `examples/openrouter-solo.yaml` - Single agent testing
+  - `examples/multi-model.yaml` - Multi-provider conversation
+  - `examples/minimal.yaml` - Single agent testing
 - **Foundation for Future API Agents**: Paves the way for direct Anthropic API, Google AI API, etc.
 
 **Previous Release - v0.4.9** (2025-10-25): Crush CLI support
+
 - Full support for Charm's Crush CLI with multi-provider capabilities
 
 **Previous Release - v0.4.8** (2025-10-25): Fixed GitHub API rate limiting
+
 - PyPI integration for Kimi, npm registry for Qwen
 - No more 403 rate limit errors
 
 **Previous Release - v0.4.7** (2025-10-25): Improved Kimi version detection
 **Previous Release - v0.4.6** (2025-10-25): Groq Code CLI support
+
 - Dedicated security workflows (Trivy and CodeQL)
 - Enhanced README badges with downloads and stars metrics
 - Fixed Windows test failures for platform-specific installations
 
 **Previous Release - v0.4.3** (2025-10-25): Kimi CLI agent support
+
 - Full support for Kimi CLI from Moonshot AI
 - Installation via `uv tool install kimi-cli` (requires Python 3.13+)
 
 **Previous Release - v0.4.2** (2025-10-24): Qoder installation improvements
+
 - Added `--force` flag to Qoder install and upgrade commands
 
 **Previous Release - v0.4.1** (2025-10-22): Conversation summarization & unique agent IDs
+
 - AI-generated summaries at conversation completion
 - Unique agent IDs for multiple agents of same type
 - Local event storage to `~/.agentpipe/events/`
@@ -152,26 +174,26 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
 ### Using Homebrew (macOS/Linux)
 
 ```bash
-brew tap kevinelliott/tap
+brew tap ASRagab/tap
 brew install agentpipe
 ```
 
 ### Using the install script
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/kevinelliott/agentpipe/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ASRagab/agentpipe/main/install.sh | bash
 ```
 
 ### Using Go
 
 ```bash
-go install github.com/kevinelliott/agentpipe@latest
+go install github.com/ASRagab/agentpipe@latest
 ```
 
 ### Build from source
 
 ```bash
-git clone https://github.com/kevinelliott/agentpipe.git
+git clone https://github.com/ASRagab/agentpipe.git
 cd agentpipe
 
 # Build only
@@ -182,6 +204,19 @@ sudo make install
 
 # Or install to custom location (e.g., ~/.local/bin, no sudo needed)
 make install PREFIX=$HOME/.local
+```
+
+### After Installation
+
+```bash
+# Verify installation
+agentpipe --version
+
+# Check available agents
+agentpipe doctor
+
+# Start your first conversation
+agentpipe run -a claude:Assistant -p "Hello, let's chat!"
 ```
 
 ## Prerequisites
@@ -285,18 +320,21 @@ agentpipe run -a openrouter:anthropic/claude-sonnet-4-5:Assistant \
 AgentPipe supports three formats for specifying agents via the `--agents` / `-a` flag:
 
 1. **`type`** - Use agent type with auto-generated name
+
    ```bash
    agentpipe run -a claude -a gemini
    # Creates: claude-agent-1, gemini-agent-2
    ```
 
 2. **`type:name`** - Use agent type with custom name (uses default model)
+
    ```bash
    agentpipe run -a claude:Alice -a gemini:Bob
    # Creates: Alice (Claude), Bob (Gemini)
    ```
 
 3. **`type:model:name`** - Use agent type with specific model and custom name
+
    ```bash
    agentpipe run -a claude:claude-sonnet-4-5:Architect \
      -a gemini:gemini-2.5-pro:Reviewer
@@ -350,10 +388,10 @@ agentpipe run -a kimi:some-model:Assistant  # ❌ Will fail
 
 ```bash
 # Run with a configuration file
-agentpipe run -c examples/simple-conversation.yaml
+agentpipe run -c examples/two-agents.yaml
 
-# Run a debate between three agents
-agentpipe run -c examples/debate.yaml --tui
+# Run a code review session with TUI
+agentpipe run -c examples/code-review.yaml --tui
 
 # Brainstorming session with multiple agents
 agentpipe run -c examples/brainstorm.yaml
@@ -403,6 +441,53 @@ logging:
 - **reactive**: Agents respond based on who spoke last
 - **free-form**: Agents decide when to participate
 
+### Advanced Configuration
+
+AgentPipe supports both `orchestrator:` and `conversation:` configuration sections:
+
+**Example configuration:**
+
+```yaml
+conversation:
+  timeout: 30s
+  mode: parallel
+  max_turns: 10
+
+agents:
+  - id: claude-agent
+    type: claude
+    adapter: claude-api        # Explicit adapter (or claude-cli)
+    name: "Claude Assistant"
+    model: claude-sonnet-4-5
+    config:
+      system_prompt: "You are a helpful assistant."
+      temperature: 0.7
+      max_tokens: 1000
+
+persistence:
+  save_dir: ~/.agentpipe/chats
+  auto_save: true
+```
+
+**Environment Variables:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AGENTPIPE_CONFIG` | Default config file path | - |
+| `AGENTPIPE_SAVE_DIR` | Directory for conversation saves | `~/.agentpipe/chats` |
+| `AGENTPIPE_TIMEOUT` | Default agent timeout (seconds) | `60` |
+
+**CLI flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--parallel` | Enable parallel agent execution (default: true) |
+| `--timeout` | Agent timeout in seconds (default: 60) |
+| `--save-dir` | Directory for conversation saves |
+| `--resume` | Resume a saved conversation (use 'latest' for most recent) |
+| `--export` | Export conversation to Markdown on exit |
+| `--auto-save` | Enable auto-save (default: true) |
+
 ## Commands
 
 ### `agentpipe run`
@@ -410,6 +495,7 @@ logging:
 Start a conversation between agents.
 
 **Flags:**
+
 - `-c, --config`: Path to YAML configuration file
 - `-a, --agents`: List of agents (formats: `type`, `type:name`, or `type:model:name`)
 - `-m, --mode`: Conversation mode (default: round-robin)
@@ -441,12 +527,14 @@ agentpipe doctor --json
 The doctor command performs a complete diagnostic check of your system and provides detailed information about:
 
 **System Environment:**
+
 - Go runtime version and architecture
 - PATH environment validation
 - Home directory detection
 - AgentPipe directories (`~/.agentpipe/chats`, `~/.agentpipe/states`)
 
 **AI Agent CLIs:**
+
 - Detection of all 10 supported agent CLIs
 - Installation paths
 - Version information
@@ -456,17 +544,20 @@ The doctor command performs a complete diagnostic check of your system and provi
 - Documentation links
 
 **Configuration:**
+
 - Example configuration files detection
 - User configuration file validation (`~/.agentpipe/config.yaml`)
 - Helpful suggestions for setup
 
 **Output includes:**
+
 - Visual status indicators (✅ available, ❌ missing, ⚠️ warning, ℹ️ info)
 - Organized sections for easy scanning
 - Summary with total available agents
 - Ready-to-use upgrade commands for npm-based CLIs
 
 **Example Output:**
+
 ```
 🔍 AgentPipe Doctor - System Health Check
 =============================================================
@@ -512,6 +603,7 @@ The doctor command performs a complete diagnostic check of your system and provi
 ```
 
 **Example Output:**
+
 ```
 🔍 AgentPipe Doctor - System Health Check
 =============================================================
@@ -589,6 +681,7 @@ The `--json` flag outputs structured data perfect for programmatic consumption (
 ```
 
 Each agent entry includes:
+
 - `name`, `command`, `available`, `authenticated`
 - `path`, `version` (when available)
 - `install_cmd`, `upgrade_cmd`, `docs`
@@ -597,6 +690,7 @@ Each agent entry includes:
 This format enables web interfaces like agentpipe-web to dynamically detect and display available agents.
 
 Use this command to:
+
 - Verify your AgentPipe installation is complete
 - Check which AI agents are available
 - Find upgrade instructions for installed agents
@@ -608,15 +702,18 @@ Use this command to:
 Manage AI provider configurations and pricing data.
 
 **Subcommands:**
+
 - `list` - List all available providers and models with pricing
 - `show <provider>` - Show detailed information for a specific provider
 - `update` - Update provider pricing data from Catwalk
 
 **Flags:**
+
 - `--json` - Output in JSON format
 - `-v, --verbose` - Show detailed model information (list command only)
 
 **Examples:**
+
 ```bash
 # List all providers
 agentpipe providers list
@@ -635,6 +732,7 @@ agentpipe providers update
 ```
 
 **Features:**
+
 - **Accurate Pricing**: Uses real pricing data from [Catwalk](https://github.com/charmbracelet/catwalk)
 - **16 Providers**: AIHubMix, Anthropic, Azure OpenAI, AWS Bedrock, Cerebras, Chutes, DeepSeek, Gemini, Groq, Hugging Face, OpenAI, OpenRouter, Venice, Vertex AI, xAI, and more
 - **Smart Matching**: Automatically matches model names with exact, prefix, or fuzzy matching
@@ -642,6 +740,7 @@ agentpipe providers update
 - **Hybrid Loading**: Uses embedded defaults but allows local override via `~/.agentpipe/providers.json`
 
 **Output includes:**
+
 - Model IDs and display names
 - Input/output pricing per 1M tokens
 - Context window sizes
@@ -649,6 +748,7 @@ agentpipe providers update
 - Attachment support
 
 **Example Output:**
+
 ```
 Provider Pricing Data (v1.0)
 Updated: 2025-10-25T21:38:20Z
@@ -672,10 +772,13 @@ OpenRouter provides unified API access to 400+ models from multiple providers wi
 
 1. **Get an API Key**: Sign up at [openrouter.ai](https://openrouter.ai) and obtain your API key
 2. **Set Environment Variable**:
+
    ```bash
    export OPENROUTER_API_KEY=your-api-key-here
    ```
+
 3. **Create a Configuration**:
+
    ```yaml
    version: "1.0"
 
@@ -688,12 +791,15 @@ OpenRouter provides unified API access to 400+ models from multiple providers wi
        temperature: 0.7
        max_tokens: 1000
    ```
+
 4. **Run**:
+
    ```bash
    agentpipe run -c your-config.yaml
    ```
 
 **Available Models** (examples):
+
 - `anthropic/claude-sonnet-4-5` - Claude Sonnet 4.5
 - `google/gemini-2.5-pro` - Gemini 2.5 Pro
 - `openai/gpt-5` - GPT-5
@@ -701,6 +807,7 @@ OpenRouter provides unified API access to 400+ models from multiple providers wi
 - And 400+ more - see [openrouter.ai/docs/models](https://openrouter.ai/docs/models)
 
 **Features:**
+
 - ✅ No CLI installation required
 - ✅ Real-time token usage from API responses
 - ✅ Accurate cost tracking via provider registry
@@ -709,10 +816,12 @@ OpenRouter provides unified API access to 400+ models from multiple providers wi
 - ✅ Multi-provider conversations in a single config
 
 **Example Configurations:**
-- `examples/openrouter-conversation.yaml` - Multi-provider conversation
-- `examples/openrouter-solo.yaml` - Single agent reasoning task
+
+- `examples/multi-model.yaml` - Multi-provider conversation
+- `examples/minimal.yaml` - Single agent setup
 
 **Use Cases:**
+
 - Testing models without installing multiple CLIs
 - Production deployments with consistent API access
 - Cross-provider comparisons in single conversations
@@ -738,6 +847,7 @@ agentpipe agents list --outdated
 ```
 
 **Output includes:**
+
 - Agent name and command
 - Installation status (✅ installed, ❌ not installed)
 - Current installed version
@@ -745,6 +855,7 @@ agentpipe agents list --outdated
 - Update availability indicator
 
 **Example Output:**
+
 ```
 AI Agent CLIs
 =============================================================
@@ -778,6 +889,7 @@ agentpipe agents upgrade --all
 ```
 
 **Features:**
+
 - Automatic detection of current OS (darwin, linux, windows)
 - Uses appropriate package manager (npm, homebrew, etc.)
 - Confirmation prompt before upgrading
@@ -785,9 +897,11 @@ agentpipe agents upgrade --all
 - Cross-platform support
 
 **Flags:**
+
 - `--all`: Upgrade all installed agents instead of specific ones
 
 **Example:**
+
 ```bash
 $ agentpipe agents upgrade gemini
 
@@ -815,6 +929,7 @@ agentpipe export state.json --format html --output conversation.html
 ```
 
 **Flags:**
+
 - `--format`: Export format (json, markdown, html)
 - `--output`: Output file path
 
@@ -834,6 +949,7 @@ agentpipe resume state.json --continue
 ```
 
 **Flags:**
+
 - `--list`: List all saved conversation states
 - `--continue`: Continue the conversation (planned feature)
 
@@ -850,6 +966,7 @@ agentpipe bridge setup
 ```
 
 Guides you through:
+
 1. Enabling/disabling the bridge
 2. Setting the AgentPipe Web URL
 3. Configuring your API key
@@ -870,6 +987,7 @@ agentpipe bridge status --json
 ```
 
 Displays:
+
 - Whether the bridge is enabled
 - Configured URL
 - API key status (present/missing, never shows actual key)
@@ -878,6 +996,7 @@ Displays:
 - Environment variable overrides (if any)
 
 **Flags:**
+
 - `--json`: Output status as JSON
 
 #### `agentpipe bridge test`
@@ -889,6 +1008,7 @@ agentpipe bridge test
 ```
 
 This will:
+
 1. Load your bridge configuration
 2. Send a test `conversation.started` event
 3. Report success or failure
@@ -914,6 +1034,7 @@ agentpipe init
 ```
 
 Creates a YAML config file with guided prompts for:
+
 - Conversation mode selection
 - Agent configuration
 - Orchestrator settings
@@ -954,7 +1075,7 @@ agents:
     name: "The Poet"
     prompt: "You speak in beautiful metaphors and see the world through an artistic lens."
     temperature: 0.9
-    
+
   - id: scientist
     type: gemini
     name: "The Scientist"
@@ -983,6 +1104,7 @@ agentpipe run \
 ```
 
 When metrics are enabled, you'll see:
+
 - Response time for each agent (e.g., "2.3s")
 - Token usage per response (e.g., "150 tokens")
 - Cost estimate per response (e.g., "$0.0023")
@@ -990,11 +1112,13 @@ When metrics are enabled, you'll see:
 
 **Session Summary:**
 All conversations now display a summary when they end, whether by:
+
 - Normal completion (max turns reached)
 - User interruption (CTRL-C)
 - Error condition
 
 The summary includes:
+
 - Total messages (agent + system)
 - Total tokens used
 - Total time spent (formatted as ms/s/m:s)
@@ -1002,6 +1126,7 @@ The summary includes:
 
 **AI-Generated Conversation Summaries:**
 AgentPipe automatically generates dual summaries of conversations:
+
 - **Short Summary**: Concise 1-2 sentence overview ideal for list views
 - **Full Summary**: Comprehensive detailed summary capturing key points and insights
 - **Single API Call**: Both summaries generated efficiently in one LLM query
@@ -1015,7 +1140,9 @@ AgentPipe automatically generates dual summaries of conversations:
 The enhanced TUI provides a rich, interactive experience for managing multi-agent conversations:
 
 ### Layout
+
 The TUI is divided into multiple panels:
+
 - **Agents Panel** (Left): Shows all connected agents with real-time status indicators
 - **Chat Panel** (Center): Displays the conversation with color-coded messages
 - **Topic Panel** (Top Right): Shows the initial conversation prompt
@@ -1024,6 +1151,7 @@ The TUI is divided into multiple panels:
 - **User Input Panel** (Bottom): Allows you to participate in the conversation
 
 ### Visual Features
+
 - **Agent Status Indicators**: Green dot (🟢) for active/responding, grey dot (⚫) for idle
 - **Agent Type Badges**: Message badges show agent type in parentheses (e.g., "Alice (qoder)") for easy identification
 - **Color-Coded Messages**: Each agent gets a unique color for easy tracking with consistent badge colors
@@ -1035,6 +1163,7 @@ The TUI is divided into multiple panels:
 ### Controls
 
 **General:**
+
 - `Tab`: Switch between panels (Agents, Chat, User Input)
 - `↑↓`: Navigate in active panel
 - `PageUp/PageDown`: Scroll conversation
@@ -1042,11 +1171,13 @@ The TUI is divided into multiple panels:
 - `?`: Show help modal with all keybindings
 
 **Conversation:**
+
 - `Enter`: Send message when in User Input panel
 - `i`: Show agent info modal (when in Agents panel)
 - Active agent indicators: 🟢 (responding) / ⚫ (idle)
 
 **Search:**
+
 - `Ctrl+F`: Open search mode
 - `Enter`: Execute search
 - `n`: Next search result
@@ -1054,6 +1185,7 @@ The TUI is divided into multiple panels:
 - `Esc`: Exit search mode
 
 **Commands:**
+
 - `/`: Enter command mode
 - `/filter <agent>`: Filter messages by agent name
 - `/clear`: Clear active filter
@@ -1065,7 +1197,7 @@ The TUI is divided into multiple panels:
 
 ```bash
 # Clone the repository
-git clone https://github.com/kevinelliott/agentpipe.git
+git clone https://github.com/ASRagab/agentpipe.git
 cd agentpipe
 
 # Build the binary
@@ -1086,44 +1218,32 @@ agentpipe/
 │   ├── root.go          # Root command
 │   ├── run.go           # Run conversation command
 │   ├── doctor.go        # Doctor diagnostic command
-│   ├── export.go        # Export conversations
-│   ├── resume.go        # Resume conversations
-│   └── init.go          # Interactive configuration wizard
+│   ├── agents.go        # Agent management commands
+│   ├── bridge.go        # Streaming bridge commands
+│   ├── providers.go     # Provider pricing commands
+│   └── version.go       # Version command
 ├── pkg/
-│   ├── agent/           # Agent interface and registry
-│   ├── adapters/        # Agent implementations (7 adapters)
-│   ├── config/          # Configuration handling
-│   │   └── watcher.go   # Config hot-reload support
-│   ├── conversation/    # Conversation state management
-│   │   └── state.go     # Save/load conversation states
-│   ├── errors/          # Structured error types
-│   ├── export/          # Export to JSON/Markdown/HTML
 │   ├── log/             # Structured logging (zerolog)
-│   ├── logger/          # Chat logging and output
-│   ├── metrics/         # Prometheus metrics
-│   │   ├── metrics.go   # Metrics collection
-│   │   └── server.go    # HTTP metrics server
-│   ├── middleware/      # Message processing pipeline
-│   │   ├── middleware.go # Core middleware pattern
-│   │   └── builtin.go   # Built-in middleware
-│   ├── orchestrator/    # Conversation orchestration
-│   ├── ratelimit/       # Token bucket rate limiting
-│   ├── tui/             # Terminal UI
-│   └── utils/           # Utilities (tokens, costs)
+│   └── v2/              # Core packages
+│       ├── adapters/    # Agent implementations (16+ adapters)
+│       ├── config/      # Configuration handling
+│       ├── core/        # Core types and interfaces
+│       ├── errors/      # Structured error types
+│       ├── events/      # Event bus for pub/sub
+│       ├── manager/     # Conversation manager
+│       ├── persistence/ # Save/load conversation states
+│       ├── pool/        # Agent pool for parallel execution
+│       └── tui/         # Terminal UI
+├── internal/            # Internal packages
+│   ├── bridge/          # Streaming bridge
+│   ├── branding/        # Branding assets
+│   ├── providers/       # Provider pricing registry
+│   ├── registry/        # Agent version registry
+│   └── version/         # Version info
 ├── docs/                # Documentation
-│   ├── architecture.md
-│   ├── contributing.md
-│   ├── development.md
-│   ├── troubleshooting.md
-│   └── docker.md
+│   ├── v2/              # Main documentation
+│   └── plans/           # Implementation plans
 ├── examples/            # Example configurations
-│   ├── simple-conversation.yaml
-│   ├── brainstorm.yaml
-│   ├── middleware.yaml
-│   └── prometheus-metrics.yaml
-├── test/
-│   ├── integration/     # End-to-end tests
-│   └── benchmark/       # Performance benchmarks
 ├── Dockerfile           # Multi-stage production build
 ├── docker-compose.yml   # Docker Compose configuration
 └── main.go
@@ -1145,24 +1265,24 @@ import (
     "strings"
     "time"
 
-    "github.com/kevinelliott/agentpipe/pkg/agent"
-    "github.com/kevinelliott/agentpipe/pkg/log"
+    "github.com/ASRagab/agentpipe/pkg/core"
+    "github.com/ASRagab/agentpipe/pkg/log"
 )
 
 type MyAgent struct {
-    agent.BaseAgent
+    core.BaseAgent
     execPath string
 }
 
-func NewMyAgent() agent.Agent {
+func NewMyAgent() core.Agent {
     return &MyAgent{}
 }
 ```
 
-2. **Implement required methods** with structured logging:
+1. **Implement required methods** with structured logging:
 
 ```go
-func (m *MyAgent) Initialize(config agent.AgentConfig) error {
+func (m *MyAgent) Initialize(config core.AgentConfig) error {
     if err := m.BaseAgent.Initialize(config); err != nil {
         log.WithFields(map[string]interface{}{
             "agent_id":   config.ID,
@@ -1205,10 +1325,10 @@ func (m *MyAgent) HealthCheck(ctx context.Context) error {
 }
 ```
 
-3. **Implement message filtering**:
+1. **Implement message filtering**:
 
 ```go
-func (m *MyAgent) filterRelevantMessages(messages []agent.Message) []agent.Message {
+func (m *MyAgent) filterRelevantMessages(messages []core.Message) []core.Message {
     relevant := make([]agent.Message, 0, len(messages))
     for _, msg := range messages {
         // Exclude this agent's own messages
@@ -1221,10 +1341,10 @@ func (m *MyAgent) filterRelevantMessages(messages []agent.Message) []agent.Messa
 }
 ```
 
-4. **Implement structured prompt building**:
+1. **Implement structured prompt building**:
 
 ```go
-func (m *MyAgent) buildPrompt(messages []agent.Message, isInitialSession bool) string {
+func (m *MyAgent) buildPrompt(messages []core.Message, isInitialSession bool) string {
     var prompt strings.Builder
 
     // PART 1: IDENTITY AND ROLE
@@ -1292,10 +1412,10 @@ func (m *MyAgent) buildPrompt(messages []agent.Message, isInitialSession bool) s
 }
 ```
 
-5. **Implement SendMessage with timing and logging**:
+1. **Implement SendMessage with timing and logging**:
 
 ```go
-func (m *MyAgent) SendMessage(ctx context.Context, messages []agent.Message) (string, error) {
+func (m *MyAgent) SendMessage(ctx context.Context, messages []core.Message) (string, error) {
     if len(messages) == 0 {
         return "", nil
     }
@@ -1335,15 +1455,16 @@ func (m *MyAgent) SendMessage(ctx context.Context, messages []agent.Message) (st
 }
 ```
 
-6. **Register the factory**:
+1. **Register the factory**:
 
 ```go
 func init() {
-    agent.RegisterFactory("myagent", NewMyAgent)
+    core.RegisterFactory("myagent", NewMyAgent)
 }
 ```
 
 **See existing adapters** in `pkg/adapters/` for complete reference implementations:
+
 - `claude.go` - Simple stdin-based pattern
 - `codex.go` - Non-interactive exec mode with flags
 - `amp.go` - Advanced thread management pattern
@@ -1359,6 +1480,7 @@ func init() {
 AgentPipe includes optimized support for the Amp CLI using native thread management:
 
 **How it Works:**
+
 1. **Thread Creation** (`amp thread new`):
    - Creates an empty thread and returns a thread ID
    - AgentPipe immediately follows with `amp thread continue` to send the initial task
@@ -1377,12 +1499,14 @@ AgentPipe includes optimized support for the Amp CLI using native thread managem
    - Maintains conversation context without redundant data transfer
 
 **Benefits:**
+
 - ⚡ **50-90% reduction** in data sent per turn
 - 💰 **Lower API costs** - no redundant token usage
 - 🚀 **Faster responses** - minimal data transfer
 - 🎯 **Direct engagement** - Agents receive clear, actionable instructions
 
 **Example:**
+
 ```yaml
 agents:
   - id: amp-architect
@@ -1391,8 +1515,6 @@ agents:
     prompt: "You are an experienced software architect..."
     model: claude-sonnet-4.5
 ```
-
-See `examples/amp-coding.yaml` for a complete example.
 
 ### Standardized Agent Interaction Pattern
 
@@ -1448,12 +1570,14 @@ Now respond to the task above as AgentName. Provide a direct, thoughtful answer.
 **Implementation Details:**
 
 Each adapter implements:
+
 - `filterRelevantMessages()` - Excludes agent's own messages
 - `buildPrompt()` - Creates structured three-part prompts
 - Comprehensive error handling with specific error detection
 - Timing and metrics for all operations
 
 This pattern evolved from extensive testing with multi-agent conversations and addresses common issues like:
+
 - Agents not receiving the initial conversation topic
 - Agents treating prompts as passive context rather than direct instructions
 - Redundant message delivery increasing API costs
@@ -1465,7 +1589,7 @@ AgentPipe includes comprehensive Prometheus metrics for production monitoring:
 
 ```go
 // Enable metrics in your code
-import "github.com/kevinelliott/agentpipe/pkg/metrics"
+import "github.com/ASRagab/agentpipe/pkg/metrics"
 
 // Start metrics server
 server := metrics.NewServer(metrics.ServerConfig{Addr: ":9090"})
@@ -1476,6 +1600,7 @@ orch.SetMetrics(metrics.DefaultMetrics)
 ```
 
 **Available Metrics:**
+
 - `agentpipe_agent_requests_total` - Request counter by agent and status
 - `agentpipe_agent_request_duration_seconds` - Request duration histogram
 - `agentpipe_agent_tokens_total` - Token usage by type (input/output)
@@ -1488,17 +1613,19 @@ orch.SetMetrics(metrics.DefaultMetrics)
 - `agentpipe_rate_limit_hits_total` - Rate limit hits
 
 **Endpoints:**
+
 - `http://localhost:9090/metrics` - Prometheus metrics (OpenMetrics format)
 - `http://localhost:9090/health` - Health check
 - `http://localhost:9090/` - Web UI with documentation
 
-See `examples/prometheus-metrics.yaml` for complete configuration, Prometheus queries, Grafana dashboard setup, and alerting rules.
+*Note: Prometheus metrics requires programmatic setup. See `pkg/metrics/` for implementation details.*
 
 ### Real-Time Conversation Streaming
 
 AgentPipe can stream live conversation events to AgentPipe Web for browser viewing and analysis. This opt-in feature allows you to watch multi-agent conversations unfold in real-time through a web interface.
 
 **Key Features:**
+
 - **Non-Blocking**: Streaming happens asynchronously and never blocks conversations
 - **Privacy-First**: Disabled by default, API keys never logged, opt-in only
 - **Four Event Types**:
@@ -1543,6 +1670,7 @@ bridge:
 ```
 
 Or using environment variables:
+
 ```bash
 export AGENTPIPE_STREAM_ENABLED=true
 export AGENTPIPE_STREAM_URL=https://agentpipe.ai
@@ -1558,11 +1686,12 @@ Visit [agentpipe.ai](https://agentpipe.ai) to create an account and generate you
 1. **Setup**: Configure bridge with `agentpipe bridge setup`
 2. **Run Conversations**: Start any conversation normally with `agentpipe run`
 3. **Stream Events**: AgentPipe automatically sends events to the web app
-4. **View in Browser**: Watch live conversations at https://agentpipe.ai
+4. **View in Browser**: Watch live conversations at <https://agentpipe.ai>
 
 **Event Data:**
 
 Each event includes rich context:
+
 - **conversation.started**: Agent list with types, models, CLI versions, system info
 - **message.created**: Agent name/type, message content, turn number, tokens used, cost, duration
 - **conversation.completed**: Status (completed/interrupted), total messages, turns, tokens, cost, duration
@@ -1613,6 +1742,7 @@ docker run -v ~/.agentpipe:/root/.agentpipe agentpipe:latest run -c /config/conf
 ```
 
 **Features:**
+
 - Multi-stage build (~50MB final image)
 - Health checks included
 - Volume mounts for configs and logs
@@ -1644,6 +1774,7 @@ orch.AddMiddleware(custom)
 ```
 
 **Built-in Middleware:**
+
 - `LoggingMiddleware` - Structured logging
 - `MetricsMiddleware` - Performance tracking
 - `ContentFilterMiddleware` - Content validation and filtering
@@ -1652,7 +1783,7 @@ orch.AddMiddleware(custom)
 - `RoleValidationMiddleware` - Role validation
 - `ErrorRecoveryMiddleware` - Panic recovery
 
-See `examples/middleware.yaml` for complete examples.
+*Note: Middleware requires programmatic setup. See `pkg/middleware/` for implementation details.*
 
 ### Rate Limiting
 
@@ -1667,6 +1798,7 @@ agents:
 ```
 
 Uses token bucket algorithm with:
+
 - Configurable rate and burst capacity
 - Thread-safe implementation
 - Automatic rate limit hit tracking in metrics
@@ -1690,6 +1822,7 @@ agentpipe export state.json --format html --output report.html
 ```
 
 State files include:
+
 - Full conversation history
 - Configuration used
 - Metadata (turns, duration, timestamps)
@@ -1708,14 +1841,18 @@ Changes to the config file are automatically detected and reloaded without resta
 ## Troubleshooting
 
 ### Agent Health Check Failed
+
 If you encounter health check failures:
+
 1. Verify the CLI is properly installed: `which <agent-name>`
 2. Check if the CLI requires authentication or API keys
 3. Try running the CLI manually to ensure it works
 4. Use `--skip-health-check` flag as a last resort (not recommended)
 
 ### GitHub Copilot CLI Issues
+
 The GitHub Copilot CLI has specific requirements:
+
 - **Authentication**: Run `copilot` in interactive mode and use `/login` command
 - **Subscription Required**: Requires an active GitHub Copilot subscription
 - **Model Selection**: Default is Claude Sonnet 4.5; use `model` config option to specify others
@@ -1723,7 +1860,9 @@ The GitHub Copilot CLI has specific requirements:
 - **Check Status**: Run `copilot --help` to verify installation
 
 ### Cursor CLI Specific Issues
+
 The Cursor CLI (`cursor-agent`) has some unique characteristics:
+
 - **Authentication Required**: Run `cursor-agent login` before first use
 - **Longer Response Times**: Cursor typically takes 10-20 seconds to respond (AgentPipe handles this automatically)
 - **Process Management**: cursor-agent doesn't exit naturally; AgentPipe manages process termination
@@ -1731,16 +1870,20 @@ The Cursor CLI (`cursor-agent`) has some unique characteristics:
 - **Timeout Errors**: If you see timeout errors, ensure you're authenticated and have a stable internet connection
 
 ### Factory CLI Specific Issues
+
 The Factory CLI (`droid`) requires authentication and uses non-interactive exec mode:
+
 - **Authentication Required**: Run `droid` and sign in via browser when prompted
 - **Non-Interactive Mode**: AgentPipe uses `droid exec` automatically for non-interactive execution
 - **Autonomy Levels**: Uses `--auto high` to enable edits and commands without permission prompts
 - **Model Selection**: Optional model specification via config (e.g., `model: claude-sonnet-4.5`)
 - **Check Status**: Run `droid --help` to verify installation and available commands
-- Full documentation: https://docs.factory.ai/cli/getting-started/quickstart
+- Full documentation: <https://docs.factory.ai/cli/getting-started/quickstart>
 
 ### Codex CLI Specific Issues
+
 The Codex CLI requires non-interactive exec mode for multi-agent conversations:
+
 - **Non-Interactive Mode**: AgentPipe uses `codex exec` subcommand automatically
 - **JSON Output**: Responses are parsed from JSON format to extract agent messages
 - **Approval Bypass**: Uses `--dangerously-bypass-approvals-and-sandbox` flag for automated execution
@@ -1749,37 +1892,47 @@ The Codex CLI requires non-interactive exec mode for multi-agent conversations:
 - Check status: `codex --help` to verify installation and available commands
 
 ### OpenCode CLI Specific Issues
+
 The OpenCode CLI requires authentication and uses non-interactive run mode:
+
 - **Authentication Required**: Run `opencode auth login` and configure API keys for your chosen provider
 - **Non-Interactive Mode**: AgentPipe uses `opencode run` automatically for non-interactive execution
 - **Permission Handling**: All permissions are auto-approved in non-interactive mode
 - **Multi-Provider Support**: Supports multiple AI providers (configure via `opencode auth login`)
 - **Check Status**: Run `opencode --help` to verify installation and available commands
-- Full documentation: https://opencode.ai/docs
+- Full documentation: <https://opencode.ai/docs>
 
 ### Qoder CLI Specific Issues
+
 The Qoder CLI requires authentication and uses non-interactive mode:
+
 - **Authentication Required**: Run `qodercli` in interactive mode and use `/login` command
 - **Non-Interactive Mode**: AgentPipe uses `qodercli --print` automatically for non-interactive execution
 - **Permission Handling**: Uses `--yolo` flag to skip permission prompts for automated execution
 - **Output Formats**: Supports text, json, and stream-json formats
 - **Check Status**: Run `qodercli --help` to verify installation and available commands
-- Full documentation: https://docs.qoder.com/cli/using-cli
+- Full documentation: <https://docs.qoder.com/cli/using-cli>
 
 ### Qwen Code CLI Issues
+
 The Qwen Code CLI uses a different interface than other agents:
+
 - Use `qwen --prompt "your prompt"` for non-interactive mode
 - The CLI may open an interactive session if not properly configured
-- Full documentation: https://github.com/QwenLM/qwen-code
+- Full documentation: <https://github.com/QwenLM/qwen-code>
 
 ### Gemini Model Not Found
+
 If you get a 404 error with Gemini:
+
 - Check your model name in the configuration
 - Ensure you have access to the specified model
 - Try without specifying a model to use the default
 
 ### Chat Logs Location
+
 Chat logs are saved by default to:
+
 - macOS/Linux: `~/.agentpipe/chats/`
 - Windows: `%USERPROFILE%\.agentpipe\chats\`
 

@@ -12,7 +12,7 @@ jobs:
   build-pr:
     name: Build PR Artifacts
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -35,10 +35,10 @@ jobs:
           BUILD_DATE=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
           # Build for common platforms only for PRs
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X github.com/kevinelliott/agentpipe/internal/version.Version=${VERSION} -X github.com/kevinelliott/agentpipe/internal/version.CommitHash=${COMMIT_HASH} -X github.com/kevinelliott/agentpipe/internal/version.BuildDate=${BUILD_DATE} -s -w" -o agentpipe_darwin_arm64 .
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/kevinelliott/agentpipe/internal/version.Version=${VERSION} -X github.com/kevinelliott/agentpipe/internal/version.CommitHash=${COMMIT_HASH} -X github.com/kevinelliott/agentpipe/internal/version.BuildDate=${BUILD_DATE} -s -w" -o agentpipe_linux_amd64 .
-          GOOS=windows GOARCH=amd64 go build -ldflags "-X github.com/kevinelliott/agentpipe/internal/version.Version=${VERSION} -X github.com/kevinelliott/agentpipe/internal/version.CommitHash=${COMMIT_HASH} -X github.com/kevinelliott/agentpipe/internal/version.BuildDate=${BUILD_DATE} -s -w" -o agentpipe_windows_amd64.exe .
-          
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X github.com/ASRagab/agentpipe/internal/version.Version=${VERSION} -X github.com/ASRagab/agentpipe/internal/version.CommitHash=${COMMIT_HASH} -X github.com/ASRagab/agentpipe/internal/version.BuildDate=${BUILD_DATE} -s -w" -o agentpipe_darwin_arm64 .
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/ASRagab/agentpipe/internal/version.Version=${VERSION} -X github.com/ASRagab/agentpipe/internal/version.CommitHash=${COMMIT_HASH} -X github.com/ASRagab/agentpipe/internal/version.BuildDate=${BUILD_DATE} -s -w" -o agentpipe_linux_amd64 .
+          GOOS=windows GOARCH=amd64 go build -ldflags "-X github.com/ASRagab/agentpipe/internal/version.Version=${VERSION} -X github.com/ASRagab/agentpipe/internal/version.CommitHash=${COMMIT_HASH} -X github.com/ASRagab/agentpipe/internal/version.BuildDate=${BUILD_DATE} -s -w" -o agentpipe_windows_amd64.exe .
+
           # Create archives
           tar -czf agentpipe_darwin_arm64.tar.gz agentpipe_darwin_arm64
           tar -czf agentpipe_linux_amd64.tar.gz agentpipe_linux_amd64
@@ -60,41 +60,41 @@ jobs:
             const pr_number = ${{ steps.pr_info.outputs.PR_NUMBER }};
             const short_sha = '${{ steps.pr_info.outputs.SHORT_SHA }}';
             const run_url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            
+
             const comment = `### 🔨 Build Artifacts Ready
-            
+
             Test binaries for PR #${pr_number} (${short_sha}) have been built successfully!
-            
+
             **Available platforms:**
             - 🍎 macOS (Apple Silicon)
             - 🐧 Linux (x64)
             - 🪟 Windows (x64)
-            
+
             [Download artifacts from the workflow run](${run_url})
-            
+
             **Testing instructions:**
             \`\`\`bash
             # Download and extract the appropriate archive
             tar -xzf agentpipe_<platform>.tar.gz
             # or for Windows: unzip agentpipe_windows_amd64.zip
-            
+
             # Test the binary
             ./agentpipe doctor
             ./agentpipe --help
             \`\`\``;
-            
+
             // Find and update existing comment or create new one
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: pr_number,
             });
-            
-            const botComment = comments.find(comment => 
-              comment.user.type === 'Bot' && 
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
               comment.body.includes('Build Artifacts Ready')
             );
-            
+
             if (botComment) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,

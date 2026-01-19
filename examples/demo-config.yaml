@@ -1,0 +1,47 @@
+# v2 Demo Configuration
+# This configuration demonstrates the v2 parallel execution architecture
+# with two different AI providers: OpenRouter and Claude API.
+
+conversation:
+  timeout: 30s
+  mode: parallel
+
+agents:
+  # OpenRouter agent using GPT-4o-mini
+  - id: openrouter-gpt4
+    type: openrouter
+    adapter: openrouter
+    name: GPT-4o Mini
+    model: openai/gpt-4o-mini
+    config:
+      system_prompt: |
+        You are a helpful assistant participating in a multi-agent conversation.
+        Keep your responses concise and informative.
+      temperature: 0.7
+      max_tokens: 500
+      api_key_env: OPENROUTER_API_KEY
+
+  # Claude API agent using Haiku
+  - id: claude-haiku
+    type: claude-api
+    adapter: claude-api
+    name: Claude Haiku
+    model: claude-3-haiku-20240307
+    config:
+      system_prompt: |
+        You are a helpful assistant participating in a multi-agent conversation.
+        Keep your responses concise and informative.
+      temperature: 0.7
+      max_tokens: 500
+      api_key_env: ANTHROPIC_API_KEY
+
+tui:
+  enabled: false
+  show_metrics: true
+
+logging:
+  level: info
+  format: text
+
+persistence:
+  auto_save: false

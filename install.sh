@@ -5,7 +5,7 @@
 
 set -e
 
-REPO="kevinelliott/agentpipe"
+REPO="ASRagab/agentpipe"
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="agentpipe"
 
@@ -36,18 +36,18 @@ LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | 
 
 if [ -z "$LATEST_RELEASE" ]; then
     echo "❌ Could not determine latest release. Installing from source..."
-    
+
     # Check if Go is installed
     if ! command -v go &> /dev/null; then
         echo "❌ Go is not installed. Please install Go first."
         echo "   Visit: https://golang.org/doc/install"
         exit 1
     fi
-    
+
     # Install from source
     echo "📦 Installing from source..."
     go install github.com/${REPO}@latest
-    
+
     echo "✅ AgentPipe installed successfully!"
     echo "   Run 'agentpipe doctor' to check available agents"
     exit 0

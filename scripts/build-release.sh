@@ -32,24 +32,24 @@ build_for_platform() {
     local GOOS=$1
     local GOARCH=$2
     local OUTPUT_NAME="${BINARY}_${GOOS}_${GOARCH}"
-    
+
     echo -e "${YELLOW}Building for ${GOOS}/${GOARCH}...${NC}"
-    
+
     # Add .exe extension for Windows
     local BINARY_NAME="${BINARY}"
     if [ "$GOOS" = "windows" ]; then
         BINARY_NAME="${BINARY}.exe"
         OUTPUT_NAME="${OUTPUT_NAME}.exe"
     fi
-    
+
     # Build
     GOOS=$GOOS GOARCH=$GOARCH go build \
         -ldflags "-X main.Version=${VERSION} -s -w" \
         -o "dist/${OUTPUT_NAME}" .
-    
+
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓ Built ${OUTPUT_NAME}${NC}"
-        
+
         # Create archive
         if [ "$GOOS" = "windows" ]; then
             # Create zip for Windows
@@ -117,7 +117,7 @@ cat > RELEASE_NOTES.md << EOF
 
 ### Homebrew
 \`\`\`bash
-brew tap kevinelliott/tap
+brew tap ASRagab/tap
 brew install agentpipe
 \`\`\`
 
@@ -139,7 +139,7 @@ agentpipe run -a claude:Alice -a gemini:Bob -p "Hello!"
 \`\`\`
 
 ## Full Documentation
-See the [README](https://github.com/kevinelliott/agentpipe#readme) for complete documentation.
+See the [README](https://github.com/ASRagab/agentpipe#readme) for complete documentation.
 EOF
 
 cd ..

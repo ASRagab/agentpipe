@@ -1,0 +1,37 @@
+conversation:
+  timeout: 45s
+  mode: parallel
+  max_turns: 10
+
+agents:
+  - id: agent-1
+    type: mock
+    name: Test Agent 1
+    model: mock-model
+    config:
+      system_prompt: You are a helpful assistant
+      temperature: 0.7
+      max_tokens: 1000
+
+  - id: agent-2
+    type: mock
+    adapter: mock
+    name: Test Agent 2
+    model: mock-model-2
+    config:
+      system_prompt: You are creative
+      temperature: 0.9
+
+tui:
+  enabled: true
+  theme: dark
+  show_metrics: true
+
+logging:
+  level: debug
+  format: json
+  file: /tmp/test.log
+
+persistence:
+  save_dir: /tmp/chats
+  auto_save: true

@@ -1,0 +1,6 @@
+conversation:
+  timeout: 30s
+  mode: parallel
+
+# agents list is empty
+agents: []

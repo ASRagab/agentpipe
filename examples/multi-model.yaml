@@ -1,0 +1,82 @@
+# AgentPipe - Multi-Model Comparison
+# ==========================================
+# Compare multiple models from the same provider (OpenRouter).
+# This configuration includes models across different capability tiers
+# to help you find the right price/performance balance.
+#
+# Requirements:
+#   - OPENROUTER_API_KEY environment variable set
+#
+# Usage:
+#   export OPENROUTER_API_KEY=your-key-here
+#   agentpipe run -c examples/multi-model.yaml
+#
+# Models included (price tiers):
+#   - Claude 3.5 Haiku: Fast and cheap
+#   - Claude 3.7 Sonnet: Balanced
+#   - GPT-5 Nano: OpenAI's efficient option
+#   - Gemini 2.5 Flash: Google's fast model
+
+conversation:
+  timeout: 30s
+  mode: parallel
+  max_turns: 15       # Keep token usage reasonable with 4 agents
+
+agents:
+  # Fast tier - Claude 3.5 Haiku
+  - id: haiku
+    type: openrouter
+    name: Haiku
+    model: anthropic/claude-3.5-haiku
+    timeout: 15s       # Fast model, short timeout
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: "You are Claude Haiku. Be quick and concise. Prioritize speed."
+      temperature: 0.5
+      max_tokens: 500
+
+  # Balanced tier - Claude 3.7 Sonnet
+  - id: sonnet
+    type: openrouter
+    name: Sonnet
+    model: anthropic/claude-3.7-sonnet
+    timeout: 30s
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: "You are Claude Sonnet. Balance depth with conciseness."
+      temperature: 0.7
+      max_tokens: 800
+
+  # OpenAI efficient - GPT-5 Nano
+  - id: gpt5-nano
+    type: openrouter
+    name: GPT-5 Nano
+    model: openai/gpt-5-nano
+    timeout: 20s
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: "You are GPT-5 Nano. Provide helpful, concise responses."
+      temperature: 0.6
+      max_tokens: 600
+
+  # Google's fast model - Gemini 2.5 Flash
+  - id: gemini
+    type: openrouter
+    name: Gemini Flash
+    model: google/gemini-2.5-flash
+    timeout: 20s
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: "You are Gemini Flash. Be quick, accurate, and helpful."
+      temperature: 0.6
+      max_tokens: 600
+
+tui:
+  enabled: true
+  show_metrics: true   # Compare costs across models in real-time
+
+logging:
+  level: info
+
+persistence:
+  auto_save: false     # Don't auto-save comparison sessions

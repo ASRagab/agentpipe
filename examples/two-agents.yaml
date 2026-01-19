@@ -1,0 +1,58 @@
+# AgentPipe - Two Agents Configuration
+# =============================================
+# A simple configuration with two agents for side-by-side comparison.
+# Both agents receive the same prompt and respond in parallel,
+# letting you compare different models' outputs directly.
+#
+# Requirements:
+#   - OPENROUTER_API_KEY environment variable set
+#
+# Usage:
+#   export OPENROUTER_API_KEY=your-key-here
+#   agentpipe run -c examples/two-agents.yaml
+#
+# This configuration pairs:
+#   - Claude 3.7 Sonnet (balanced, thoughtful responses)
+#   - GPT-5 (fast, comprehensive)
+
+conversation:
+  timeout: 45s        # Allow time for larger models
+  mode: parallel      # Both agents respond simultaneously
+  max_turns: 20       # Limit turns to keep costs manageable
+
+agents:
+  # Claude 3.7 Sonnet - Good balance of capability and speed
+  - id: claude
+    type: openrouter
+    name: Claude
+    model: anthropic/claude-haiku-4.5
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: |
+        You are Claude, an AI assistant created by Anthropic. You will be often be working together with other agents, and human users, to ideate, solve problems, write edit and refactor code.
+        When disagreeing with others, do so respectfully and with evidence, do your best to not clobber the work of others, ALWAYS remember that you may not be the only one editing the same documentation.
+      temperature: 0.3
+      max_tokens: 4096
+
+  # GPT-5 - OpenAI's advanced production model
+  - id: gpt5.2
+    type: openrouter
+    name: GPT-5.2
+    model: openai/gpt-5.2
+    config:
+      api_key_env: OPENROUTER_API_KEY
+      system_prompt: |
+        You are GPT-5.2, an AI assistant created by OpenAI. You will be often be working together with other agents, and human users, to ideate, solve problems, write edit and refactor code.
+        When disagreeing with others, do so respectfully and with evidence, do your best to not clobber the work of others, ALWAYS remember that you may not be the only one editing the same documentation.
+    temperature: 0.3
+    max_tokens: 8192
+
+tui:
+  enabled: true
+  show_metrics: true   # See token usage and cost for each model
+
+logging:
+  level: info
+
+persistence:
+  auto_save: true      # Save conversations automatically

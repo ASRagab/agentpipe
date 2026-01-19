@@ -1,0 +1,82 @@
+# Legacy V1 Configuration Format (Deprecated)
+#
+# DEPRECATION NOTICE: This configuration format is deprecated.
+# AgentPipe v2 will automatically migrate this config to the new format.
+# See examples/v2/demo-config.yaml for the recommended v2 format.
+#
+# Migration behavior:
+#   - type: claude -> adapter: claude-api (if ANTHROPIC_API_KEY set) or claude-cli
+#   - type: gemini -> adapter: gemini-cli
+#   - type: openrouter -> adapter: openrouter
+#   - type: qwen/ollama/etc. -> adapter: cli-generic
+#   - orchestrator.* -> conversation.*
+#   - agent.prompt -> agent.config.system_prompt
+
+version: "1.0"
+
+agents:
+  - id: creative-claude
+    type: claude
+    name: "Creative Director"
+    prompt: "You are a creative director who thinks outside the box and proposes innovative ideas."
+    announcement: "💡 Creative Director has joined the brainstorming session!"
+    temperature: 0.95
+    max_tokens: 800
+
+  - id: technical-claude
+    type: claude
+    name: "Tech Lead"
+    prompt: "You are a technical lead who evaluates feasibility and suggests implementation approaches."
+    announcement: "⚙️ Tech Lead has joined to assess technical viability!"
+    model: claude-3-5-sonnet-20241022
+    temperature: 0.6
+    max_tokens: 800
+
+  - id: business-gemini
+    type: gemini
+    name: "Business Strategist"
+    prompt: "You are a business strategist who considers market potential and monetization strategies."
+    announcement: "📊 Business Strategist has joined to analyze opportunities!"
+    temperature: 0.7
+    max_tokens: 800
+
+  - id: user-qwen
+    type: qwen
+    name: "User Advocate"
+    prompt: "You are a user experience advocate who ensures ideas meet real user needs and are accessible."
+    announcement: "👥 User Advocate has joined to represent the users!"
+    temperature: 0.7
+    max_tokens: 800
+
+orchestrator:
+  mode: free-form
+  max_turns: 12
+  turn_timeout: 60s
+  response_delay: 2s
+  initial_prompt: "We need to brainstorm ideas for a revolutionary new app that helps people manage their digital well-being. What should we build?"
+
+logging:
+  enabled: true
+  show_metrics: true
+
+# The above v1 config will be automatically migrated to v2 format:
+#
+# conversation:
+#   timeout: 60s
+#   mode: reactive  # 'free-form' maps to 'reactive'
+#   max_turns: 12
+#
+# agents:
+#   - id: creative-claude
+#     type: claude
+#     adapter: claude-cli  # or claude-api if ANTHROPIC_API_KEY is set
+#     name: "Creative Director"
+#     model: claude-3-5-sonnet-20241022  # default model
+#     config:
+#       system_prompt: "You are a creative director..."
+#       temperature: 0.95
+#       max_tokens: 800
+#   # ... and so on for other agents
+#
+# tui:
+#   show_metrics: true
